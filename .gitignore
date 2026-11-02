@@ -1,0 +1,11 @@
+# Build output (recreate with ./build.sh)
+build/
+
+# Compiled helper tools (sources are geometry.swift, probe.swift, window-check.swift)
+geometry
+probe
+window-check
+
+# Editor/tool state and macOS clutter
+.serena/
+.DS_Store

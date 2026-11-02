@@ -1,0 +1,136 @@
+import AppKit
+import SwiftUI
+import Carbon
+
+enum WindowAction: Int, CaseIterable, Identifiable {
+    case left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight
+    case leftThird, middleThird, rightThird, maximize, center, restore, smaller, larger, nextDisplay, previousDisplay
+    var id: UInt32 { UInt32(200 + rawValue) }
+    var name: String { ["Left half","Right half","Top half","Bottom half","Top left quarter","Top right quarter","Bottom left quarter","Bottom right quarter","Left third","Middle third","Right third","Maximize window","Center window","Restore previous size","Make smaller","Make larger","Next display","Previous display"][rawValue] }
+    var suggestion: ShortcutBinding {
+        let keys: [UInt32] = [123,124,126,125,32,34,38,40,18,19,20,36,8,51,27,24,124,123]
+        var mods = UInt32(controlKey | optionKey)
+        if (8...10).contains(rawValue) { mods |= UInt32(shiftKey) }
+        if rawValue >= 16 { mods |= UInt32(cmdKey) }
+        return ShortcutBinding(key: keys[rawValue], modifiers: mods)
+    }
+    func frame(in area: CGRect, current: CGRect) -> CGRect? {
+        let region: CGRect
+        switch self {
+        case .left: region=CGRect(x:0,y:0,width:0.5,height:1)
+        case .right: region=CGRect(x:0.5,y:0,width:0.5,height:1)
+        case .top: region=CGRect(x:0,y:0,width:1,height:0.5)
+        case .bottom: region=CGRect(x:0,y:0.5,width:1,height:0.5)
+        case .topLeft: region=CGRect(x:0,y:0,width:0.5,height:0.5)
+        case .topRight: region=CGRect(x:0.5,y:0,width:0.5,height:0.5)
+        case .bottomLeft: region=CGRect(x:0,y:0.5,width:0.5,height:0.5)
+        case .bottomRight: region=CGRect(x:0.5,y:0.5,width:0.5,height:0.5)
+        case .leftThird,.middleThird,.rightThird: region=CGRect(x:Double(rawValue-8)/3,y:0,width:1.0/3,height:1)
+        case .maximize: return area
+        case .center,.smaller,.larger:
+            let scale: CGFloat = self == .smaller ? 0.9 : self == .larger ? 1.1 : 1
+            let w=min(area.width,max(160,current.width*scale)), h=min(area.height,max(100,current.height*scale))
+            let x=self == .center ? area.midX-w/2 : current.midX-w/2
+            let y=self == .center ? area.midY-h/2 : current.midY-h/2
+            return CGRect(x:min(max(x,area.minX),area.maxX-w),y:min(max(y,area.minY),area.maxY-h),width:w,height:h)
+        case .restore,.nextDisplay,.previousDisplay: return nil
+        }
+        let x=(area.minX+region.minX*area.width).rounded(), y=(area.minY+region.minY*area.height).rounded()
+        return CGRect(x:x,y:y,width:(area.minX+region.maxX*area.width).rounded()-x,height:(area.minY+region.maxY*area.height).rounded()-y)
+    }
+    static func movedFrame(_ current: CGRect, from source: CGRect, to destination: CGRect) -> CGRect {
+        let w=min(current.width,destination.width).rounded(.down),h=min(current.height,destination.height).rounded(.down)
+        let cx=destination.minX+(current.midX-source.minX)/source.width*destination.width
+        let cy=destination.minY+(current.midY-source.minY)/source.height*destination.height
+        return CGRect(x:min(max((cx-w/2).rounded(),destination.minX),destination.maxX-w),y:min(max((cy-h/2).rounded(),destination.minY),destination.maxY-h),width:w,height:h)
+    }
+    static func edge(at p: CGPoint, bounds: CGRect) -> WindowAction? {
+        guard bounds.contains(p) else { return nil }
+        let left=p.x-bounds.minX<=10, right=bounds.maxX-p.x<=10
+        let top=p.y-bounds.minY<=32, bottom=bounds.maxY-p.y<=32
+        if left && top { return .topLeft }; if right && top { return .topRight }
+        if left && bottom { return .bottomLeft }; if right && bottom { return .bottomRight }
+        if left { return .left }; if right { return .right }
+        if p.y-bounds.minY<=10 { return .maximize }
+        if bounds.maxY-p.y<=10 { return .bottom }
+        return nil
+    }
+}
+
+@MainActor final class WindowFrameHistory {
+    private struct Entry { let pid: Int32; let bundle: String; let frame: CGRect; let area: CGRect; let display: String }
+    private var entries: [UInt32:Entry] = [:]
+    private var order: [UInt32] = []
+    func remember(_ window: LiveWindow, frame: CGRect, screen: NSScreen) {
+        if let old=entries[window.id], old.pid==window.pid && old.bundle==window.bundleID { return }
+        order.removeAll { $0==window.id }; order.append(window.id)
+        entries[window.id]=Entry(pid:window.pid,bundle:window.bundleID,frame:frame,area:screenArea(screen),display:screenUUID(screen))
+        while order.count>128 { entries.removeValue(forKey:order.removeFirst()) }
+    }
+    func previous(_ window: LiveWindow, screen: NSScreen) -> CGRect? {
+        guard let e=entries[window.id], e.pid==window.pid,e.bundle==window.bundleID else { return nil }
+        let destination=NSScreen.screens.first(where:{screenUUID($0)==e.display}) ?? screen
+        let area=screenArea(destination)
+        if e.display==screenUUID(destination), area.contains(e.frame) { return e.frame }
+        return SavedRect.normalized(e.frame,in:e.area).fitted(in:area)
+    }
+    func forget(_ window: LiveWindow) { entries.removeValue(forKey:window.id);order.removeAll{$0==window.id} }
+}
+
+extension NativeWindows {
+    @MainActor func focusedWindow() -> LiveWindow? {
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let window=NSApp.keyWindow { return localSnapshot(window) }
+        let system=AXUIElementCreateSystemWide();AXUIElementSetMessagingTimeout(system,0.2)
+        guard let app=axValue(system,kAXFocusedApplicationAttribute),CFGetTypeID(app)==AXUIElementGetTypeID(),
+              let value=axValue(app as! AXUIElement,kAXFocusedWindowAttribute),CFGetTypeID(value)==AXUIElementGetTypeID() else { return nil }
+        return liveWindow(value as! AXUIElement)
+    }
+}
+
+extension LayoutController {
+    func performWindowAction(_ action: WindowAction, focused: Bool = false) {
+        guard !busy else { message="A window operation is in progress. Try this shortcut again when it finishes.";return }
+        let candidate=focused ? native.focusedWindow() : windows.first{$0.id==selectedWindow}
+        guard let candidate else { message="Select an ordinary window first.";return }
+        run {
+            guard let window=self.native.refreshed(candidate),let source=screenFor(window.frame) else { throw WindowIssue("This window is no longer available.") }
+            var targetScreen=source
+            let target: CGRect
+            if action == .restore {
+                guard let previous=self.frameHistory.previous(window,screen:source) else { return "No previous size recorded for this window." }
+                target=previous
+            } else if action == .nextDisplay || action == .previousDisplay {
+                let screens=NSScreen.screens.sorted {a,b in a.frame.minX==b.frame.minX ? a.frame.minY>b.frame.minY : a.frame.minX<b.frame.minX}
+                guard screens.count>1,let i=screens.firstIndex(where:{screenUUID($0)==screenUUID(source)}) else { return "Connect another display to move this window." }
+                targetScreen=screens[(i+(action == .nextDisplay ? 1 : screens.count-1))%screens.count]
+                target=WindowAction.movedFrame(window.frame,from:screenArea(source),to:screenArea(targetScreen))
+            } else {
+                guard let rect=action.frame(in:screenArea(source),current:window.frame) else { return "This action is unavailable." }
+                target=rect
+            }
+            let old=window.frame
+            try await self.native.setFrame(target,window:window)
+            if action == .nextDisplay || action == .previousDisplay {
+                let all=self.store.reader.read()
+                if let desktop=all.first(where:{$0.display==screenUUID(targetScreen) && $0.isCurrent && !$0.isFullScreen}),!self.native.spaces(for:window.id).contains(desktop.spaceID) {
+                    try await self.native.transfer(window,to:desktop,reader:self.store.reader)
+                }
+            }
+            guard self.native.verifyFrame(target,window:window) else { return "\(window.appName) constrained its window size or position." }
+            if action == .restore { self.frameHistory.forget(window) }
+            else { self.frameHistory.remember(window,frame:old,screen:source) }
+            return "\(action.name): \(window.appName)."
+        }
+    }
+}
+
+struct WindowActionButtons: View {
+    @ObservedObject var controller: LayoutController
+    var body: some View {
+        LazyVGrid(columns:[GridItem(.adaptive(minimum:130))],spacing:8) {
+            ForEach(WindowAction.allCases) { action in
+                Button(action.name) { controller.performWindowAction(action) }.frame(maxWidth:.infinity)
+            }
+        }.controlSize(.small).disabled(controller.busy || !controller.trusted || controller.selectedWindow==0)
+    }
+}
