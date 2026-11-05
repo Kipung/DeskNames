@@ -1,0 +1,31 @@
+DeskNames source publication check — November 5, 2026
+
+Source: version 0.5.0, build 22
+Environment: Apple Silicon, macOS 26.6.2 (25G83)
+
+PASS: ./build.sh
+PASS: codesign --verify --deep --strict build/DeskNames.app
+PASS: --self-test
+  Window matching and ambiguity refusal; layout persistence and JSON compatibility.
+  Direct desktop slot calculations and topology guards.
+  Exact/offscreen frames, translated/resized screens, equivalent monitor models,
+  eight identical model roles, ambiguity refusal, and monitor preset persistence.
+  New-window baseline, one-shot consumption, busy/manual-change/revision/expiry
+  suppression, twelve-window burst, and late metadata.
+  Shortcut settings, validation, registration conflicts, and recording lifecycle.
+  Mission Control geometry and stale-result rejection.
+  Seventy-two pane configurations, targeting, drag evidence, and persistence.
+  Window command geometry, restore-frame identity checks, and shortcut suggestions.
+PASS: --pane-session-test
+  Native editor hit testing, permission refusal, restore suppression,
+  competing-write refusal, drop handoff, cancellation, and recovery.
+PASS: git diff --check before publication.
+
+Native --layout-session-test and desktop-changing external-app tests were not
+repeated for publication. Their earlier results remain historical evidence.
+Physical multi-monitor behavior and physical keyboard hotkey delivery remain
+pending. No application behavior changed in the publication documentation work.
+
+Publication scope includes source, tests, build script, icons, documentation,
+license, and third-party notices. Build output, compiled helper tools, local
+Serena state, personal preferences, and personal saved layouts are excluded.
