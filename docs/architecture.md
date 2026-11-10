@@ -17,7 +17,7 @@ DeskNames is compiled directly by `build.sh`. There is no package manager depend
 | `LayoutSnapshots.swift` | Layout capture, restored frame choice, destination resolution, overlap restoration, and preview |
 | `WorkspaceViews.swift` | Layout and window management interface |
 | `PaneModel.swift`, `PaneViews.swift` | Presets, stored pane settings, geometry, and settings interface |
-| `PaneInteraction.swift`, `LinkedPanes.swift` | Shared-divider geometry and persisted ratios, pane shortcut actions, time-based native frame transitions, divider handles and serialized linked-resize transactions |
+| `PaneInteraction.swift`, `LinkedPanes.swift` | Shared-divider geometry and persisted ratios, pane shortcut actions, display-paced interruptible frame transitions, reused divider handles, shortcut-layout detection and serialized linked-resize transactions |
 | `SmartPanes.swift` | Drag observation, overlays, snapping, cancellation, and edge snapping |
 | `WindowActions.swift` | Direct window commands and original-frame history |
 | `Shortcuts.swift` | Binding persistence, validation, recording, and Carbon hotkey registration |

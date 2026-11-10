@@ -6,8 +6,10 @@ private struct PaneScreen: Equatable {
     let panelFrame: CGRect
     let area: CGRect
     let bounds: CGRect
+    let pixelScale: CGFloat
+    let frameInterval: TimeInterval
     @MainActor static var current: [PaneScreen] {
-        NSScreen.screens.map { PaneScreen(id: screenUUID($0), panelFrame: $0.visibleFrame, area: screenArea($0), bounds: CGRect(x:$0.frame.minX,y:(NSScreen.screens.first?.frame.maxY ?? 0)-$0.frame.maxY,width:$0.frame.width,height:$0.frame.height)) }
+        NSScreen.screens.map { PaneScreen(id: screenUUID($0), panelFrame: $0.visibleFrame, area: screenArea($0), bounds: CGRect(x:$0.frame.minX,y:(NSScreen.screens.first?.frame.maxY ?? 0)-$0.frame.maxY,width:$0.frame.width,height:$0.frame.height), pixelScale: $0.backingScaleFactor, frameInterval: 1.0/Double(($0.maximumFramesPerSecond > 0 ? $0.maximumFramesPerSecond : 60))) }
     }
 }
 
@@ -148,6 +150,7 @@ private struct PaneOverlayHost: View {
             return
         }
         if event.type == .leftMouseDown {
+            workspace.interruptPlacementForPointer()
             cancel()
             trace("down", ["enabled": workspace.panes.enabled, "trusted": workspace.native.trusted, "busy": workspace.busy,
                             "missionControl": workspace.store.missionControl, "nativeMissionControl": OverlayController.isMissionControlOpen(),
@@ -162,7 +165,7 @@ private struct PaneOverlayHost: View {
                   workspace.beginUserWindowDrag() else { trace("admission-refused"); return }
             session = Session(window: window, screens: PaneScreen.current, desktops: workspace.store.desktops,
                               evidence: PaneMoveEvidence(initialFrame: window.frame, initialPointer: point(), time: ProcessInfo.processInfo.systemUptime))
-            let timer = Timer(timeInterval: 1.0/30, repeats: true) { [weak self] _ in
+            let timer = Timer(timeInterval: PaneScreen.current.first(where: { $0.area.contains(location) })?.frameInterval ?? 1.0/60, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.sample() }
             }
             self.timer = timer
@@ -227,18 +230,21 @@ private struct PaneOverlayHost: View {
               shown.geometry.cells.indices.contains(index),
               (shown.edgeAction == nil ? command && workspace.panes.enabled && shown.geometry.cells[index].contains(location) : !command && workspace.panes.edgeSnapping && WindowAction.edge(at:location,bounds:shown.screen.bounds)==shown.edgeAction),
               workspace.paneConfiguration(for: shown.desktopID) == shown.configuration,
-              let live = workspace.native.refreshed(current.window),
-              abs(live.frame.width - current.evidence.latestFrame.width) <= 2,
-              abs(live.frame.height - current.evidence.latestFrame.height) <= 2 else {
+              let frame = workspace.native.currentFrame(current.window),
+              abs(frame.width - current.evidence.latestFrame.width) <= 2,
+              abs(frame.height - current.evidence.latestFrame.height) <= 2 else {
             workspace.endUserWindowDrag()
             return
         }
         placementInProgress = true
         let target = shown.geometry.cells[index]
+        let live = LiveWindow(id: current.window.id, target: current.window.target, pid: current.window.pid,
+                              bundleID: current.window.bundleID, appName: current.window.appName, title: current.window.title,
+                              frame: frame, spaceIDs: current.window.spaceIDs, minimized: false)
         workspace.finishUserWindowDrag(live, frame: target, displayID: shown.screen.id, desktopID: shown.desktopID, originalFrame:current.window.frame) { [weak self] text, success in
             guard let self else { return }
             self.placementInProgress = false
-            self.recordPlacement(window: live, target: target, success: success)
+            self.recordPlacement(window: current.window, target: target, success: success)
             self.showResult(text, success: success, on: shown.screen)
         }
     }
@@ -247,7 +253,7 @@ private struct PaneOverlayHost: View {
         if command { return workspace.panes.enabled ? makePresentation(at:point,screens:screens,previewOnly:false) : nil }
         guard workspace.panes.edgeSnapping, let screen=screens.first(where:{$0.bounds.contains(point)}),
               let action=WindowAction.edge(at:point,bounds:screen.bounds),let desktop=desktop(on:screen),
-              let frame=action.frame(in:screen.area,current:screen.area) else { return nil }
+              let frame=action.frame(in:screen.area,current:screen.area,configuration:workspace.paneConfiguration(for:desktop.id),pixelScale:screen.pixelScale) else { return nil }
         return PanePresentation(screen:screen,desktopID:desktop.id,title:action.name,configuration:workspace.paneConfiguration(for:desktop.id),geometry:PaneGeometry(area:screen.area,cells:[frame]),hovered:0,previewOnly:false,edgeAction:action)
     }
 
@@ -258,7 +264,7 @@ private struct PaneOverlayHost: View {
     private func makePresentation(at point: CGPoint, screens: [PaneScreen], previewOnly: Bool) -> PanePresentation? {
         guard let screen = screens.first(where: { $0.area.contains(point) }), let desktop = desktop(on: screen) else { return nil }
         let config = workspace.paneConfiguration(for: desktop.id)
-        let geometry = PaneGeometry(area: screen.area, configuration: config)
+        let geometry = PaneGeometry(area: screen.area, configuration: config, pixelScale: screen.pixelScale)
         guard !geometry.cells.isEmpty else { return nil }
         return PanePresentation(screen: screen, desktopID: desktop.id,
                                 title: workspace.store.name(desktop) + " · " + config.preset.name,

@@ -57,6 +57,10 @@ private final class PaneDividerHandle: NSView {
         let desktop: Desktop
         let area: CGRect
         let config: PaneConfiguration
+        let baseConfiguration: PaneConfiguration
+        let pixelScale: CGFloat
+        let frameInterval: TimeInterval
+        var key: String { desktop.id + "/" + config.preset.rawValue + "/" + divider.id }
         let windows: [Int: LiveWindow]
     }
     private final class Session {
@@ -71,6 +75,7 @@ private final class PaneDividerHandle: NSView {
     private var session: Session?
     private var lastScan = -Double.infinity
     private var seededWindows = false
+    private var detectedConfigurations: [String: [PanePreset: PaneConfiguration]] = [:]
     private var globalMonitor: Any?
     private var localMonitor: Any?
 
@@ -107,38 +112,52 @@ private final class PaneDividerHandle: NSView {
         lastScan = now
         let windows = seededWindows ? workspace.native.trackedPaneWindows() : workspace.native.windows()
         seededWindows = true
-        hide()
+        let previous = handles
+        var next: [Handle] = []
         for desktop in workspace.store.desktops where desktop.isCurrent && !desktop.isFullScreen && !desktop.id.isEmpty {
             guard let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop.display }) else { continue }
-            let area = screenArea(screen), config = workspace.paneConfiguration(for: desktop.id)
-            let geometry = PaneGeometry(area: area, configuration: config)
-            let occupants = PaneOccupancy.matching(windows, geometry: geometry, spaceID: desktop.spaceID)
-            for divider in PaneDivider.all(for: config.preset) {
-                let occupiedBefore = divider.before.filter { occupants[$0] != nil }
-                let occupiedAfter = divider.after.filter { occupants[$0] != nil }
-                guard !occupiedBefore.isEmpty, !occupiedAfter.isEmpty, let frame = divider.handle(in: geometry) else { continue }
-                let panel = NSPanel(contentRect: cocoaFrame(frame), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-                panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
-                panel.level = .floating; panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
-                panel.collectionBehavior = [.stationary, .ignoresCycle]
-                let view = PaneDividerHandle(vertical: divider.vertical)
-                let affected = occupants.filter { divider.before.contains($0.key) || divider.after.contains($0.key) }
-                let handle = Handle(panel: panel, divider: divider, desktop: desktop, area: area, config: config, windows: affected)
-                view.begin = { [weak self, weak panel] in
-                    guard let self, let handle = self.handles.first(where: { $0.panel === panel }) else { return }
-                    self.begin(handle)
+            let area = screenArea(screen), active = workspace.paneConfiguration(for: desktop.id)
+            let configurations = [active] + PanePreset.allCases.filter { $0 != active.preset }.map {
+                detectedConfigurations[desktop.id]?[$0]?.withGap(active.gap) ?? PaneConfiguration(preset: $0, gap: active.gap)
+            }
+            for config in configurations {
+                let geometry = PaneGeometry(area: area, configuration: config, pixelScale: screen.backingScaleFactor)
+                let occupants = PaneOccupancy.matching(windows, geometry: geometry, spaceID: desktop.spaceID)
+                for divider in PaneDivider.all(for: config.preset) {
+                    guard divider.before.contains(where: { occupants[$0] != nil }),
+                          divider.after.contains(where: { occupants[$0] != nil }), let frame = divider.handle(in: geometry) else { continue }
+                    let key = desktop.id + "/" + config.preset.rawValue + "/" + divider.id
+                    let existing = previous.first { $0.key == key }
+                    let panel = existing?.panel ?? NSPanel(contentRect: cocoaFrame(frame), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+                    if existing == nil {
+                        panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
+                        panel.level = .floating; panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
+                        panel.collectionBehavior = [.stationary, .ignoresCycle]
+                        let view = PaneDividerHandle(vertical: divider.vertical)
+                        view.begin = { [weak self, weak panel] in
+                            guard let self, let handle = self.handles.first(where: { $0.panel === panel }) else { return }
+                            self.begin(handle)
+                        }
+                        view.move = { [weak self] in self?.move($0) }
+                        view.end = { [weak self] in
+                            guard self?.session?.phase == .dragging else { return }
+                            self?.session?.phase = .released
+                        }
+                        panel.contentView = view
+                    }
+                    if panel.frame != cocoaFrame(frame) { panel.setFrame(cocoaFrame(frame), display: true) }
+                    let affected = occupants.filter { divider.before.contains($0.key) || divider.after.contains($0.key) }
+                    next.append(Handle(panel: panel, divider: divider, desktop: desktop, area: area, config: config,
+                                       baseConfiguration: active, pixelScale: screen.backingScaleFactor,
+                                       frameInterval: 1.0/Double((screen.maximumFramesPerSecond > 0 ? screen.maximumFramesPerSecond : 60)), windows: affected))
+                    if !panel.isVisible { panel.orderFrontRegardless() }
                 }
-                view.move = { [weak self] in self?.move($0) }
-                view.end = { [weak self] in
-                    guard self?.session?.phase == .dragging else { return }
-                    self?.session?.phase = .released
-                }
-                panel.contentView = view
-                panel.orderFrontRegardless()
-                handles.append(handle)
             }
         }
+        for old in previous where !next.contains(where: { $0.panel === old.panel }) { old.panel.close() }
+        handles = next
     }
+    var handleWindowNumbersForTesting: [Int] { handles.map { $0.panel.windowNumber } }
     func resizeForTesting(dividerID: String, to coordinate: CGFloat) async -> Bool {
         lastScan = -Double.infinity
         tick()
@@ -146,7 +165,7 @@ private final class PaneDividerHandle: NSView {
         let target = handle.divider.moved(to: coordinate, in: handle.area, configuration: handle.config)
         begin(handle, target: target)
         await workspace.operationTask?.value
-        return workspace.paneConfiguration(for: handle.desktop.id) == target
+        return workspace.paneConfiguration(for: handle.desktop.id) == target || detectedConfigurations[handle.desktop.id]?[handle.config.preset] == target
     }
 
     private func cocoaFrame(_ frame: CGRect) -> CGRect {
@@ -156,7 +175,7 @@ private final class PaneDividerHandle: NSView {
         let handle = session.handle
         return workspace.panes.linkedResizing && workspace.native.trusted && !workspace.store.missionControl &&
             !OverlayController.isMissionControlOpen() &&
-            workspace.paneConfiguration(for: handle.desktop.id) == handle.config &&
+            workspace.paneConfiguration(for: handle.desktop.id) == handle.baseConfiguration &&
             NSScreen.screens.contains { screenUUID($0) == handle.desktop.display && screenArea($0) == handle.area } &&
             workspace.store.reader.read().contains { $0.id == handle.desktop.id && $0.spaceID == handle.desktop.spaceID && $0.isCurrent && !$0.isFullScreen }
     }
@@ -167,7 +186,7 @@ private final class PaneDividerHandle: NSView {
         guard environmentMatches(next) else { hide(); return }
         session = next
         for other in handles where other.panel !== handle.panel { other.panel.orderOut(nil) }
-        workspace.run { [self] in
+        workspace.run(refreshWindows: false) { [self] in
             defer { session = nil; hide(); lastScan = -Double.infinity }
             let entries = handle.windows.sorted { $0.key < $1.key }
             var touched = false
@@ -178,6 +197,7 @@ private final class PaneDividerHandle: NSView {
                           PaneOccupancy.close(current.frame, window.frame) else { throw WindowIssue("A neighboring window changed. Try again.") }
                 }
                 var applied = handle.config
+                let started = ProcessInfo.processInfo.systemUptime
                 while true {
                     try Task.checkCancellation()
                     guard next.phase != .cancelled, environmentMatches(next) else { throw CancellationError() }
@@ -185,29 +205,31 @@ private final class PaneDividerHandle: NSView {
                     if NSEvent.pressedMouseButtons & 1 == 0 { next.phase = .released }
                     let desired = next.config
                     if desired != applied {
-                        let frames = PaneGeometry(area: handle.area, configuration: desired).cells
-                        for (index, window) in entries {
-                            try Task.checkCancellation()
-                            guard environmentMatches(next), workspace.native.spaces(for: window.id) == [handle.desktop.spaceID], frames.indices.contains(index) else { throw CancellationError() }
-                            touched = true
-                            try await workspace.native.writeTransitionFrame(frames[index], window: window)
-                        }
+                        let frames = PaneGeometry(area: handle.area, configuration: desired, pixelScale: handle.pixelScale).cells
+                        guard entries.allSatisfy({ frames.indices.contains($0.key) && workspace.native.spaces(for: $0.value.id) == [handle.desktop.spaceID] }) else { throw CancellationError() }
+                        touched = true
+                        try await workspace.native.writeTransitionFrames(entries.map { ($0.value, frames[$0.key]) })
                         applied = desired
                     }
                     if next.phase == .released { break }
-                    try await Task.sleep(nanoseconds: 16_666_667)
+                    let delay = WindowTransition.delay(now: ProcessInfo.processInfo.systemUptime, started: started, interval: handle.frameInterval)
+                    try await Task.sleep(nanoseconds: UInt64(delay*1_000_000_000))
                 }
-                let frames = PaneGeometry(area: handle.area, configuration: next.config).cells
+                let frames = PaneGeometry(area: handle.area, configuration: next.config, pixelScale: handle.pixelScale).cells
+                guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
+                try await workspace.native.animateFrames(entries.map { ($0.value, frames[$0.key]) }, duration: 0)
                 for (index, window) in entries {
-                    guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
-                    try await workspace.native.setFrame(frames[index], window: window)
                     guard workspace.native.verifyFrame(frames[index], window: window) else { throw WindowIssue("\(window.appName) needs more room. Neighboring panes were restored.") }
                 }
                 guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
                 if let screen = NSScreen.screens.first(where: { screenUUID($0) == handle.desktop.display }) {
                     for (_, window) in entries { workspace.frameHistory.remember(window, frame: window.frame, screen: screen) }
                 }
-                workspace.setPaneConfiguration(next.config, for: handle.desktop)
+                if handle.config.preset == handle.baseConfiguration.preset {
+                    workspace.setPaneConfiguration(next.config, for: handle.desktop)
+                } else {
+                    detectedConfigurations[handle.desktop.id, default: [:]][handle.config.preset] = next.config
+                }
                 return "Resized neighboring panes together."
             } catch {
                 if touched {
@@ -234,7 +256,7 @@ private final class PaneDividerHandle: NSView {
         guard let session, session.phase == .dragging else { return }
         let handle = session.handle
         session.config = handle.divider.moved(to: handle.divider.vertical ? point.x : point.y, in: handle.area, configuration: handle.config)
-        let geometry = PaneGeometry(area: handle.area, configuration: session.config)
+        let geometry = PaneGeometry(area: handle.area, configuration: session.config, pixelScale: handle.pixelScale)
         if let frame = handle.divider.handle(in: geometry) { handle.panel.setFrame(cocoaFrame(frame), display: true) }
     }
 }

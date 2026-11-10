@@ -89,18 +89,24 @@ struct PaneGeometry: Equatable {
     let area: CGRect
     let cells: [CGRect]
 
-    init(area: CGRect, configuration: PaneConfiguration) {
+    init(area: CGRect, configuration: PaneConfiguration, pixelScale: CGFloat = 1) {
         self.area = area
-        guard Self.valid(area) else { cells = []; return }
-        let gap = configuration.sanitized.gap
-        let insetArea = area.insetBy(dx: gap/2, dy: gap/2)
-        let frames = configuration.sanitized.regions.map { region in
-            CGRect(x: insetArea.minX + region.minX * insetArea.width,
-                   y: insetArea.minY + region.minY * insetArea.height,
-                   width: region.width * insetArea.width, height: region.height * insetArea.height)
-                .insetBy(dx: gap/2, dy: gap/2)
+        cells = Self.frames(in: area, regions: configuration.sanitized.regions,
+                            gap: configuration.sanitized.gap, pixelScale: pixelScale)
+    }
+
+    static func frames(in area: CGRect, regions: [CGRect], gap: Double, pixelScale: CGFloat = 1) -> [CGRect] {
+        guard valid(area), pixelScale.isFinite, pixelScale > 0 else { return [] }
+        let inset = area.insetBy(dx: gap/2, dy: gap/2)
+        func pixel(_ value: CGFloat) -> CGFloat { (value*pixelScale).rounded()/pixelScale }
+        let frames = regions.map { region in
+            let left = max(area.minX, pixel(inset.minX + region.minX*inset.width + gap/2))
+            let top = max(area.minY, pixel(inset.minY + region.minY*inset.height + gap/2))
+            let right = min(area.maxX, pixel(inset.minX + region.maxX*inset.width - gap/2))
+            let bottom = min(area.maxY, pixel(inset.minY + region.maxY*inset.height - gap/2))
+            return CGRect(x: left, y: top, width: right-left, height: bottom-top)
         }
-        cells = frames.allSatisfy { Self.valid($0) && area.contains($0) } ? frames : []
+        return frames.allSatisfy({ valid($0) && area.contains($0) }) ? frames : []
     }
 
     init(area: CGRect, cells: [CGRect]) { self.area=area;self.cells=cells.allSatisfy({Self.valid($0) && area.contains($0)}) ? cells : [] }

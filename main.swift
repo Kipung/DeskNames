@@ -424,6 +424,7 @@ if CommandLine.arguments.contains("--self-test") {
     runPaneTests()
     runWindowActionTests()
     try runPaneInteractionTests()
+    runMovementTests()
     let testDomain="local.desknames.test.\(UUID().uuidString)"
     let d=UserDefaults(suiteName:testDomain)!
     defer {d.removePersistentDomain(forName:testDomain)}
@@ -437,6 +438,12 @@ if CommandLine.arguments.contains("--self-test") {
     restored.update(moved,name:String(repeating:"x",count:80),color:999)
     precondition(restored.style(moved).name.count==40 && restored.style(moved).color==4)
     print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
+} else if CommandLine.arguments.contains("--movement-session-test") {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        do { try await runMovementSessionTests(); exit(0) } catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
+    }
+    NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--pane-interaction-test") {
     NSApplication.shared.setActivationPolicy(.accessory)
     Task { @MainActor in

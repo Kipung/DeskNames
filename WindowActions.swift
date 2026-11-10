@@ -16,30 +16,33 @@ enum WindowAction: Int, CaseIterable, Identifiable {
         if rawValue >= 18 { mods |= UInt32(shiftKey) }
         return ShortcutBinding(key: keys[rawValue], modifiers: mods)
     }
-    func frame(in area: CGRect, current: CGRect) -> CGRect? {
-        let region: CGRect
+    var partition: (preset: PanePreset, index: Int)? {
         switch self {
-        case .left: region=CGRect(x:0,y:0,width:0.5,height:1)
-        case .right: region=CGRect(x:0.5,y:0,width:0.5,height:1)
-        case .top: region=CGRect(x:0,y:0,width:1,height:0.5)
-        case .bottom: region=CGRect(x:0,y:0.5,width:1,height:0.5)
-        case .topLeft: region=CGRect(x:0,y:0,width:0.5,height:0.5)
-        case .topRight: region=CGRect(x:0.5,y:0,width:0.5,height:0.5)
-        case .bottomLeft: region=CGRect(x:0,y:0.5,width:0.5,height:0.5)
-        case .bottomRight: region=CGRect(x:0.5,y:0.5,width:0.5,height:0.5)
-        case .leftThird,.middleThird,.rightThird: region=CGRect(x:Double(rawValue-8)/3,y:0,width:1.0/3,height:1)
-        case .column1, .column2, .column3, .column4: region = CGRect(x: Double(rawValue - 18)/4, y: 0, width: 0.25, height: 1)
-        case .maximize: return area
-        case .center,.smaller,.larger:
-            let scale: CGFloat = self == .smaller ? 0.9 : self == .larger ? 1.1 : 1
-            let w=min(area.width,max(160,current.width*scale)), h=min(area.height,max(100,current.height*scale))
-            let x=self == .center ? area.midX-w/2 : current.midX-w/2
-            let y=self == .center ? area.midY-h/2 : current.midY-h/2
-            return CGRect(x:min(max(x,area.minX),area.maxX-w),y:min(max(y,area.minY),area.maxY-h),width:w,height:h)
-        case .restore,.nextDisplay,.previousDisplay: return nil
+        case .left, .right: return (.halves, rawValue)
+        case .top, .bottom: return (.rows, rawValue-2)
+        case .topLeft, .topRight, .bottomLeft, .bottomRight: return (.quarters, rawValue-4)
+        case .leftThird, .middleThird, .rightThird: return (.thirds, rawValue-8)
+        case .column1, .column2, .column3, .column4: return (.fourColumns, rawValue-18)
+        default: return nil
         }
-        let x=(area.minX+region.minX*area.width).rounded(), y=(area.minY+region.minY*area.height).rounded()
-        return CGRect(x:x,y:y,width:(area.minX+region.maxX*area.width).rounded()-x,height:(area.minY+region.maxY*area.height).rounded()-y)
+    }
+    func frame(in area: CGRect, current: CGRect, configuration: PaneConfiguration? = nil, pixelScale: CGFloat = 1) -> CGRect? {
+        if let partition {
+            let config = configuration?.preset == partition.preset ? configuration! : PaneConfiguration(preset: partition.preset, gap: configuration?.gap ?? 0)
+            let cells = PaneGeometry(area: area, configuration: config, pixelScale: pixelScale).cells
+            return cells.indices.contains(partition.index) ? cells[partition.index] : nil
+        }
+        switch self {
+        case .maximize: return area
+        case .center, .smaller, .larger:
+            let scale: CGFloat = self == .smaller ? 0.9 : self == .larger ? 1.1 : 1
+            let w = min(area.width, max(1/pixelScale, current.width*scale))
+            let h = min(area.height, max(1/pixelScale, current.height*scale))
+            let x = self == .center ? area.midX-w/2 : current.midX-w/2
+            let y = self == .center ? area.midY-h/2 : current.midY-h/2
+            return CGRect(x: min(max(x, area.minX), area.maxX-w), y: min(max(y, area.minY), area.maxY-h), width: w, height: h)
+        default: return nil
+        }
     }
     static func movedFrame(_ current: CGRect, from source: CGRect, to destination: CGRect) -> CGRect {
         let w=min(current.width,destination.width).rounded(.down),h=min(current.height,destination.height).rounded(.down)
@@ -92,10 +95,10 @@ extension NativeWindows {
 
 extension LayoutController {
     func performWindowAction(_ action: WindowAction, focused: Bool = false) {
-        guard !busy else { message="A window operation is in progress. Try this shortcut again when it finishes.";return }
+        guard !busy || canRetargetPlacement else { message="A window operation is in progress. Try this shortcut again when it finishes.";return }
         let candidate=focused ? native.focusedWindow() : windows.first{$0.id==selectedWindow}
         guard let candidate else { message="Select an ordinary window first.";return }
-        run {
+        run(interruptible: action != .nextDisplay && action != .previousDisplay) {
             let refreshed=await self.native.refreshedForOperation(candidate)
             try Task.checkCancellation()
             guard let window=refreshed,let source=screenFor(window.frame) else { throw WindowIssue("Could not confirm this window's current state. Refresh and try again.") }
@@ -110,10 +113,13 @@ extension LayoutController {
                 targetScreen=screens[(i+(action == .nextDisplay ? 1 : screens.count-1))%screens.count]
                 target=WindowAction.movedFrame(window.frame,from:screenArea(source),to:screenArea(targetScreen))
             } else {
-                guard let rect=action.frame(in:screenArea(source),current:window.frame) else { return "This action is unavailable." }
+                let desktop = self.store.reader.read().first { $0.isCurrent && $0.display == screenUUID(source) && !$0.isFullScreen }
+                let configuration = desktop.map { self.paneConfiguration(for: $0.id) } ?? PaneConfiguration()
+                guard let rect=action.frame(in:screenArea(source),current:window.frame,configuration:configuration,pixelScale:source.backingScaleFactor) else { return "This action is unavailable." }
                 target=rect
             }
             let old=window.frame
+            if action != .restore { self.frameHistory.remember(window, frame: old, screen: source) }
             if action == .nextDisplay || action == .previousDisplay {
                 let all=self.store.reader.read()
                 guard let desktop=all.first(where:{$0.display==screenUUID(targetScreen) && $0.isCurrent && !$0.isFullScreen}) else {
@@ -123,7 +129,6 @@ extension LayoutController {
             } else { try await self.native.animateFrames([(window, target)]) }
             guard self.native.verifyFrame(target,window:window) else { return "\(window.appName) constrained its window size or position." }
             if action == .restore { self.frameHistory.forget(window) }
-            else { self.frameHistory.remember(window,frame:old,screen:source) }
             return "\(action.name): \(window.appName)."
         }
     }

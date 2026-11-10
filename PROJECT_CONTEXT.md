@@ -1,12 +1,12 @@
 # DeskNames project context
 
-Status reviewed on November 5, 2026.
+Status reviewed on November 10, 2026.
 
 ## Purpose
 
 DeskNames is a local macOS productivity utility that combines desktop names with window arrangement tools. The original goal was to name virtual desktops. The project expanded into saved layouts, snapping, keyboard controls, and background routing for new windows.
 
-The current product is version 0.5.0, build 22. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
+The current product is version 0.5.0, build 24. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
 
 ## Repository and working copy
 
@@ -84,3 +84,11 @@ Read this document, README.md, README.txt, and docs/architecture.md. Inspect the
 ## Pane interaction update — November 10, 2026
 
 Four columns, preset selection/cycling shortcuts, pane placement shortcuts, and opt-in linked pane resizing are implemented. Shared divider handles resize aligned neighboring windows together and save normalized divider positions only after verified completion; cancellation or app constraints roll back participating windows. Snaps and direct window size actions use short easing transitions and respect Reduce Motion. Existing saved shortcut bindings are preserved, with new suggestions opt-in. `--pane-interaction-test` exercises native fixture animation, cancellation, shared resize persistence, and constrained-neighbor rollback; external-app gesture and physical-monitor coverage must still be verified separately.
+
+## Motion update — build 24
+
+Direct halves/thirds/fourths/quarters and Command-drag now share monitor work-area, gap, custom-divider, and backing-pixel calculations. Animation uses distance-sensitive ease-out and display-frame deadlines. Latest placement requests replace pending ones; cancellation waits for the previous writer before starting a replacement. Frame streams reuse identity-validated AX references, and completion avoids a synchronous external window census. Enhanced UI is temporarily suppressed for an AX frame transaction only when already enabled, then restored to its prior state.
+
+Linked handles are reused between scans and detect aligned standard shortcut layouts as well as the active guide. Linked writes are batched and paced against display deadlines. Active-preset divider changes persist; inferred layouts retain adjusted ratios for the current session without changing the chosen guide. The opt-in linked-resizing setting and existing shortcut bindings are preserved.
+
+`--movement-session-test` adds native cancellation/retargeting/restore-history and shared-divider coverage. See SMOOTH_MOVEMENT_REPORT.md for measured external-app results and hardware limits.

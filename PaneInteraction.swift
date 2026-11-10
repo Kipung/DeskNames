@@ -97,7 +97,7 @@ extension LayoutController {
         } else { panes.set(config, for: desktop.id) }
     }
     func performPaneShortcut(_ id: UInt32) {
-        guard !busy else { message = "Finish the window operation before changing pane layouts."; return }
+        guard !busy || ((320...323).contains(id) && canRetargetPlacement) else { message = "Finish the window operation before changing pane layouts."; return }
         if id == PaneShortcut.toggleLinked {
             panes.setLinkedResizing(!panes.linkedResizing)
             message = panes.linkedResizing ? "Linked pane resizing on. Drag a handle between snapped windows." : "Linked pane resizing off."
@@ -111,15 +111,16 @@ extension LayoutController {
         if (320...323).contains(id) {
             guard let candidate = native.focusedWindow(), let screen = screenFor(candidate.frame),
                   screenUUID(screen) == desktop.display else { message = "Focus a window on this desktop first."; return }
-            let geometry = PaneGeometry(area: screenArea(screen), configuration: config)
+            let geometry = PaneGeometry(area: screenArea(screen), configuration: config, pixelScale: screen.backingScaleFactor)
             let index = Int(id - 320)
             guard geometry.cells.indices.contains(index) else { message = "This layout has only \(geometry.cells.count) panes."; return }
-            run {
+            run(interruptible: true) {
                 guard let window = await self.native.refreshedForOperation(candidate), window.spaceIDs == [desktop.spaceID],
                       self.paneConfiguration(for: desktop.id) == config,
                       self.store.reader.read().contains(where: { $0.id == desktop.id && $0.isCurrent }) else {
                     throw WindowIssue("The window or desktop changed. Try again.")
                 }
+                self.frameHistory.remember(window, frame: window.frame, screen: screen)
                 try await self.native.animateFrames([(window, geometry.cells[index])])
                 guard self.native.verifyFrame(geometry.cells[index], window: window) else { return "The window needs a larger pane." }
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
@@ -137,50 +138,127 @@ extension LayoutController {
 struct WindowTransition {
     static func frame(from start: CGRect, to end: CGRect, progress: Double) -> CGRect {
         let t = min(1, max(0, progress))
-        let eased = t*t*(3 - 2*t)
+        let eased = 1 - pow(1-t, 3)
         func mix(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b-a)*eased }
         return CGRect(x: mix(start.minX, end.minX), y: mix(start.minY, end.minY),
                       width: mix(start.width, end.width), height: mix(start.height, end.height))
+    }
+    static func duration(from start: CGRect, to end: CGRect, in area: CGRect) -> TimeInterval {
+        let distance = max(hypot(end.minX-start.minX, end.minY-start.minY), hypot(end.maxX-start.maxX, end.maxY-start.maxY))
+        let fraction = min(1, distance / max(1, hypot(area.width, area.height)))
+        return 0.12 + 0.12*sqrt(fraction)
+    }
+    static func pixelAligned(_ rect: CGRect, scale: CGFloat) -> CGRect {
+        func pixel(_ value: CGFloat) -> CGFloat { (value*scale).rounded()/scale }
+        let x = pixel(rect.minX), y = pixel(rect.minY)
+        return CGRect(x: x, y: y, width: pixel(rect.maxX)-x, height: pixel(rect.maxY)-y)
+    }
+    static func delay(now: TimeInterval, started: TimeInterval, interval: TimeInterval) -> TimeInterval {
+        let next = started + (floor((now-started)/interval)+1)*interval
+        return max(0, next-now)
     }
 }
 
 extension NativeWindows {
     @MainActor func writeTransitionFrame(_ frame: CGRect, window: LiveWindow) async throws {
         try Task.checkCancellation()
-        guard trusted, PaneGeometry.valid(frame), identityExists(window) else { throw WindowIssue("The window is no longer available for resizing.") }
+        guard trusted, PaneGeometry.valid(frame) else { throw WindowIssue("The window is no longer available for resizing.") }
         switch window.target {
         case .local(let local):
+            guard local.isVisible, local.windowNumber == Int(window.id) else { throw WindowIssue("The window closed while resizing.") }
+            let minimum = local.frameRect(forContentRect: CGRect(origin: .zero, size: local.contentMinSize)).size
+            guard frame.width >= minimum.width, frame.height >= minimum.height else { throw WindowIssue("The window needs a larger pane.") }
             let top = NSScreen.screens.first?.frame.maxY ?? 0
             local.setFrame(CGRect(x: frame.minX, y: top-frame.maxY, width: frame.width, height: frame.height), display: true)
         case .accessibility:
-            let result = await accessibilityWrite(window, .frame(frame))
+            let result = await accessibilityWrite(window, .frame(frame), reuseValidatedElement: true)
             try Task.checkCancellation()
             guard result == .success || result == .cannotComplete else { throw WindowIssue("\(window.appName) could not resize its window.") }
         }
     }
 
-    @MainActor func animateFrames(_ targets: [(LiveWindow, CGRect)], duration: Double = 0.22) async throws {
+    @MainActor func writeTransitionFrames(_ targets: [(LiveWindow, CGRect)]) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for (window, frame) in targets {
+                group.addTask { @MainActor in try await self.writeTransitionFrame(frame, window: window) }
+            }
+            try await group.waitForAll()
+        }
+    }
+
+    @MainActor func animateFrames(_ targets: [(LiveWindow, CGRect)], duration requestedDuration: Double? = nil) async throws {
         let starts = targets.map { actualFrame($0.0) ?? $0.0.frame }
+        let screens = targets.map { screenFor($0.1) }
+        let scales = screens.map { $0?.backingScaleFactor ?? 1 }
+        let destinations = targets.enumerated().map { WindowTransition.pixelAligned($0.element.1, scale: scales[$0.offset]) }
+        let duration = requestedDuration ?? targets.indices.map {
+            WindowTransition.duration(from: starts[$0], to: destinations[$0], in: screens[$0].map(screenArea) ?? destinations[$0])
+        }.max() ?? 0
+        let interval = screens.compactMap { $0 }.map { 1.0/Double(($0.maximumFramesPerSecond > 0 ? $0.maximumFramesPerSecond : 60)) }.min() ?? 1.0/60
+        let topology = NSScreen.screens.map { [$0.frame, $0.visibleFrame] }
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        var batches = 0
+        var compatibilityFallback = false
+        var beforeFallback: [[String: Double]] = []
+        defer {
+            recordWindowDiagnostic("window-motion-result.json", [
+                "elapsedSeconds": ProcessInfo.processInfo.systemUptime-startedAt,
+                "plannedSeconds": duration, "frameIntervalSeconds": interval,
+                "frameBatches": batches, "windows": targets.count,
+                "compatibilityFallback": compatibilityFallback, "cancelled": Task.isCancelled,
+                "beforeFallback": beforeFallback
+            ])
+        }
+        var last = starts
         if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, duration > 0 {
-            let start = ProcessInfo.processInfo.systemUptime
+            let started = ProcessInfo.processInfo.systemUptime
             while true {
                 try Task.checkCancellation()
-                let progress = (ProcessInfo.processInfo.systemUptime - start)/duration
+                guard NSScreen.screens.map({ [$0.frame, $0.visibleFrame] }) == topology else { throw CancellationError() }
+                let progress = (ProcessInfo.processInfo.systemUptime-started)/duration
                 if progress >= 1 { break }
-                for (index, target) in targets.enumerated() {
-                    do {
-                        try await writeTransitionFrame(WindowTransition.frame(from: starts[index], to: target.1, progress: progress), window: target.0)
-                    } catch is CancellationError { throw CancellationError() }
-                    catch {
-                        // Some apps refuse intermediate sizes but accept the final target.
-                        for (window, frame) in targets { try await setFrame(frame, window: window) }
-                        return
-                    }
+                var updates: [(LiveWindow, CGRect)] = []
+                for index in targets.indices {
+                    let frame = WindowTransition.pixelAligned(WindowTransition.frame(from: starts[index], to: destinations[index], progress: progress), scale: scales[index])
+                    if frame != last[index] { updates.append((targets[index].0, frame)); last[index] = frame }
                 }
-                // Use elapsed time rather than queueing frames when another app responds slowly.
-                try await Task.sleep(nanoseconds: 16_666_667)
+                do {
+                    if !updates.isEmpty { batches += 1 }
+                    try await writeTransitionFrames(updates)
+                }
+                catch is CancellationError { throw CancellationError() }
+                catch {
+                    compatibilityFallback = true
+                    for (window, frame) in targets { try await setFrame(frame, window: window) }
+                    return
+                }
+                let delay = WindowTransition.delay(now: ProcessInfo.processInfo.systemUptime, started: started, interval: interval)
+                try await Task.sleep(nanoseconds: UInt64(delay*1_000_000_000))
             }
         }
-        for (window, frame) in targets { try await setFrame(frame, window: window) }
+        guard NSScreen.screens.map({ [$0.frame, $0.visibleFrame] }) == topology else { throw CancellationError() }
+        batches += 1
+        do { try await writeTransitionFrames(targets.indices.map { (targets[$0].0, destinations[$0]) }) }
+        catch is CancellationError { throw CancellationError() }
+        catch {
+            compatibilityFallback = true
+            for index in targets.indices { try await setFrame(destinations[index], window: targets[index].0) }
+            return
+        }
+        // Give accepted writes a few display frames to appear before using the compatibility retry path.
+        for _ in 0..<3 {
+            try Task.checkCancellation()
+            if targets.indices.allSatisfy({ verifyFrame(destinations[$0], window: targets[$0].0) }) { return }
+            try await Task.sleep(nanoseconds: UInt64(interval*1_000_000_000))
+        }
+        for index in targets.indices where !verifyFrame(destinations[index], window: targets[index].0) {
+            if let actual = actualFrame(targets[index].0) {
+                let expected = destinations[index]
+                beforeFallback.append(["xError": actual.minX-expected.minX, "yError": actual.minY-expected.minY,
+                                       "widthError": actual.width-expected.width, "heightError": actual.height-expected.height])
+            }
+            compatibilityFallback = true
+            try await setFrame(destinations[index], window: targets[index].0)
+        }
     }
 }

@@ -267,8 +267,10 @@ final class NativeWindows {
         }
         guard let value=result.snapshot,let frame=Self.windowServerFrame(id:value.id,pid:value.pid),
               NSRunningApplication(processIdentifier:value.pid)?.bundleIdentifier==value.bundle else{return nil}
-        return LiveWindow(id:value.id,target:.accessibility(value.element),pid:value.pid,bundleID:value.bundle,appName:value.appName,
+        let current = LiveWindow(id:value.id,target:.accessibility(value.element),pid:value.pid,bundleID:value.bundle,appName:value.appName,
                           title:window.title,frame:frame,spaceIDs:spaces(for:value.id),minimized:false)
+        knownWindows[current.id] = current
+        return current
     }
     func currentFrame(_ window: LiveWindow) -> CGRect? { Self.windowServerFrame(id: window.id, pid: window.pid) }
     private static func windowServerFrame(id: UInt32, pid: pid_t) -> CGRect? {
@@ -282,7 +284,7 @@ final class NativeWindows {
     /// Keep synchronous cross-process AX messaging off the app's event loop. A
     /// display/Space transfer can invalidate an old AX reference; reacquire by
     /// window ID, never by title or whichever window happens to have focus.
-    @MainActor func accessibilityWrite(_ window: LiveWindow, _ operation: AccessibilityWindowWrite) async -> AXError {
+    @MainActor func accessibilityWrite(_ window: LiveWindow, _ operation: AccessibilityWindowWrite, reuseValidatedElement: Bool = false) async -> AXError {
         guard case .accessibility(let fallback) = window.target else { return .illegalArgument }
         let request=AccessibilityWriteRequest(id:window.id,pid:window.pid,fallback:fallback,operation:operation)
         return await withTaskCancellationHandler(operation: { await withCheckedContinuation { continuation in
@@ -304,7 +306,8 @@ final class NativeWindows {
                     return AXUIElementGetPid(element, &pid) == .success && pid == request.pid &&
                         getID(element, &id) == 0 && id == request.id
                 }
-                let fresh = (axValue(app, kAXWindowsAttribute) as? [AXUIElement])?.first(where: matches)
+                let retained = reuseValidatedElement && matches(request.fallback) ? request.fallback : nil
+                let fresh = retained ?? (axValue(app, kAXWindowsAttribute) as? [AXUIElement])?.first(where: matches)
                 // AXWindows can omit inactive-Space windows. A retained reference
                 // is usable only while both AX and WindowServer identities agree.
                 guard let element = fresh ?? (matches(request.fallback) ? request.fallback : nil) else {
@@ -312,7 +315,17 @@ final class NativeWindows {
                 }
                 guard !request.isCancelled else {continuation.resume(returning:.failure);return}
                 AXUIElementSetMessagingTimeout(element, 0.5)
+                // Enhanced UI can animate each AX write independently, leaving a
+                // frame stream behind its target. Restore the original mode after
+                // this transaction; never change the app's persistent AX behavior.
+                let enhancedAttribute = "AXEnhancedUserInterface" as CFString
+                let suppressAnimation: Bool
+                if case .frame = request.operation {
+                    suppressAnimation = (axValue(app, "AXEnhancedUserInterface") as? Bool) == true &&
+                        AXUIElementSetAttributeValue(app, enhancedAttribute, kCFBooleanFalse) == .success
+                } else { suppressAnimation = false }
                 let result = request.operation.apply(to:element)
+                if suppressAnimation { _ = AXUIElementSetAttributeValue(app, enhancedAttribute, kCFBooleanTrue) }
                 AXUIElementSetMessagingTimeout(element, 0.1)
                 continuation.resume(returning: result)
             }
@@ -521,6 +534,9 @@ final class NativeWindows {
     var pending:Task<Void,Never>?
     private var queuedDesktop: Desktop?
     var operationTask:Task<Void,Never>?
+    private var interactivePlacement = false
+    private var queuedPlacement: (@MainActor () async throws -> String)?
+    var canRetargetPlacement: Bool { interactivePlacement && interaction == .writing }
     var showSwitcher:(()->Void)?
     var onSwitch: (() -> Void)?
     init(store:Store,file:URL?=nil,native:NativeWindows=NativeWindows()) {
@@ -572,11 +588,38 @@ final class NativeWindows {
         }
         return result
     }
-    func run(_ operation:@escaping @MainActor () async throws->String) {
-        guard !busy else{message="A window operation is in progress. Try this shortcut again when it finishes.";return};interaction = .writing;pending?.cancel()
-        operationTask=Task { do {message=try await operation()} catch is CancellationError {message="Operation cancelled."} catch {message=error.localizedDescription};interaction = .idle;store.refresh();lastActive=Set(store.desktops.filter(\.isCurrent).map(\.id));refresh();births.reset();drainDesktopRequest() }
+    func run(interruptible: Bool = false, refreshWindows: Bool = true, _ operation: @escaping @MainActor () async throws -> String) {
+        if busy {
+            if interruptible && canRetargetPlacement {
+                queuedPlacement = operation
+                operationTask?.cancel()
+            } else { message = "A window operation is in progress. Try again when it finishes." }
+            return
+        }
+        interaction = .writing; interactivePlacement = interruptible; pending?.cancel()
+        operationTask = Task {
+            do { message = try await operation() }
+            catch is CancellationError { if queuedPlacement == nil { message = "Operation cancelled." } }
+            catch { message = error.localizedDescription }
+            interaction = .idle; interactivePlacement = false
+            if let next = queuedPlacement {
+                queuedPlacement = nil
+                run(interruptible: true, next)
+                return
+            }
+            store.refresh(); lastActive = Set(store.desktops.filter(\.isCurrent).map(\.id))
+            if interruptible || !refreshWindows {
+                setTrusted(); windows = native.trackedPaneWindows()
+                if !windows.contains(where: { $0.id == selectedWindow }) { selectedWindow = windows.first?.id ?? 0 }
+            } else { refresh() }
+            births.reset(); drainDesktopRequest()
+        }
     }
-    func cancel() {queuedDesktop=nil;operationTask?.cancel();pending?.cancel();endUserWindowDrag()}
+    func interruptPlacementForPointer() {
+        guard canRetargetPlacement else { return }
+        queuedPlacement = nil; operationTask?.cancel()
+    }
+    func cancel() { queuedPlacement = nil; queuedDesktop = nil; operationTask?.cancel(); pending?.cancel(); endUserWindowDrag() }
     func beginUserWindowDrag() -> Bool {
         guard !busy, native.trusted else { return false }
         pending?.cancel()
@@ -588,9 +631,8 @@ final class NativeWindows {
                               completion: @escaping (String, Bool) -> Void) {
         guard hasUserWindowDrag else { completion("The window operation was cancelled.", false); return }
         interaction = .idle
-        run {
+        run(interruptible: true) {
             do {
-                await NativeWindows.pause(0.06)
                 try Task.checkCancellation()
                 let refreshed=await self.native.refreshedForOperation(window)
                 try Task.checkCancellation()
