@@ -186,7 +186,13 @@ extension NativeWindows {
         }
     }
 
-    @MainActor func animateFrames(_ targets: [(LiveWindow, CGRect)], duration requestedDuration: Double? = nil) async throws {
+    @MainActor func animateFrames(_ targets: [(LiveWindow, CGRect)], duration: Double? = nil) async throws {
+        try await withImmediateFrames(targets.map { $0.0 }) {
+            try await animateImmediateFrames(targets, duration: duration)
+        }
+    }
+
+    @MainActor private func animateImmediateFrames(_ targets: [(LiveWindow, CGRect)], duration requestedDuration: Double?) async throws {
         let starts = targets.map { actualFrame($0.0) ?? $0.0.frame }
         let screens = targets.map { screenFor($0.1) }
         let scales = screens.map { $0?.backingScaleFactor ?? 1 }

@@ -87,7 +87,7 @@ Four columns, preset selection/cycling shortcuts, pane placement shortcuts, and 
 
 ## Motion update — build 24
 
-Direct halves/thirds/fourths/quarters and Command-drag now share monitor work-area, gap, custom-divider, and backing-pixel calculations. Animation uses distance-sensitive ease-out and display-frame deadlines. Latest placement requests replace pending ones; cancellation waits for the previous writer before starting a replacement. Frame streams reuse identity-validated AX references, and completion avoids a synchronous external window census. Enhanced UI is temporarily suppressed for an AX frame transaction only when already enabled, then restored to its prior state.
+Direct halves/thirds/fourths/quarters and Command-drag now share monitor work-area, gap, custom-divider, and backing-pixel calculations. Animation uses distance-sensitive ease-out and display-frame deadlines. Latest placement requests replace pending ones; cancellation waits for the previous writer before starting a replacement. Frame streams reuse identity-validated AX references, and completion avoids a synchronous external window census. Enhanced UI is temporarily suppressed for the entire animation or linked-drag session only when already enabled, then restored to its prior state, including cancellation and error cleanup.
 
 Linked handles are reused between scans and detect aligned standard shortcut layouts as well as the active guide. Linked writes are batched and paced against display deadlines. Active-preset divider changes persist; inferred layouts retain adjusted ratios for the current session without changing the chosen guide. The opt-in linked-resizing setting and existing shortcut bindings are preserved.
 

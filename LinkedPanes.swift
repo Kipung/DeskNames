@@ -189,66 +189,68 @@ private final class PaneDividerHandle: NSView {
         workspace.run(refreshWindows: false) { [self] in
             defer { session = nil; hide(); lastScan = -Double.infinity }
             let entries = handle.windows.sorted { $0.key < $1.key }
-            var touched = false
-            do {
-                for (_, window) in entries {
-                    guard let current = await workspace.native.refreshedForOperation(window),
-                          current.spaceIDs == [handle.desktop.spaceID], !current.minimized,
-                          PaneOccupancy.close(current.frame, window.frame) else { throw WindowIssue("A neighboring window changed. Try again.") }
-                }
-                var applied = handle.config
-                let started = ProcessInfo.processInfo.systemUptime
-                while true {
-                    try Task.checkCancellation()
-                    guard next.phase != .cancelled, environmentMatches(next) else { throw CancellationError() }
-                    // A missed mouse-up must finish rather than reserve the writer forever.
-                    if NSEvent.pressedMouseButtons & 1 == 0 { next.phase = .released }
-                    let desired = next.config
-                    if desired != applied {
-                        let frames = PaneGeometry(area: handle.area, configuration: desired, pixelScale: handle.pixelScale).cells
-                        guard entries.allSatisfy({ frames.indices.contains($0.key) && workspace.native.spaces(for: $0.value.id) == [handle.desktop.spaceID] }) else { throw CancellationError() }
-                        touched = true
-                        try await workspace.native.writeTransitionFrames(entries.map { ($0.value, frames[$0.key]) })
-                        applied = desired
+            return try await workspace.native.withImmediateFrames(entries.map { $0.value }) {
+                var touched = false
+                do {
+                    for (_, window) in entries {
+                        guard let current = await workspace.native.refreshedForOperation(window),
+                              current.spaceIDs == [handle.desktop.spaceID], !current.minimized,
+                              PaneOccupancy.close(current.frame, window.frame) else { throw WindowIssue("A neighboring window changed. Try again.") }
                     }
-                    if next.phase == .released { break }
-                    let delay = WindowTransition.delay(now: ProcessInfo.processInfo.systemUptime, started: started, interval: handle.frameInterval)
-                    try await Task.sleep(nanoseconds: UInt64(delay*1_000_000_000))
-                }
-                let frames = PaneGeometry(area: handle.area, configuration: next.config, pixelScale: handle.pixelScale).cells
-                guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
-                try await workspace.native.animateFrames(entries.map { ($0.value, frames[$0.key]) }, duration: 0)
-                for (index, window) in entries {
-                    guard workspace.native.verifyFrame(frames[index], window: window) else { throw WindowIssue("\(window.appName) needs more room. Neighboring panes were restored.") }
-                }
-                guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
-                if let screen = NSScreen.screens.first(where: { screenUUID($0) == handle.desktop.display }) {
-                    for (_, window) in entries { workspace.frameHistory.remember(window, frame: window.frame, screen: screen) }
-                }
-                if handle.config.preset == handle.baseConfiguration.preset {
-                    workspace.setPaneConfiguration(next.config, for: handle.desktop)
-                } else {
-                    detectedConfigurations[handle.desktop.id, default: [:]][handle.config.preset] = next.config
-                }
-                return "Resized neighboring panes together."
-            } catch {
-                if touched {
-                    // Finish rollback before releasing the shared writer, even if the caller cancelled.
-                    let restored = await Task { @MainActor in
-                        var success = true
-                        for (_, window) in entries {
-                            guard self.workspace.native.identityExists(window),
-                                  self.workspace.native.spaces(for: window.id) == [handle.desktop.spaceID],
-                                  NSScreen.screens.contains(where: { screenUUID($0) == handle.desktop.display && screenArea($0) == handle.area }) else { success = false; continue }
-                            do { try await self.workspace.native.setFrame(window.frame, window: window) }
-                            catch { success = false }
-                            if !self.workspace.native.verifyFrame(window.frame, window: window) { success = false }
+                    var applied = handle.config
+                    let started = ProcessInfo.processInfo.systemUptime
+                    while true {
+                        try Task.checkCancellation()
+                        guard next.phase != .cancelled, environmentMatches(next) else { throw CancellationError() }
+                        // A missed mouse-up must finish rather than reserve the writer forever.
+                        if NSEvent.pressedMouseButtons & 1 == 0 { next.phase = .released }
+                        let desired = next.config
+                        if desired != applied {
+                            let frames = PaneGeometry(area: handle.area, configuration: desired, pixelScale: handle.pixelScale).cells
+                            guard entries.allSatisfy({ frames.indices.contains($0.key) && workspace.native.spaces(for: $0.value.id) == [handle.desktop.spaceID] }) else { throw CancellationError() }
+                            touched = true
+                            try await workspace.native.writeTransitionFrames(entries.map { ($0.value, frames[$0.key]) })
+                            applied = desired
                         }
-                        return success
-                    }.value
-                    if !restored { throw WindowIssue("Resize stopped. Some windows could not return to their original size; the pane layout was not saved.") }
+                        if next.phase == .released { break }
+                        let delay = WindowTransition.delay(now: ProcessInfo.processInfo.systemUptime, started: started, interval: handle.frameInterval)
+                        try await Task.sleep(nanoseconds: UInt64(delay*1_000_000_000))
+                    }
+                    let frames = PaneGeometry(area: handle.area, configuration: next.config, pixelScale: handle.pixelScale).cells
+                    guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
+                    try await workspace.native.animateFrames(entries.map { ($0.value, frames[$0.key]) }, duration: 0)
+                    for (index, window) in entries {
+                        guard workspace.native.verifyFrame(frames[index], window: window) else { throw WindowIssue("\(window.appName) needs more room. Neighboring panes were restored.") }
+                    }
+                    guard environmentMatches(next), next.phase != .cancelled else { throw CancellationError() }
+                    if let screen = NSScreen.screens.first(where: { screenUUID($0) == handle.desktop.display }) {
+                        for (_, window) in entries { workspace.frameHistory.remember(window, frame: window.frame, screen: screen) }
+                    }
+                    if handle.config.preset == handle.baseConfiguration.preset {
+                        workspace.setPaneConfiguration(next.config, for: handle.desktop)
+                    } else {
+                        detectedConfigurations[handle.desktop.id, default: [:]][handle.config.preset] = next.config
+                    }
+                    return "Resized neighboring panes together."
+                } catch {
+                    if touched {
+                        // Finish rollback before releasing the shared writer, even if the caller cancelled.
+                        let restored = await Task { @MainActor in
+                            var success = true
+                            for (_, window) in entries {
+                                guard self.workspace.native.identityExists(window),
+                                      self.workspace.native.spaces(for: window.id) == [handle.desktop.spaceID],
+                                      NSScreen.screens.contains(where: { screenUUID($0) == handle.desktop.display && screenArea($0) == handle.area }) else { success = false; continue }
+                                do { try await self.workspace.native.setFrame(window.frame, window: window) }
+                                catch { success = false }
+                                if !self.workspace.native.verifyFrame(window.frame, window: window) { success = false }
+                            }
+                            return success
+                        }.value
+                        if !restored { throw WindowIssue("Resize stopped. Some windows could not return to their original size; the pane layout was not saved.") }
+                    }
+                    throw error
                 }
-                throw error
             }
         }
     }

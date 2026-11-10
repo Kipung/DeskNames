@@ -315,21 +315,56 @@ final class NativeWindows {
                 }
                 guard !request.isCancelled else {continuation.resume(returning:.failure);return}
                 AXUIElementSetMessagingTimeout(element, 0.5)
-                // Enhanced UI can animate each AX write independently, leaving a
-                // frame stream behind its target. Restore the original mode after
-                // this transaction; never change the app's persistent AX behavior.
-                let enhancedAttribute = "AXEnhancedUserInterface" as CFString
-                let suppressAnimation: Bool
-                if case .frame = request.operation {
-                    suppressAnimation = (axValue(app, "AXEnhancedUserInterface") as? Bool) == true &&
-                        AXUIElementSetAttributeValue(app, enhancedAttribute, kCFBooleanFalse) == .success
-                } else { suppressAnimation = false }
                 let result = request.operation.apply(to:element)
-                if suppressAnimation { _ = AXUIElementSetAttributeValue(app, enhancedAttribute, kCFBooleanTrue) }
                 AXUIElementSetMessagingTimeout(element, 0.1)
                 continuation.resume(returning: result)
             }
         } }, onCancel: {request.cancel()})
+    }
+    @MainActor func withImmediateFrames<T>(_ windows: [LiveWindow], operation: @MainActor () async throws -> T) async rethrows -> T {
+        let started = ProcessInfo.processInfo.systemUptime
+        let pids = Set(windows.compactMap { window -> pid_t? in
+            if case .accessibility = window.target { return window.pid }
+            return nil
+        })
+        let changed: [pid_t] = await withCheckedContinuation { continuation in
+            Self.accessibilityWrites.async {
+                let changed = pids.filter { pid in
+                    let app = AXUIElementCreateApplication(pid)
+                    AXUIElementSetMessagingTimeout(app, 0.1)
+                    return (axValue(app, "AXEnhancedUserInterface") as? Bool) == true &&
+                        AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanFalse) == .success
+                }
+                continuation.resume(returning: Array(changed))
+            }
+        }
+        // One scope covers the whole transition/drag. Re-enabling between frames
+        // is expensive and can restart the receiving app's own resize animation.
+        func restore() async {
+            let restored: Int = await withCheckedContinuation { continuation in
+                Self.accessibilityWrites.async {
+                    var restored = 0
+                    for pid in changed {
+                        let app = AXUIElementCreateApplication(pid)
+                        AXUIElementSetMessagingTimeout(app, 0.1)
+                        _ = AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+                        if (axValue(app, "AXEnhancedUserInterface") as? Bool) == true { restored += 1 }
+                    }
+                    continuation.resume(returning: restored)
+                }
+            }
+            recordWindowDiagnostic("frame-session-result.json", ["elapsedSeconds": ProcessInfo.processInfo.systemUptime-started,
+                "adjustedApplications": changed.count, "restoredApplications": restored, "cancelled": Task.isCancelled])
+        }
+        do {
+            let result = try await operation()
+            await restore()
+            return result
+        } catch {
+            // Cleanup is awaited even when the movement task was cancelled.
+            await restore()
+            throw error
+        }
     }
     func recordWindowDiagnostic(_ name: String, _ detail: [String: Any]) {
         guard includeExternal, let data = try? JSONSerialization.data(withJSONObject: detail, options: [.prettyPrinted, .sortedKeys]) else { return }
