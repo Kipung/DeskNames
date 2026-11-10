@@ -1,6 +1,18 @@
 #!/bin/zsh
 set -eu
 cd "${0:A:h}"
+SIGNING_IDENTITY="${DESKNAMES_SIGN_IDENTITY:-}"
+SIGNING_IDENTITY_FILE="${DESKNAMES_SIGN_IDENTITY_FILE:-$HOME/Library/Application Support/DeskNames Development/signing-identity.txt}"
+if [[ -z "$SIGNING_IDENTITY" && -e "$SIGNING_IDENTITY_FILE" ]]; then
+  [[ -f "$SIGNING_IDENTITY_FILE" && -r "$SIGNING_IDENTITY_FILE" ]] || { print -u2 'Cannot read the configured DeskNames signing identity.'; exit 1; }
+  SIGNING_IDENTITY="$(<"$SIGNING_IDENTITY_FILE")"
+  [[ "$SIGNING_IDENTITY" =~ '^[[:xdigit:]]{40}$' ]] || { print -u2 'The DeskNames signing identity file must contain one certificate SHA-1 fingerprint.'; exit 1; }
+fi
+SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
+if [[ "$SIGNING_IDENTITY" != - ]]; then
+  identities="$(security find-identity -p codesigning)"
+  [[ "$identities" == *" $SIGNING_IDENTITY "* || "$identities" == *\"$SIGNING_IDENTITY\"* ]] || { print -u2 'The configured code-signing identity is unavailable. Restore it instead of falling back to ad-hoc signing.'; exit 1; }
+fi
 DEST="${1:-$PWD/build}"
 mkdir -p "$DEST/DeskNames.app/Contents/MacOS" "$DEST/DeskNames.app/Contents/Resources"
 cp DeskNames.icns "$DEST/DeskNames.app/Contents/Resources/DeskNames.icns"
@@ -23,4 +35,8 @@ cat > "$DEST/DeskNames.app/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
-codesign --force --sign - "$DEST/DeskNames.app"
+if [[ "$SIGNING_IDENTITY" == - ]]; then
+  print -u2 'Ad-hoc signing: Accessibility approval may need renewal after a changed build. See docs/development-signing.md.'
+fi
+codesign --force --sign "$SIGNING_IDENTITY" "$DEST/DeskNames.app"
+codesign --verify --deep --strict "$DEST/DeskNames.app"

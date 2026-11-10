@@ -93,7 +93,9 @@ extension LayoutController {
         let candidate=focused ? native.focusedWindow() : windows.first{$0.id==selectedWindow}
         guard let candidate else { message="Select an ordinary window first.";return }
         run {
-            guard let window=self.native.refreshed(candidate),let source=screenFor(window.frame) else { throw WindowIssue("This window is no longer available.") }
+            let refreshed=await self.native.refreshedForOperation(candidate)
+            try Task.checkCancellation()
+            guard let window=refreshed,let source=screenFor(window.frame) else { throw WindowIssue("Could not confirm this window's current state. Refresh and try again.") }
             var targetScreen=source
             let target: CGRect
             if action == .restore {
@@ -109,13 +111,13 @@ extension LayoutController {
                 target=rect
             }
             let old=window.frame
-            try await self.native.setFrame(target,window:window)
             if action == .nextDisplay || action == .previousDisplay {
                 let all=self.store.reader.read()
-                if let desktop=all.first(where:{$0.display==screenUUID(targetScreen) && $0.isCurrent && !$0.isFullScreen}),!self.native.spaces(for:window.id).contains(desktop.spaceID) {
-                    try await self.native.transfer(window,to:desktop,reader:self.store.reader)
+                guard let desktop=all.first(where:{$0.display==screenUUID(targetScreen) && $0.isCurrent && !$0.isFullScreen}) else {
+                    throw WindowIssue("The destination display has no available ordinary desktop.")
                 }
-            }
+                try await self.native.transfer(window,to:desktop,reader:self.store.reader,frame:target)
+            } else { try await self.native.setFrame(target,window:window) }
             guard self.native.verifyFrame(target,window:window) else { return "\(window.appName) constrained its window size or position." }
             if action == .restore { self.frameHistory.forget(window) }
             else { self.frameHistory.remember(window,frame:old,screen:source) }

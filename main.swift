@@ -433,6 +433,12 @@ if CommandLine.arguments.contains("--self-test") {
     restored.update(moved,name:String(repeating:"x",count:80),color:999)
     precondition(restored.style(moved).name.count==40 && restored.style(moved).color==4)
     print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
+} else if CommandLine.arguments.contains("--window-refresh-test") {
+    NSApplication.shared.setActivationPolicy(.prohibited)
+    Task { @MainActor in
+        do {try await runWindowRefreshSessionTest();exit(0)} catch {print("FAIL: \(error.localizedDescription)");exit(1)}
+    }
+    NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--layout-session-test") {
     NSApplication.shared.setActivationPolicy(.accessory)
     Task { @MainActor in

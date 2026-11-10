@@ -2,7 +2,7 @@
 
 ## Application structure
 
-DeskNames is compiled directly by `build.sh`. There is no package manager dependency graph. The script compiles `NativeSpaceMove.m`, links Swift sources against AppKit, SwiftUI, and Carbon, writes Info.plist, copies resources and third-party notices, and signs the bundle ad hoc.
+DeskNames is compiled directly by `build.sh`. There is no package manager dependency graph. The script compiles `NativeSpaceMove.m`, links Swift sources against AppKit, SwiftUI, and Carbon, writes Info.plist, copies resources and third-party notices, and signs the bundle. Signing defaults to ad hoc; a configured persistent certificate supports repeated development builds without changing the designated identity.
 
 `main.swift` defines desktop identity, preference-backed names and colors, Space enumeration, the editor, Mission Control labels, and application lifecycle. It also dispatches command-line test and preview modes.
 
@@ -36,6 +36,12 @@ LayoutController coordinates operations through idle, user-drag, and writing sta
 
 The layout capture path enumerates ordinary windows, associates each with a screen and desktop, records geometry and order, rechecks topology, and persists atomically. Restore matches windows, resolves display destinations, applies frames, and reports constrained or missing targets. Manual restoration can verify overlap order. Automatic restoration does not raise windows.
 
+Overlap capture and verification use the on-screen WindowServer list. The all-windows list remains useful for identity discovery, but can retain ordering from inactive Space lists. New captures record the ordering source; older captures stay readable and show resave guidance. Manual restore includes surviving size-constrained windows in ordering and requires two consecutive complete order observations on each visible desktop after bounded raise attempts. A raise can affect the same app's key window on another screen, so later passes repair only the necessary front prefixes while leaving the longest correctly ordered lower suffix untouched. Each raise is observed relative to its expected lower windows before another raise begins. Owned AppKit windows use `orderFrontRegardless()` so an inactive editor can rise above other applications. Verification counts every participating window and rejects missing windows or inversions within either desktop; unrelated interleaving ranks between screens do not represent visible overlap.
+
+External Accessibility writes run on a serial worker with cancellation checks and bounded messaging timeouts. Each request reacquires the exact window by process/window identity; WindowServer bounds verify the result independently of the AX reply. Cross-display transfers establish native destination-Space ownership before fitting geometry. Neither path adds a focus-changing drag fallback for automatic operations.
+
+Operation preflight reads external eligibility and identity on the same serial AX worker, leaving the main event loop available. It retries a failed cached AX reference by reacquiring the exact window ID/process, then repeats the ordinary-window, minimized/full-screen and owner checks. Routing rechecks its settings revision, input/operation state, initial frame/Space and destination after the await. Routing discovery still uses a synchronous census; the unresolved live-routing gap is recorded in validation notes. A bounded fallback diagnostic distinguishes this recovery from a confirmed window closure. Tests can direct diagnostics to temporary storage.
+
 Routing scans window identities when enabled. WindowBirthTracker separates already known windows from new observations and discards stale work across settings revisions or unavailable operation periods. Native transfer verifies the result rather than assuming a successful request means a successful move.
 
 ## Local state
@@ -45,6 +51,7 @@ Routing scans window identities when enabled. WindowBirthTracker separates alrea
 | Names, colors, shortcuts, pane settings, monitor presets, routing rules | `local.desknames.app` UserDefaults domain |
 | Saved layouts | `~/Library/Application Support/DeskNames/layouts-v1.json` |
 | Desktop jump diagnostics | `~/Library/Application Support/DeskNames/desktop-jump.json` |
+| Last window-operation failure, refresh fallback and manual order result | `~/Library/Application Support/DeskNames/window-operation-error.json`, `window-refresh-result.json`, `layout-order-result.json` |
 | Previous window frames for restore-size commands | Bounded in-memory history for the app session |
 
 Layout storage is separate from application code. Window titles and app identifiers can describe personal work. Tests must use temporary domains and files rather than replace live user state.

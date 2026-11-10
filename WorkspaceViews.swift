@@ -37,8 +37,8 @@ struct LayoutView:View {
                     VStack(alignment:.leading,spacing:10) {
                         HStack {Image(systemName:"square.stack.3d.up.fill").foregroundStyle(palette[0]);Text("\(layout.windows.count) saved windows").fontWeight(.semibold);Spacer();Text(layout.savedAt,style:.time).foregroundStyle(.secondary)}
                         SavedLayoutPreview(layout:layout)
-                        if layout.windows.contains(where:{$0.exactFrame==nil || $0.stackingIndex==nil || $0.displayProfile==nil}) {
-                            Text("Older save: save the arrangement again to capture exact positions, monitor models and overlap order.").font(.caption).foregroundStyle(.orange)
+                        if layout.stackingSource != DesktopLayout.currentStackingSource || layout.windows.contains(where:{$0.exactFrame==nil || $0.stackingIndex==nil || $0.displayProfile==nil}) {
+                            Text("Older save: save the arrangement again to refresh exact positions, monitor models and visible overlap order.").font(.caption).foregroundStyle(.orange)
                         }
                         Text(layout.windows.map{ $0.bundleID.split(separator:".").last.map(String.init) ?? $0.bundleID }.uniqued().joined(separator:" · ")).font(.system(size:11)).foregroundStyle(.secondary)
                         Toggle("Restore automatically when I enter this desktop",isOn:Binding(get:{controller.layouts[layout.id]?.autoRestore ?? false},set:{controller.option(\.autoRestore,$0,layoutID:layout.id)}))

@@ -163,10 +163,12 @@ extension LayoutController {
             var skipped = 0
             for (id, window, destination, initial) in batch {
                 try Task.checkCancellation()
+                let refreshed=await self.native.refreshedForOperation(window)
+                try Task.checkCancellation()
                 guard self.routing.enabled, self.routing.revision == revision, self.native.trusted,
                       NSEvent.pressedMouseButtons == 0, !OverlayController.isMissionControlOpen(),
                       let app = NSRunningApplication(processIdentifier: id.pid), app.launchDate == id.launch,
-                      let live = self.native.refreshed(window), !live.minimized,
+                      let live = refreshed, !live.minimized,
                       initial.matches(WindowBirthObservation(frame: live.frame, spaces: Set(live.spaceIDs))),
                       let target = self.store.reader.read().first(where: { $0.id == destination.id && $0.display == destination.display && !$0.isFullScreen }),
                       NSScreen.screens.contains(where: { screenUUID($0) == target.display }) else { skipped += 1; continue }

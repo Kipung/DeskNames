@@ -35,6 +35,8 @@ The script compiles the Objective-C bridge and Swift sources, creates an app bun
 
 Enable DeskNames in **System Settings > Privacy & Security > Accessibility** for window management and desktop switching. Rebuilding may require removing a stale permission entry and approving the current app again. DeskNames itself does not request Screen Recording permission.
 
+For repeated development builds, [configure a persistent signing identity](docs/development-signing.md). Ad-hoc signing changes the identity recognized by macOS when the code changes; certificate signing can keep it stable across rebuilds.
+
 This repository does not provide an Apple-notarized installer. Build locally for now.
 
 ## Use it

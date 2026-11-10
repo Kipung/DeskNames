@@ -13,6 +13,12 @@ struct SmartPanesView: View {
         store.desktops.first { $0.id == desktopID && !$0.isFullScreen }
             ?? store.desktops.first { $0.isCurrent && !$0.isFullScreen }
     }
+    private var canEditConfiguration: Bool {
+        guard let desktop else { return false }
+        if !desktop.id.isEmpty { return true }
+        guard let display = ConnectedDisplay.all().first(where: { $0.id == desktop.display }) else { return false }
+        return models.values[display.profile.model]?.enabled == true
+    }
     private var config: PaneConfiguration { workspace.paneConfiguration(for: desktop?.id ?? "") }
 
     var body: some View {
@@ -54,6 +60,11 @@ struct SmartPanesView: View {
                 if let desktop,let display=ConnectedDisplay.all().first(where:{$0.id==desktop.display}) {
                     Toggle("Share this preset with every \(display.profile.name) monitor",isOn:Binding(get:{models.values[display.profile.model]?.enabled ?? false},set:{models.set(display.profile,enabled:$0,configuration:config)})).font(.system(size:12))
                     Text("Matches the monitor model, not its serial number. Matching screens share the pane layout and spacing.").font(.caption).foregroundStyle(.secondary)
+                }
+
+                if !canEditConfiguration {
+                    Text("macOS did not provide a stable identity for this desktop. Per-desktop pane changes are unavailable until it does; the default panes remain usable.")
+                        .font(.system(size: 12)).foregroundStyle(.orange)
                 }
 
                 VStack(spacing: 0) {
@@ -98,6 +109,7 @@ struct SmartPanesView: View {
                             .accessibilityValue(config.preset == preset ? "Selected" : "")
                     }
                 }
+                .disabled(!canEditConfiguration)
                 HStack(spacing: 12) {
                     Text("Space between panes").font(.system(size: 11))
                     Slider(value: Binding(get: { config.gap }, set: { update(PaneConfiguration(preset: config.preset, gap: $0)) }), in: 0...32, step: 2)
@@ -105,6 +117,7 @@ struct SmartPanesView: View {
                     Text("\(Int(config.gap)) pt").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).frame(width: 42)
                     Spacer()
                 }
+                .disabled(!canEditConfiguration)
                 HStack(alignment: .top, spacing: 22) {
                     instruction("1", "Grab a window", "Drag its title bar as usual.")
                     instruction("⌘", "Choose a pane", "Hold Command and move over it.")

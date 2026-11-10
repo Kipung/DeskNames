@@ -33,6 +33,8 @@ struct DesktopLayout:Codable,Identifiable {
     var id:String;var savedAt:Date;var windows:[SavedWindow]
     var autoRestore=false;var launchMissing=true;var gatherWindows=false
     var name:String?
+    var stackingSource:String?
+    static let currentStackingSource="visible-v1"
 }
 enum WindowTarget {
     case accessibility(AXUIElement)
@@ -72,12 +74,57 @@ func screenFor(_ rect:CGRect)->NSScreen? {
     }
 }
 
+enum AccessibilityWindowWrite: Sendable {
+    case position(CGPoint), size(CGSize), minimized(Bool), raise
+    func apply(to element: AXUIElement) -> AXError {
+        switch self {
+        case .position(var point):
+            guard let value=AXValueCreate(.cgPoint,&point) else{return .illegalArgument}
+            return AXUIElementSetAttributeValue(element,kAXPositionAttribute as CFString,value)
+        case .size(var size):
+            guard let value=AXValueCreate(.cgSize,&size) else{return .illegalArgument}
+            return AXUIElementSetAttributeValue(element,kAXSizeAttribute as CFString,value)
+        case .minimized(let value):return AXUIElementSetAttributeValue(element,kAXMinimizedAttribute as CFString,value ? kCFBooleanTrue:kCFBooleanFalse)
+        case .raise:return AXUIElementPerformAction(element,kAXRaiseAction as CFString)
+        }
+    }
+}
+
+// The CF accessibility reference is an immutable identity token. Only the serial
+// AX worker writes through it; no AppKit window or mutable NativeWindows state
+// crosses queues. Cancellation is the sole mutable field and is lock protected.
+private final class AccessibilityWriteRequest: @unchecked Sendable {
+    let id:UInt32;let pid:pid_t;let fallback:AXUIElement;let operation:AccessibilityWindowWrite
+    private let lock=NSLock()
+    private var cancelled=false
+    init(id:UInt32,pid:pid_t,fallback:AXUIElement,operation:AccessibilityWindowWrite) {
+        self.id=id;self.pid=pid;self.fallback=fallback;self.operation=operation
+    }
+    func cancel() {lock.lock();cancelled=true;lock.unlock()}
+    var isCancelled:Bool {lock.lock();defer{lock.unlock()};return cancelled}
+}
+
+private struct AccessibilitySnapshot: @unchecked Sendable {
+    let element:AXUIElement
+    let id:UInt32;let pid:pid_t;let bundle:String;let appName:String;let frame:CGRect
+}
+private struct AccessibilityReadRequest: @unchecked Sendable {
+    let element:AXUIElement;let id:UInt32;let pid:pid_t;let bundle:String
+}
+private struct AccessibilityReadResult: Sendable {
+    let snapshot:AccessibilitySnapshot?;let cachedFailure:String;let freshFound:Bool
+}
+
 final class NativeWindows {
+    private static let accessibilityWrites = DispatchQueue(label: "local.desknames.accessibility-writes", qos: .userInitiated)
     let handle=dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",RTLD_NOW)
     private var knownWindows:[UInt32:LiveWindow]=[:]
     private let trustCheck: () -> Bool
     private let includeExternal:Bool
-    init(trustCheck: @escaping () -> Bool = { AXIsProcessTrusted() },includeExternal:Bool=true) { self.trustCheck = trustCheck;self.includeExternal=includeExternal }
+    private let diagnosticsDirectory:URL?
+    init(trustCheck: @escaping () -> Bool = { AXIsProcessTrusted() },includeExternal:Bool=true,diagnosticsDirectory:URL?=nil) {
+        self.trustCheck=trustCheck;self.includeExternal=includeExternal;self.diagnosticsDirectory=diagnosticsDirectory
+    }
     var trusted:Bool {trustCheck()}
     func requestPermission() {
         _=AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary)
@@ -111,8 +158,13 @@ final class NativeWindows {
         else { onFailure("no-containing-window pid=\(pid) role=\(role)"); return nil }
         return liveWindow(element, onFailure: onFailure)
     }
-    func liveWindow(_ element: AXUIElement, onFailure: (String) -> Void = { _ in }) -> LiveWindow? {
-        AXUIElementSetMessagingTimeout(element, 0.1)
+    func liveWindow(_ element: AXUIElement, messagingTimeout:Float=0.1, onFailure: (String) -> Void = { _ in }) -> LiveWindow? {
+        guard let value=Self.inspectAccessibilityWindow(element,messagingTimeout:messagingTimeout,onFailure:onFailure) else{return nil}
+        return LiveWindow(id:value.id,target:.accessibility(value.element),pid:value.pid,bundleID:value.bundle,appName:value.appName,
+                          title:"",frame:value.frame,spaceIDs:spaces(for:value.id),minimized:false)
+    }
+    private static func inspectAccessibilityWindow(_ element:AXUIElement,messagingTimeout:Float,onFailure:(String)->Void={_ in}) -> AccessibilitySnapshot? {
+        AXUIElementSetMessagingTimeout(element, messagingTimeout)
         var pid: pid_t = 0
         guard AXUIElementGetPid(element, &pid) == .success else { onFailure("window-owner-unavailable"); return nil }
         guard pid != getpid() else { onFailure("desknames-window"); return nil }
@@ -126,9 +178,8 @@ final class NativeWindows {
         guard let fn = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else { onFailure("window-identity-api-unavailable"); return nil }
         var id: UInt32 = 0
         guard unsafeBitCast(fn, to: GetID.self)(element, &id) == 0, id > 0 else { onFailure("window-identity-unavailable app=\(bundle)"); return nil }
-        guard let frame = windowServerFrame(id: id, pid: pid), frame.width > 80, frame.height > 50 else { onFailure("window-bounds-unavailable app=\(bundle) id=\(id)"); return nil }
-        return LiveWindow(id: id, target: .accessibility(element), pid: pid, bundleID: bundle, appName: app.localizedName ?? bundle,
-                          title: "", frame: frame, spaceIDs: spaces(for: id), minimized: false)
+        guard let frame = Self.windowServerFrame(id: id, pid: pid), frame.width > 80, frame.height > 50 else { onFailure("window-bounds-unavailable app=\(bundle) id=\(id)"); return nil }
+        return AccessibilitySnapshot(element:element,id:id,pid:pid,bundle:bundle,appName:app.localizedName ?? bundle,frame:frame)
     }
     @MainActor static func isLocalTitlebarPoint(_ point: CGPoint, in window: NSWindow) -> Bool {
         let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
@@ -140,28 +191,134 @@ final class NativeWindows {
               window.isVisible, !window.isMiniaturized, !window.styleMask.contains(.fullScreen),
               window.windowNumber > 0, let bundle = Bundle.main.bundleIdentifier else { return nil }
         let id = UInt32(window.windowNumber)
-        guard let frame = windowServerFrame(id: id, pid: getpid()) else { return nil }
+        guard let frame = Self.windowServerFrame(id: id, pid: getpid()) else { return nil }
         return LiveWindow(id: id, target: .local(window), pid: getpid(), bundleID: bundle, appName: "DeskNames",
                           title: window.title, frame: frame, spaceIDs: spaces(for: id), minimized: false)
     }
     @MainActor func refreshed(_ window: LiveWindow) -> LiveWindow? {
-        let refreshed: LiveWindow?
-        switch window.target {
-        case .accessibility(let element): refreshed = liveWindow(element)
-        case .local(let local): refreshed = localSnapshot(local)
+        func verified(_ value:LiveWindow?) -> LiveWindow? {
+            guard let current=value,current.id==window.id,current.pid==window.pid,current.bundleID==window.bundleID else{return nil}
+            return current
         }
-        guard let current = refreshed, current.id == window.id, current.pid == window.pid,
-              current.bundleID == window.bundleID else { return nil }
-        return current
+        switch window.target {
+        case .local(let local):return verified(localSnapshot(local))
+        case .accessibility(let element):
+            var failure=""
+            if let current=verified(liveWindow(element,onFailure:{failure=$0})) {return current}
+            if failure.isEmpty {failure="window-identity-changed"}
+            // A cached AX token can stop answering after a sequence of raises or
+            // display moves. WindowServer existence alone does not establish AX
+            // eligibility: reacquire by exact identity and repeat every check.
+            guard Self.windowServerFrame(id:window.id,pid:window.pid) != nil,
+                  NSRunningApplication(processIdentifier:window.pid)?.bundleIdentifier==window.bundleID else{return nil}
+            let app=AXUIElementCreateApplication(window.pid);AXUIElementSetMessagingTimeout(app,0.3)
+            typealias GetID = @convention(c)(AXUIElement,UnsafeMutablePointer<UInt32>) -> Int32
+            guard let symbol=dlsym(dlopen(nil,RTLD_NOW),"_AXUIElementGetWindow") else{return nil}
+            let getID=unsafeBitCast(symbol,to:GetID.self)
+            let fresh=(axValue(app,kAXWindowsAttribute) as? [AXUIElement])?.first {candidate in
+                var id:UInt32=0;var pid:pid_t=0
+                return AXUIElementGetPid(candidate,&pid) == .success && pid==window.pid && getID(candidate,&id)==0 && id==window.id
+            }
+            let current=fresh.flatMap{verified(liveWindow($0,messagingTimeout:0.3))}
+            recordWindowDiagnostic("window-refresh-result.json",["windowID":window.id,"pid":window.pid,"bundle":window.bundleID,
+                "cachedFailure":failure,"freshIdentityFound":fresh != nil,"eligibilityConfirmed":current != nil])
+            return current
+        }
     }
-    func currentFrame(_ window: LiveWindow) -> CGRect? { windowServerFrame(id: window.id, pid: window.pid) }
-    private func windowServerFrame(id: UInt32, pid: pid_t) -> CGRect? {
+    @MainActor func refreshedForOperation(_ window:LiveWindow) async -> LiveWindow? {
+        guard case .accessibility(let element)=window.target else{return refreshed(window)}
+        guard !Task.isCancelled else{return nil}
+        let request=AccessibilityReadRequest(element:element,id:window.id,pid:window.pid,bundle:window.bundleID)
+        let result:AccessibilityReadResult=await withCheckedContinuation { continuation in
+            Self.accessibilityWrites.async {
+                func verified(_ value:AccessibilitySnapshot?) -> AccessibilitySnapshot? {
+                    guard let value,value.id==request.id,value.pid==request.pid,value.bundle==request.bundle else{return nil}
+                    return value
+                }
+                var failure=""
+                if let value=verified(Self.inspectAccessibilityWindow(request.element,messagingTimeout:0.3,onFailure:{failure=$0})) {
+                    continuation.resume(returning:AccessibilityReadResult(snapshot:value,cachedFailure:"",freshFound:false));return
+                }
+                guard Self.windowServerFrame(id:request.id,pid:request.pid) != nil else {
+                    continuation.resume(returning:AccessibilityReadResult(snapshot:nil,cachedFailure:failure,freshFound:false));return
+                }
+                let app=AXUIElementCreateApplication(request.pid);AXUIElementSetMessagingTimeout(app,0.3)
+                typealias GetID = @convention(c)(AXUIElement,UnsafeMutablePointer<UInt32>) -> Int32
+                guard let symbol=dlsym(dlopen(nil,RTLD_NOW),"_AXUIElementGetWindow") else {
+                    continuation.resume(returning:AccessibilityReadResult(snapshot:nil,cachedFailure:failure,freshFound:false));return
+                }
+                let getID=unsafeBitCast(symbol,to:GetID.self)
+                let fresh=(axValue(app,kAXWindowsAttribute) as? [AXUIElement])?.first {candidate in
+                    var id:UInt32=0;var pid:pid_t=0
+                    return AXUIElementGetPid(candidate,&pid) == .success && pid==request.pid && getID(candidate,&id)==0 && id==request.id
+                }
+                let value=fresh.flatMap{verified(Self.inspectAccessibilityWindow($0,messagingTimeout:0.3))}
+                continuation.resume(returning:AccessibilityReadResult(snapshot:value,cachedFailure:failure,freshFound:fresh != nil))
+            }
+        }
+        guard !Task.isCancelled else{return nil}
+        if !result.cachedFailure.isEmpty || result.snapshot==nil {
+            recordWindowDiagnostic("window-refresh-result.json",["executor":"serial-worker","windowID":window.id,"pid":window.pid,
+                "bundle":window.bundleID,"cachedFailure":result.cachedFailure,"freshIdentityFound":result.freshFound,"eligibilityConfirmed":result.snapshot != nil])
+        }
+        guard let value=result.snapshot,let frame=Self.windowServerFrame(id:value.id,pid:value.pid),
+              NSRunningApplication(processIdentifier:value.pid)?.bundleIdentifier==value.bundle else{return nil}
+        return LiveWindow(id:value.id,target:.accessibility(value.element),pid:value.pid,bundleID:value.bundle,appName:value.appName,
+                          title:window.title,frame:frame,spaceIDs:spaces(for:value.id),minimized:false)
+    }
+    func currentFrame(_ window: LiveWindow) -> CGRect? { Self.windowServerFrame(id: window.id, pid: window.pid) }
+    private static func windowServerFrame(id: UInt32, pid: pid_t) -> CGRect? {
         let windows = CGWindowListCopyWindowInfo(.optionIncludingWindow, id) as? [[String: Any]] ?? []
         guard let info = windows.first(where: { ($0[kCGWindowNumber as String] as? UInt32) == id && ($0[kCGWindowOwnerPID as String] as? Int32) == pid }),
               info[kCGWindowLayer as String] as? Int == 0,
               let bounds = info[kCGWindowBounds as String] as? [String: Any],
               let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary), PaneGeometry.valid(frame) else { return nil }
         return frame
+    }
+    /// Keep synchronous cross-process AX messaging off the app's event loop. A
+    /// display/Space transfer can invalidate an old AX reference; reacquire by
+    /// window ID, never by title or whichever window happens to have focus.
+    @MainActor func accessibilityWrite(_ window: LiveWindow, _ operation: AccessibilityWindowWrite) async -> AXError {
+        guard case .accessibility(let fallback) = window.target else { return .illegalArgument }
+        let request=AccessibilityWriteRequest(id:window.id,pid:window.pid,fallback:fallback,operation:operation)
+        return await withTaskCancellationHandler(operation: { await withCheckedContinuation { continuation in
+            Self.accessibilityWrites.async {
+                guard !request.isCancelled else {continuation.resume(returning:.failure);return}
+                guard Self.windowServerFrame(id: request.id, pid: request.pid) != nil else {
+                    continuation.resume(returning: .invalidUIElement); return
+                }
+                let app = AXUIElementCreateApplication(request.pid)
+                AXUIElementSetMessagingTimeout(app, 0.5)
+                typealias GetID = @convention(c)(AXUIElement, UnsafeMutablePointer<UInt32>) -> Int32
+                guard let symbol = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else {
+                    continuation.resume(returning: .notImplemented); return
+                }
+                let getID = unsafeBitCast(symbol, to: GetID.self)
+                func matches(_ element: AXUIElement) -> Bool {
+                    AXUIElementSetMessagingTimeout(element, 0.5)
+                    var id: UInt32 = 0; var pid: pid_t = 0
+                    return AXUIElementGetPid(element, &pid) == .success && pid == request.pid &&
+                        getID(element, &id) == 0 && id == request.id
+                }
+                let fresh = (axValue(app, kAXWindowsAttribute) as? [AXUIElement])?.first(where: matches)
+                // AXWindows can omit inactive-Space windows. A retained reference
+                // is usable only while both AX and WindowServer identities agree.
+                guard let element = fresh ?? (matches(request.fallback) ? request.fallback : nil) else {
+                    continuation.resume(returning: .invalidUIElement); return
+                }
+                guard !request.isCancelled else {continuation.resume(returning:.failure);return}
+                AXUIElementSetMessagingTimeout(element, 0.5)
+                let result = request.operation.apply(to:element)
+                AXUIElementSetMessagingTimeout(element, 0.1)
+                continuation.resume(returning: result)
+            }
+        } }, onCancel: {request.cancel()})
+    }
+    func recordWindowDiagnostic(_ name: String, _ detail: [String: Any]) {
+        guard includeExternal, let data = try? JSONSerialization.data(withJSONObject: detail, options: [.prettyPrinted, .sortedKeys]) else { return }
+        let directory = diagnosticsDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DeskNames")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? data.write(to: directory.appendingPathComponent(name), options: .atomic)
     }
     @MainActor func windows()->[LiveWindow] {
         guard trusted else{knownWindows=[:];return []}
@@ -199,7 +356,7 @@ final class NativeWindows {
     @MainActor func setFrame(_ rect:CGRect,window:LiveWindow) async throws {
         guard trusted else{throw WindowIssue("Enable Accessibility for DeskNames to move windows.")}
         try Task.checkCancellation()
-        let element: AXUIElement
+        guard PaneGeometry.valid(rect) else{throw WindowIssue("Could not prepare window coordinates.")}
         switch window.target {
         case .local(let local):
             guard let current = localSnapshot(local), current.id == window.id else { throw WindowIssue("The window closed before it could move.") }
@@ -208,39 +365,47 @@ final class NativeWindows {
             let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
             local.setFrame(CGRect(x: rect.minX, y: primaryTop - rect.maxY, width: rect.width, height: rect.height), display: true)
             return
-        case .accessibility(let target): element = target
+        case .accessibility: break
         }
-        var p=rect.origin;var size=rect.size
-        guard let pv=AXValueCreate(.cgPoint,&p),let sv=AXValueCreate(.cgSize,&size) else{throw WindowIssue("Could not prepare window coordinates.")}
-        if window.minimized {_=AXUIElementSetAttributeValue(element,kAXMinimizedAttribute as CFString,kCFBooleanFalse)}
+        if window.minimized { _ = await accessibilityWrite(window,.minimized(false)) }
         // AX success means the request was accepted. AppKit may apply it asynchronously;
         // wait between requests so a resize cannot overwrite a later position update.
-        for _ in 0..<3 {
+        for attempt in 0..<3 {
             try Task.checkCancellation()
+            guard identityExists(window) else { throw WindowIssue("The window closed before it could move.") }
             if verifyFrame(rect,window:window) {return}
-            _=AXUIElementSetAttributeValue(element,kAXPositionAttribute as CFString,pv)
+            let firstPosition = await accessibilityWrite(window,.position(rect.origin))
             await Self.pause(0.12)
             try Task.checkCancellation()
-            let se=AXUIElementSetAttributeValue(element,kAXSizeAttribute as CFString,sv)
+            if verifyFrame(rect,window:window) {return}
+            let se = await accessibilityWrite(window,.size(rect.size))
             await Self.pause(0.15)
             try Task.checkCancellation()
-            let pe=AXUIElementSetAttributeValue(element,kAXPositionAttribute as CFString,pv)
+            if verifyFrame(rect,window:window) {return}
+            let pe = await accessibilityWrite(window,.position(rect.origin))
             await Self.pause(0.15)
             try Task.checkCancellation()
             if verifyFrame(rect,window:window) { return }
+            // A messaging failure does not establish that the operation failed.
+            // Verify through WindowServer, then retry with a fresh AX reference.
+            let errors = [firstPosition, se, pe]
+            if attempt < 2, errors.allSatisfy({ $0 == .success || $0 == .cannotComplete || $0 == .invalidUIElement }) {
+                await Self.pause(0.2)
+                continue
+            }
             guard pe == .success,se == .success else {
-                let detail:[String:Any] = ["positionError":pe.rawValue,"sizeError":se.rawValue,"windowID":window.id,"pid":window.pid,"bundle":window.bundleID,"trusted":trusted,"actual":actualFrame(window).map { ["x":$0.minX,"y":$0.minY,"width":$0.width,"height":$0.height] } ?? [:]]
-                if let data=try? JSONSerialization.data(withJSONObject:detail,options:[.prettyPrinted,.sortedKeys]) {
-                    let path=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("DeskNames/window-operation-error.json")
-                    try? data.write(to:path,options:.atomic)
-                }
+                let detail:[String:Any] = ["positionError":pe.rawValue,"firstPositionError":firstPosition.rawValue,"sizeError":se.rawValue,"attempt":attempt+1,"windowID":window.id,"pid":window.pid,"bundle":window.bundleID,"trusted":trusted,"actual":actualFrame(window).map { ["x":$0.minX,"y":$0.minY,"width":$0.width,"height":$0.height] } ?? [:]]
+                recordWindowDiagnostic("window-operation-error.json", detail)
+                if errors.contains(.cannotComplete) { throw WindowIssue("Could not confirm a response from \(window.appName). Its window may have moved; refresh before trying again.") }
                 throw WindowIssue("\(window.appName) refused a window move or resize.")
             }
         }
     }
     @MainActor func actualFrame(_ window: LiveWindow) -> CGRect? {
         switch window.target {
-        case .accessibility(let element): return axRect(element)
+        // An AX reply can time out after applying a change. WindowServer is also
+        // the source used by discovery/capture and validates window ID and PID.
+        case .accessibility: return currentFrame(window)
         case .local(let local):
             guard local.isVisible, local.windowNumber == Int(window.id) else { return nil }
             let rect = local.frame, primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
@@ -413,12 +578,14 @@ final class NativeWindows {
             do {
                 await NativeWindows.pause(0.06)
                 try Task.checkCancellation()
+                let refreshed=await self.native.refreshedForOperation(window)
+                try Task.checkCancellation()
                 self.store.refresh()
                 guard !OverlayController.isMissionControlOpen(),
                       let desktop = self.store.desktops.first(where: { $0.id == desktopID && $0.isCurrent && !$0.isFullScreen }),
                       let screen = NSScreen.screens.first(where: { screenUUID($0) == displayID }),
                       screenArea(screen).contains(frame),
-                      let current = self.native.refreshed(window), current.spaceIDs.contains(desktop.spaceID),
+                      let current = refreshed, current.spaceIDs.contains(desktop.spaceID),
                       abs(current.frame.width - window.frame.width) <= 2, abs(current.frame.height - window.frame.height) <= 2 else {
                     completion("Window or desktop changed. Try dragging again.", false)
                     return "Window or desktop changed. Nothing was snapped."
@@ -508,13 +675,17 @@ final class NativeWindows {
                 try await native.setFrame(frame,window:w)
                 if native.verifyFrame(frame,window:w) {
                     restored+=1;if !exact || screen.id != saved.displayID {adapted+=1}
-                    if let rank=saved.stackingIndex,topology.contains(where:{$0.id==destination.id && $0.isCurrent}) {ordered.append((rank,w))}
                 } else {limited+=1}
             } catch {limited+=1}
+            // An app's minimum size can prevent exact geometry without preventing
+            // overlap restoration. Keep every surviving window on its destination.
+            if let rank=saved.stackingIndex,native.identityExists(w),native.spaces(for:w.id)==[destination.spaceID],
+               topology.contains(where:{$0.id==destination.id && $0.isCurrent}) {ordered.append((rank,w))}
         }
         var orderMessage=""
         if !automatic,!ordered.isEmpty {
             let success=await native.restoreOrder(ordered.sorted{$0.0<$1.0}.map(\.1),reader:store.reader)
+            try Task.checkCancellation()
             orderMessage=success ? " Overlap order restored." : " Window order could not be fully restored."
         }
         return "Restored \(restored) windows.\(adapted>0 ? " \(adapted) adapted to the current screen/model.":"")\(limited>0 ? " \(limited) apps constrained their placement.":"")\(unavailable>0 ? " \(unavailable) skipped: saved screen/desktop unavailable or ambiguous.":"")\(skipped>0 ? " \(skipped) missing, ambiguous or on another desktop.":"")"+orderMessage
