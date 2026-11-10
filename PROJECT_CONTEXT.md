@@ -6,7 +6,7 @@ Status reviewed on November 10, 2026.
 
 DeskNames is a local macOS productivity utility that combines desktop names with window arrangement tools. The original goal was to name virtual desktops. The project expanded into saved layouts, snapping, keyboard controls, and background routing for new windows.
 
-The current product is version 0.5.0, build 25. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
+The current product is version 0.5.0, build 26. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
 
 ## Repository and working copy
 
@@ -103,3 +103,10 @@ External writes are serialized per application instead of globally. Unchanged di
 All five test modes passed. The final installed executable SHA-256 is `211156a04bed308fc5f071d63000fe358df0b568d602f38fad204a31c9db6cea`. Live TextEdit thirds, fourth column and corner commands matched their target exactly, without compatibility retries. Physical monitor coverage remains one 5120×1409-point work area at scale 1, reporting 144 Hz. See COMMAND_DRAG_REVIEW.md for measurements and limits. User-approved Code spacing is 0 points; other runtime preferences and saved layouts were preserved. Linked resizing remains opt-in and was tested in isolated native fixtures.
 
 The user subsequently tested physical Command-drag on the installed build and confirmed that it fills correctly and feels better.
+
+
+## Control panel — build 26
+
+The existing shortcut action 100 now opens a DeskNames control panel with Pane layouts and Desktops tabs. Existing shortcut bindings are retained; the suggestion for a new installation is Control–Option–Command–Space to avoid Finder. All seven layouts are illustrated, searchable, and selectable by click or arrows/Return. The panel captures the active desktop before activating DeskNames, shows its name and current layout, and rechecks the desktop identity/current status before saving. Changing a preset preserves spacing; selecting the current preset preserves custom dividers. It honors explicitly shared monitor presets and labels that scope. It changes pane guides, not existing window positions. Escape restores previous-app focus; Settings opens the full editor. Desktop switching remains available in its own tab.
+
+Build 26 validation: build/signature checks and `--self-test` passed on the final executable; `--movement-session-test` passed with the new popup preset-selection tests before the final height-only adjustment. Those tests cover all seven choices, preserved spacing/custom dividers, another desktop left unchanged, and stale/busy target refusal. Live UI checks verified arrow/Return selection of Four columns, reopening with the saved choice, search/Return restoring Three columns, desktop-tab search with no-result Return, and Escape dismissal. The final popup visibly fits all seven cards. Existing Accessibility approval was renewed after installation. Runtime preferences compare unchanged after the temporary selection test, and saved layout bytes are unchanged. Physical global-shortcut confirmation for this build is pending; automated shortcut injection did not open the panel. Installed executable SHA-256: `100a1b37f1ce9d7d5cae273482193494677a889645b62ffcfcc385cbb0c0b94c`.

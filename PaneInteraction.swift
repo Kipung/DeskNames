@@ -90,6 +90,19 @@ enum PaneShortcut {
 }
 
 extension LayoutController {
+    @discardableResult func choosePanePreset(_ preset: PanePreset, for desktop: Desktop) -> Bool {
+        guard !busy else { message = "Finish the window operation before changing pane layouts."; return false }
+        store.refresh()
+        guard !desktop.id.isEmpty, store.desktops.contains(where: {
+            $0.id == desktop.id && $0.display == desktop.display && $0.isCurrent && !$0.isFullScreen
+        }) else { message = "The desktop changed. Reopen the control panel and try again."; return false }
+        let config = paneConfiguration(for: desktop.id)
+        if config.preset != preset {
+            setPaneConfiguration(PaneConfiguration(preset: preset, gap: config.gap), for: desktop)
+        }
+        message = "Pane layout: \(preset.name)."
+        return true
+    }
     func setPaneConfiguration(_ config: PaneConfiguration, for desktop: Desktop) {
         if let display = ConnectedDisplay.all().first(where: { $0.id == desktop.display }),
            monitorPresets.values[display.profile.model]?.enabled == true {

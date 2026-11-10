@@ -79,26 +79,155 @@ struct LayoutView:View {
 }
 extension Array where Element:Hashable {func uniqued()->[Element] {var seen=Set<Element>();return filter{seen.insert($0).inserted}}}
 
-struct SwitcherView:View {
-    @ObservedObject var store:Store
-    let choose:(Desktop)->Void
-    let close:()->Void
-    @State private var search=""
-    @State private var index=0
-    @FocusState private var focused:Bool
-    var filtered:[Desktop] {store.desktops.filter{search.isEmpty || store.name($0).localizedCaseInsensitiveContains(search) || String($0.number)==search}}
-    var body:some View {
-        VStack(alignment:.leading,spacing:14) {
-            HStack {Image(systemName:"magnifyingglass");TextField("Jump to a desktop…",text:$search).textFieldStyle(.plain).focused($focused).onSubmit{select()};Text("esc").font(.caption).foregroundStyle(.secondary)}.font(.system(size:20)).padding(8)
-            Divider()
-            if filtered.isEmpty {Text("No matching desktops").foregroundStyle(.secondary).padding()}
-            ForEach(Array(filtered.enumerated()),id:\.element.id) {i,d in
-                Button {choose(d)} label:{HStack {Image(systemName:icons[store.style(d).color]).foregroundStyle(palette[store.style(d).color]).frame(width:24);Text(store.name(d));Spacer();if d.isCurrent {Text("Current").font(.caption).foregroundStyle(.secondary)};Text("\(d.number)").monospacedDigit().foregroundStyle(.secondary)}.padding(12).background(index==i ? Color.white.opacity(0.08):.clear,in:RoundedRectangle(cornerRadius:8))}.buttonStyle(.plain)
-            }
-        }.padding(20).frame(width:460).background(Color(red:0.09,green:0.11,blue:0.135)).preferredColorScheme(.dark)
-        .onAppear{focused=true}.onChange(of:search){index=0}
-        .onMoveCommand {direction in if direction == .down {index=max(0,min(index+1,filtered.count-1))};if direction == .up {index=max(0,index-1)}}
-        .onExitCommand{close()}
+struct SwitcherView: View {
+    @ObservedObject var store: Store
+    @ObservedObject var workspace: LayoutController
+    @ObservedObject var preferences: PanePreferences
+    @ObservedObject var models: MonitorPresets
+    let desktop: Desktop?
+    let choose: (Desktop) -> Void
+    let close: () -> Void
+    let openSettings: () -> Void
+    @State private var search = ""
+    @State private var index = 0
+    @State private var section = 0
+    @State private var error = ""
+    @FocusState private var focused: Bool
+
+    private var presets: [PanePreset] {
+        PanePreset.allCases.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) }
     }
-    func select(){if filtered.indices.contains(index){choose(filtered[index])}}
+    private var desktops: [Desktop] {
+        store.desktops.filter { search.isEmpty || store.name($0).localizedCaseInsensitiveContains(search) || String($0.number) == search }
+    }
+    private var config: PaneConfiguration { workspace.paneConfiguration(for: desktop?.id ?? "") }
+    private var available: Bool {
+        guard let desktop else { return false }
+        return !workspace.busy && !desktop.id.isEmpty && store.desktops.contains {
+            $0.id == desktop.id && $0.display == desktop.display && $0.isCurrent && !$0.isFullScreen
+        }
+    }
+    private var shared: Bool {
+        guard let desktop else { return false }
+        return models.configuration(on: desktop.display) != nil
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "rectangle.3.group.fill").foregroundStyle(palette[0])
+                Text("DeskNames").font(.system(size: 17, weight: .semibold))
+                Spacer()
+                Button("Settings", action: openSettings).buttonStyle(.plain).foregroundStyle(.secondary)
+                Button(action: close) { Image(systemName: "xmark").padding(6) }
+                    .buttonStyle(.plain).accessibilityLabel("Close control panel")
+            }
+            Picker("Show", selection: $section) {
+                Text("Pane layouts").tag(0)
+                Text("Desktops").tag(1)
+            }.pickerStyle(.segmented).labelsHidden()
+            HStack(spacing: 9) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField(section == 0 ? "Find a pane layout…" : "Jump to a desktop…", text: $search)
+                    .textFieldStyle(.plain).focused($focused).onSubmit { select() }
+            }.font(.system(size: 16)).padding(12)
+                .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+            if section == 0 {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(desktop.map { "Layout for " + store.name($0) } ?? "No ordinary desktop available")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(shared ? "Shared with matching monitors" : "Current desktop")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(config.preset.name).font(.caption).foregroundStyle(palette[0])
+                }
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                        ForEach(Array(presets.enumerated()), id: \.element.id) { i, preset in
+                            presetButton(preset, at: i)
+                        }
+                    }.padding(2)
+                    if presets.isEmpty { Text("No matching layouts").foregroundStyle(.secondary).padding() }
+                }
+                .disabled(!available)
+                if !available {
+                    Text(workspace.busy ? "Finish the window operation to choose a layout." : "Open this panel on an ordinary desktop to choose its layout.")
+                        .font(.caption).foregroundStyle(.orange)
+                } else {
+                    Text("Choose guides for Command-drag. Existing windows stay in place.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 5) {
+                            ForEach(Array(desktops.enumerated()), id: \.element.id) { i, d in
+                                Button { choose(d) } label: {
+                                    HStack {
+                                        Image(systemName: icons[store.style(d).color]).foregroundStyle(palette[store.style(d).color]).frame(width: 24)
+                                        Text(store.name(d))
+                                        Spacer()
+                                        if d.isCurrent { Text("Current").font(.caption).foregroundStyle(.secondary) }
+                                        Text("\(d.number)").monospacedDigit().foregroundStyle(.secondary)
+                                    }.padding(12).background(index == i ? Color.white.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                }.buttonStyle(.plain).id(i)
+                            }
+                            if desktops.isEmpty { Text("No matching desktops").foregroundStyle(.secondary).padding() }
+                        }
+                    }.onChange(of: index) { proxy.scrollTo(index) }
+                }
+            }
+            if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.orange) }
+            Divider()
+            HStack {
+                Text("↑ ↓ ← →  Browse    ↩  Choose").font(.caption)
+                Spacer()
+                Text("esc  Close").font(.caption)
+            }.foregroundStyle(.secondary)
+        }
+        .padding(20).frame(width: 560, height: 620)
+        .background(Color(red: 0.09, green: 0.11, blue: 0.135)).preferredColorScheme(.dark)
+        .onAppear { focused = true; index = presets.firstIndex(of: config.preset) ?? 0 }
+        .onChange(of: search) { index = 0; error = "" }
+        .onChange(of: section) { search = ""; index = 0; error = ""; focused = true }
+        .onKeyPress(.downArrow) { move(section == 0 ? 3 : 1); return .handled }
+        .onKeyPress(.upArrow) { move(section == 0 ? -3 : -1); return .handled }
+        .onKeyPress(.rightArrow) { if section == 0 && search.isEmpty { move(1); return .handled }; return .ignored }
+        .onKeyPress(.leftArrow) { if section == 0 && search.isEmpty { move(-1); return .handled }; return .ignored }
+        .onExitCommand(perform: close)
+    }
+
+    private func presetButton(_ preset: PanePreset, at i: Int) -> some View {
+        Button { apply(preset) } label: {
+            VStack(alignment: .leading, spacing: 9) {
+                PaneDiagram(configuration: PaneConfiguration(preset: preset, gap: 6), compact: true, hovered: nil, onHover: nil)
+                    .frame(height: 48).accessibilityHidden(true)
+                HStack {
+                    Text(preset.name).font(.system(size: 11, weight: .medium))
+                    Spacer(minLength: 0)
+                    if config.preset == preset { Image(systemName: "checkmark.circle.fill").foregroundStyle(palette[0]) }
+                }
+            }.padding(11)
+                .background(index == i ? palette[0].opacity(0.15) : .white.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(index == i ? palette[0] : .white.opacity(0.1), lineWidth: 1))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityLabel(preset.name + " pane layout")
+            .accessibilityValue(config.preset == preset ? "Current layout" : "")
+    }
+    private func move(_ offset: Int) {
+        let count = section == 0 ? presets.count : desktops.count
+        index = max(0, min(index + offset, count - 1))
+    }
+    private func select() {
+        if section == 0, presets.indices.contains(index) { apply(presets[index]) }
+        if section == 1, desktops.indices.contains(index) { choose(desktops[index]) }
+    }
+    private func apply(_ preset: PanePreset) {
+        guard let desktop, workspace.choosePanePreset(preset, for: desktop) else {
+            error = workspace.message; return
+        }
+        close()
+    }
 }

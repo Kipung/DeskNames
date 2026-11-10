@@ -160,7 +160,7 @@ struct MainView: View {
     }
     var desktopsView: some View {
         VStack(alignment:.leading,spacing:16) {
-            HStack { Text("YOUR DESKTOPS").tracking(1.6); Spacer(); Button("Quick switcher") {workspace.showSwitcher?()}; Text("Click a name to edit") }.font(.system(size:10,weight:.medium)).foregroundStyle(.white.opacity(0.4))
+            HStack { Text("YOUR DESKTOPS").tracking(1.6); Spacer(); Button("Control panel") {workspace.showSwitcher?()}; Text("Click a name to edit") }.font(.system(size:10,weight:.medium)).foregroundStyle(.white.opacity(0.4))
             ScrollView {
                 VStack(spacing:8) {
                     ForEach(store.desktops) { d in
@@ -347,6 +347,7 @@ final class LabelPanel: NSPanel {
     var linkedPanes:LinkedPaneController!
     let shortcuts=ShortcutSettings()
     var switcher:NSPanel?
+    private var switcherPreviousApp: NSRunningApplication?
     func applicationDidFinishLaunching(_ notification:Notification) {
         NSApp.setActivationPolicy(.accessory)
         let menu=NSMenu(); let appMenuItem=NSMenuItem(); let appMenu=NSMenu()
@@ -401,11 +402,28 @@ final class LabelPanel: NSPanel {
         else if let d=workspace.native.activeDesktop(reader:store.reader) { workspace.targetDesktop=d.id; if id==101 {workspace.save(d)};if id==102 {workspace.selectedLayoutID="";workspace.restore()} }
     }
     func showSwitcher() {
-        if switcher?.isVisible==true {switcher?.orderOut(nil);return}
-        let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:460,height:420),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
-        panel.title="Desktop switcher";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
-        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,choose:{ [weak self] d in self?.workspace.switchTo(d)},close:{[weak self] in self?.switcher?.orderOut(nil)}))
-        panel.center();switcher=panel;NSApp.activate(ignoringOtherApps:true);panel.makeKeyAndOrderFront(nil)
+        if switcher?.isVisible==true {closeSwitcher();return}
+        store.refresh()
+        let desktop = workspace.native.activeDesktop(reader: store.reader)
+        switcherPreviousApp = NSWorkspace.shared.frontmostApplication
+        let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:620),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
+        panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
+        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,
+            choose:{ [weak self] d in self?.workspace.switchTo(d) },
+            close:{ [weak self] in self?.closeSwitcher() },
+            openSettings:{ [weak self] in self?.switcher?.orderOut(nil);self?.showWindow() }))
+        if let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop?.display }) {
+            let area = screen.visibleFrame
+            panel.setFrameOrigin(CGPoint(x: area.midX-panel.frame.width/2, y: area.midY-panel.frame.height/2))
+        } else { panel.center() }
+        switcher=panel;NSApp.activate(ignoringOtherApps:true);panel.makeKeyAndOrderFront(nil)
+    }
+    private func closeSwitcher() {
+        switcher?.orderOut(nil)
+        if let previous = switcherPreviousApp, previous.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            previous.activate(options: [])
+        }
+        switcherPreviousApp = nil
     }
     func updateStatus() { item?.button?.title="  "+store.desktops.filter(\.isCurrent).map{store.name($0)}.joined(separator:" · ") }
     @objc func showWindow() { NSApp.activate(ignoringOtherApps:true);window?.makeKeyAndOrderFront(nil) }

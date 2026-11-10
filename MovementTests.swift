@@ -62,8 +62,26 @@ import AppKit
     let native = NativeWindows(trustCheck: { true }, includeExternal: false)
     let store = Store(defaults: defaults), workspace: LayoutController
     workspace = LayoutController(store: store, file: file, native: native)
+    guard let current = store.desktops.first(where: { $0.isCurrent && !$0.isFullScreen && !$0.id.isEmpty }) else {
+        throw WindowIssue("A stable ordinary desktop is required for the control panel test.")
+    }
+    let customized = PaneConfiguration(preset: .thirds, gap: 0, splitPositions: ["x1": 0.3, "x2": 0.7])
+    workspace.panes.set(customized, for: current.id)
+    workspace.panes.set(PaneConfiguration(preset: .rows, gap: 18), for: "other-desktop-fixture")
+    precondition(workspace.choosePanePreset(.thirds, for: current))
+    precondition(workspace.paneConfiguration(for: current.id) == customized, "Rechoosing the current preset must retain custom dividers")
+    for preset in PanePreset.allCases {
+        precondition(workspace.choosePanePreset(preset, for: current))
+        let actual = workspace.paneConfiguration(for: current.id)
+        precondition(actual.preset == preset && actual.gap == 0, "The popup must select every preset without changing spacing")
+    }
+    precondition(workspace.panes.configuration(for: "other-desktop-fixture") == PaneConfiguration(preset: .rows, gap: 18))
+    let stale = Desktop(id: "stale-desktop-fixture", spaceID: 0, display: current.display, position: 0, number: 1, isCurrent: true, isFullScreen: false)
+    precondition(!workspace.choosePanePreset(.halves, for: stale), "A stale panel must not change another desktop")
+    print("PASS: control panel selects all presets, preserves spacing and unchanged custom dividers, isolates desktops and refuses stale targets")
     var ran: [Int] = []
     workspace.run(interruptible: true) { ran.append(0); try await Task.sleep(nanoseconds: 500_000_000); return "old" }
+    precondition(!workspace.choosePanePreset(.halves, for: current), "The control panel must refuse a competing operation")
     await NativeWindows.pause(0.02)
     let original = workspace.operationTask
     workspace.run(interruptible: true) { ran.append(1); return "obsolete" }

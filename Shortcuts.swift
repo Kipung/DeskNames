@@ -27,7 +27,7 @@ struct ShortcutAction: Identifiable {
     let id: UInt32
     let name: String
     let suggested: ShortcutBinding
-    static let all: [ShortcutAction] = [ShortcutAction(id:100,name:"Desktop switcher",suggested:ShortcutBinding(key:49,modifiers:UInt32(cmdKey|optionKey)))] + zip(1...9,[18,19,20,21,23,22,26,28,25]).map { ShortcutAction(id:UInt32($0.0),name:"Go to desktop \($0.0)",suggested:ShortcutBinding(key:UInt32($0.1),modifiers:UInt32(controlKey|optionKey))) } + [ShortcutAction(id:101,name:"Save active layout",suggested:ShortcutBinding(key:1,modifiers:UInt32(controlKey|optionKey))),ShortcutAction(id:102,name:"Restore active layout",suggested:ShortcutBinding(key:15,modifiers:UInt32(controlKey|optionKey)))] + WindowAction.allCases.map { ShortcutAction(id:$0.id,name:$0.name,suggested:$0.suggestion) } + PaneShortcut.all
+    static let all: [ShortcutAction] = [ShortcutAction(id:100,name:"DeskNames control panel",suggested:ShortcutBinding(key:49,modifiers:UInt32(controlKey|cmdKey|optionKey)))] + zip(1...9,[18,19,20,21,23,22,26,28,25]).map { ShortcutAction(id:UInt32($0.0),name:"Go to desktop \($0.0)",suggested:ShortcutBinding(key:UInt32($0.1),modifiers:UInt32(controlKey|optionKey))) } + [ShortcutAction(id:101,name:"Save active layout",suggested:ShortcutBinding(key:1,modifiers:UInt32(controlKey|optionKey))),ShortcutAction(id:102,name:"Restore active layout",suggested:ShortcutBinding(key:15,modifiers:UInt32(controlKey|optionKey)))] + WindowAction.allCases.map { ShortcutAction(id:$0.id,name:$0.name,suggested:$0.suggestion) } + PaneShortcut.all
 }
 
 struct ShortcutKey: Identifiable {
