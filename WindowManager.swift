@@ -76,7 +76,16 @@ func screenFor(_ rect:CGRect)->NSScreen? {
 
 enum AccessibilityWindowWrite: Sendable {
     case position(CGPoint), size(CGSize), frame(CGRect), minimized(Bool), raise
-    func apply(to element: AXUIElement) -> AXError {
+    static func frameSteps(to target: CGRect, from current: CGRect?) -> [Self] {
+        guard let current else { return [.position(target.origin), .size(target.size)] }
+        let movingSize = CGSize(width: min(current.width, target.width), height: min(current.height, target.height))
+        var steps: [Self] = []
+        if movingSize != current.size { steps.append(.size(movingSize)) }
+        if target.origin != current.origin { steps.append(.position(target.origin)) }
+        if target.size != movingSize { steps.append(.size(target.size)) }
+        return steps
+    }
+    func apply(to element: AXUIElement, currentFrame: CGRect? = nil) -> AXError {
         switch self {
         case .position(var point):
             guard let value=AXValueCreate(.cgPoint,&point) else{return .illegalArgument}
@@ -85,9 +94,12 @@ enum AccessibilityWindowWrite: Sendable {
             guard let value=AXValueCreate(.cgSize,&size) else{return .illegalArgument}
             return AXUIElementSetAttributeValue(element,kAXSizeAttribute as CFString,value)
         case .frame(let rect):
-            let sizeResult = AccessibilityWindowWrite.size(rect.size).apply(to: element)
-            let positionResult = AccessibilityWindowWrite.position(rect.origin).apply(to: element)
-            return sizeResult == .success ? positionResult : sizeResult
+            var result = AXError.success
+            for step in Self.frameSteps(to: rect, from: currentFrame) {
+                let error = step.apply(to: element)
+                if result == .success { result = error }
+            }
+            return result
         case .minimized(let value):return AXUIElementSetAttributeValue(element,kAXMinimizedAttribute as CFString,value ? kCFBooleanTrue:kCFBooleanFalse)
         case .raise:return AXUIElementPerformAction(element,kAXRaiseAction as CFString)
         }
@@ -121,6 +133,18 @@ private struct AccessibilityReadResult: Sendable {
 
 final class NativeWindows {
     private static let accessibilityWrites = DispatchQueue(label: "local.desknames.accessibility-writes", qos: .userInitiated)
+    @MainActor private static var processQueues: [pid_t: DispatchQueue] = [:]
+    @MainActor private static func accessibilityQueue(for pid: pid_t) -> DispatchQueue {
+        if let queue = processQueues[pid] { return queue }
+        let queue = DispatchQueue(label: "local.desknames.accessibility.\(pid)", qos: .userInteractive)
+        processQueues[pid] = queue
+        return queue
+    }
+    private typealias GetWindowID = @convention(c) (AXUIElement, UnsafeMutablePointer<UInt32>) -> Int32
+    private static let windowIDFunction: GetWindowID? = {
+        guard let symbol = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else { return nil }
+        return unsafeBitCast(symbol, to: GetWindowID.self)
+    }()
     let handle=dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",RTLD_NOW)
     private var knownWindows:[UInt32:LiveWindow]=[:]
     private let trustCheck: () -> Bool
@@ -288,18 +312,16 @@ final class NativeWindows {
         guard case .accessibility(let fallback) = window.target else { return .illegalArgument }
         let request=AccessibilityWriteRequest(id:window.id,pid:window.pid,fallback:fallback,operation:operation)
         return await withTaskCancellationHandler(operation: { await withCheckedContinuation { continuation in
-            Self.accessibilityWrites.async {
+            Self.accessibilityQueue(for: window.pid).async {
                 guard !request.isCancelled else {continuation.resume(returning:.failure);return}
-                guard Self.windowServerFrame(id: request.id, pid: request.pid) != nil else {
+                guard let currentFrame = Self.windowServerFrame(id: request.id, pid: request.pid) else {
                     continuation.resume(returning: .invalidUIElement); return
                 }
                 let app = AXUIElementCreateApplication(request.pid)
                 AXUIElementSetMessagingTimeout(app, 0.5)
-                typealias GetID = @convention(c)(AXUIElement, UnsafeMutablePointer<UInt32>) -> Int32
-                guard let symbol = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else {
+                guard let getID = Self.windowIDFunction else {
                     continuation.resume(returning: .notImplemented); return
                 }
-                let getID = unsafeBitCast(symbol, to: GetID.self)
                 func matches(_ element: AXUIElement) -> Bool {
                     AXUIElementSetMessagingTimeout(element, 0.5)
                     var id: UInt32 = 0; var pid: pid_t = 0
@@ -315,7 +337,7 @@ final class NativeWindows {
                 }
                 guard !request.isCancelled else {continuation.resume(returning:.failure);return}
                 AXUIElementSetMessagingTimeout(element, 0.5)
-                let result = request.operation.apply(to:element)
+                let result = request.operation.apply(to:element, currentFrame: currentFrame)
                 AXUIElementSetMessagingTimeout(element, 0.1)
                 continuation.resume(returning: result)
             }
@@ -649,10 +671,6 @@ final class NativeWindows {
             } else { refresh() }
             births.reset(); drainDesktopRequest()
         }
-    }
-    func interruptPlacementForPointer() {
-        guard canRetargetPlacement else { return }
-        queuedPlacement = nil; operationTask?.cancel()
     }
     func cancel() { queuedPlacement = nil; queuedDesktop = nil; operationTask?.cancel(); pending?.cancel(); endUserWindowDrag() }
     func beginUserWindowDrag() -> Bool {

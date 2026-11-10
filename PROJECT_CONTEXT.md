@@ -6,7 +6,7 @@ Status reviewed on November 10, 2026.
 
 DeskNames is a local macOS productivity utility that combines desktop names with window arrangement tools. The original goal was to name virtual desktops. The project expanded into saved layouts, snapping, keyboard controls, and background routing for new windows.
 
-The current product is version 0.5.0, build 24. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
+The current product is version 0.5.0, build 25. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
 
 ## Repository and working copy
 
@@ -92,3 +92,12 @@ Direct halves/thirds/fourths/quarters and Command-drag now share monitor work-ar
 Linked handles are reused between scans and detect aligned standard shortcut layouts as well as the active guide. Linked writes are batched and paced against display deadlines. Active-preset divider changes persist; inferred layouts retain adjusted ratios for the current session without changing the chosen guide. The opt-in linked-resizing setting and existing shortcut bindings are preserved.
 
 `--movement-session-test` adds native cancellation/retargeting/restore-history and shared-divider coverage. See SMOOTH_MOVEMENT_REPORT.md for measured external-app results and hardware limits.
+
+
+## Command-drag and motion correction — build 25
+
+The build 24 report established final bounds, not consistently smooth animation. A read-only Claude Code review using `claude-opus-5-5`, authorized by the user for project source/documentation, identified stale overlay state, mouse-up target lag, unrelated clicks cancelling placement, and serialized external-app writes. Build 25 clears hidden overlay state, isolates highlight animation from geometry, fixes the hosting frame, updates hover from pointer events, resolves the final mouse-up position, and lets unrelated clicks leave a placement running. New drags can be admitted after an existing placement finishes.
+
+External writes are serialized per application instead of globally. Unchanged dimensions are skipped. Windows shrink before moving and grow afterward; live TextEdit testing reproduced a 73-point height shortfall from the old size-first order. The final build eliminated that correction pass. Transitions use smoothstep easing, finish directly when frame writes exceed two display intervals, and give receiving apps up to 120 ms to settle before compatibility retry. This does not establish smooth resizing in every third-party app.
+
+All five test modes passed. The final installed executable SHA-256 is `211156a04bed308fc5f071d63000fe358df0b568d602f38fad204a31c9db6cea`. Live TextEdit thirds, fourth column and corner commands matched their target exactly, without compatibility retries. Physical monitor coverage remains one 5120×1409-point work area at scale 1, reporting 144 Hz. See COMMAND_DRAG_REVIEW.md for measurements and limits. User-approved Code spacing is 0 points; other runtime preferences and saved layouts were preserved. Linked resizing remains opt-in and was tested in isolated native fixtures.

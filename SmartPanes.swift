@@ -48,6 +48,7 @@ private struct PaneOverlayHost: View {
     }
     private let workspace: LayoutController
     private var session: Session?
+    private var deferredPointerWindow: LiveWindow?
     private var monitor: Any?
     private var localMonitor: Any?
     private var timer: Timer?
@@ -126,6 +127,7 @@ private struct PaneOverlayHost: View {
     private func cancel() {
         if session != nil { trace("cancel") }
         session = nil
+        deferredPointerWindow = nil
         timer?.invalidate(); timer = nil
         workspace.endUserWindowDrag()
         hide()
@@ -136,6 +138,8 @@ private struct PaneOverlayHost: View {
         panel?.orderOut(nil)
         panel?.alphaValue = 1
         presentation = nil
+        var transaction = Transaction(); transaction.disablesAnimations = true
+        withTransaction(transaction) { overlayState.presentation = nil }
     }
 
     private func point(for event: NSEvent? = nil) -> CGPoint {
@@ -150,33 +154,62 @@ private struct PaneOverlayHost: View {
             return
         }
         if event.type == .leftMouseDown {
-            workspace.interruptPlacementForPointer()
             cancel()
             trace("down", ["enabled": workspace.panes.enabled, "trusted": workspace.native.trusted, "busy": workspace.busy,
                             "missionControl": workspace.store.missionControl, "nativeMissionControl": OverlayController.isMissionControlOpen(),
                             "x": point(for: event).x, "y": point(for: event).y, "command": event.modifierFlags.contains(.command)])
-            guard workspace.panes.enabled || workspace.panes.edgeSnapping, workspace.native.trusted, !workspace.busy,
+            guard workspace.panes.enabled || workspace.panes.edgeSnapping, workspace.native.trusted,
                   !workspace.store.missionControl, !OverlayController.isMissionControlOpen() else { return }
             let location = point(for: event)
             guard let window = workspace.native.window(at: location, localWindow: event.window, onFailure: { trace("no-window", ["reason": $0]) }) else { return }
             trace("captured", ["windowID": window.id, "pid": window.pid, "frame": rectDictionary(window.frame),
                                 "spaces": window.spaceIDs, "currentSpaces": workspace.store.desktops.filter(\.isCurrent).map(\.spaceID)])
-            guard workspace.store.desktops.contains(where: { $0.isCurrent && !$0.isFullScreen && window.spaceIDs.contains($0.spaceID) }),
-                  workspace.beginUserWindowDrag() else { trace("admission-refused"); return }
-            session = Session(window: window, screens: PaneScreen.current, desktops: workspace.store.desktops,
-                              evidence: PaneMoveEvidence(initialFrame: window.frame, initialPointer: point(), time: ProcessInfo.processInfo.systemUptime))
-            let timer = Timer(timeInterval: PaneScreen.current.first(where: { $0.area.contains(location) })?.frameInterval ?? 1.0/60, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.sample() }
+            if workspace.busy {
+                if workspace.canRetargetPlacement { deferredPointerWindow = window }
+                return
             }
-            self.timer = timer
-            RunLoop.main.add(timer, forMode: .common)
+            admit(window, at: location, time: event.timestamp)
             return
         }
-        if event.type == .leftMouseUp { release(at: point(for: event), command: event.modifierFlags.contains(.command)); return }
+        if event.type == .leftMouseUp { deferredPointerWindow = nil; release(at: point(for: event), command: event.modifierFlags.contains(.command)); return }
+        if event.type == .leftMouseDragged || (event.type == .flagsChanged && event.modifierFlags.contains(.command)) {
+            if event.type == .leftMouseDragged, !workspace.busy, let candidate = deferredPointerWindow {
+                deferredPointerWindow = nil
+                if let frame = workspace.native.currentFrame(candidate) {
+                    let current = LiveWindow(id: candidate.id, target: candidate.target, pid: candidate.pid, bundleID: candidate.bundleID,
+                                             appName: candidate.appName, title: candidate.title, frame: frame,
+                                             spaceIDs: workspace.native.spaces(for: candidate.id), minimized: false)
+                    admit(current, at: point(for: event), time: event.timestamp)
+                }
+            }
+            updatePresentation(at: point(for: event), command: event.modifierFlags.contains(.command))
+            return
+        }
         if event.type == .flagsChanged, !event.modifierFlags.contains(.command) {
             session?.presentation = nil
             hide()
         }
+    }
+
+    private func admit(_ window: LiveWindow, at location: CGPoint, time: TimeInterval) {
+        guard workspace.store.desktops.contains(where: { $0.isCurrent && !$0.isFullScreen && window.spaceIDs.contains($0.spaceID) }),
+              workspace.beginUserWindowDrag() else { trace("admission-refused"); return }
+        let screens = PaneScreen.current
+        session = Session(window: window, screens: screens, desktops: workspace.store.desktops,
+                          evidence: PaneMoveEvidence(initialFrame: window.frame, initialPointer: location, time: time))
+        let timer = Timer(timeInterval: screens.first(where: { $0.area.contains(location) })?.frameInterval ?? 1.0/60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sample() }
+        }
+        self.timer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func updatePresentation(at location: CGPoint, command: Bool) {
+        guard var current = session, current.evidence.moved,
+              workspace.hasUserWindowDrag, current.desktops == workspace.store.desktops else { return }
+        current.presentation = dragPresentation(at: location, screens: current.screens, command: command)
+        if let next = current.presentation { show(next) } else { hide() }
+        session = current
     }
 
     private func sample() {
@@ -226,7 +259,8 @@ private struct PaneOverlayHost: View {
         hide()
         guard current.evidence.moved, workspace.native.trusted,
               current.desktops == workspace.store.desktops, current.screens == PaneScreen.current,
-              let shown = current.presentation, let index = shown.hovered,
+              current.presentation != nil,
+              let shown = dragPresentation(at: location, screens: current.screens, command: command), let index = shown.hovered,
               shown.geometry.cells.indices.contains(index),
               (shown.edgeAction == nil ? command && workspace.panes.enabled && shown.geometry.cells[index].contains(location) : !command && workspace.panes.edgeSnapping && WindowAction.edge(at:location,bounds:shown.screen.bounds)==shown.edgeAction),
               workspace.paneConfiguration(for: shown.desktopID) == shown.configuration,
@@ -306,10 +340,18 @@ private struct PaneOverlayHost: View {
         presentation = next
         let panel = overlayPanel()
         if panel.frame != next.screen.panelFrame { panel.setFrame(next.screen.panelFrame, display: false) }
-        if overlayHost == nil { overlayHost = NSHostingView(rootView: PaneOverlayHost(state: overlayState)) }
-        overlayState.presentation = next
+        if overlayHost == nil {
+            overlayHost = NSHostingView(rootView: PaneOverlayHost(state: overlayState))
+            overlayHost?.sizingOptions = []
+        }
+        let opening = !panel.isVisible
+        var transaction = Transaction(); transaction.disablesAnimations = opening
+        withTransaction(transaction) { overlayState.presentation = next }
         if panel.contentView !== overlayHost { panel.contentView = overlayHost }
-        if !panel.isVisible {
+        overlayHost?.frame = CGRect(origin: .zero, size: next.screen.panelFrame.size)
+        if opening {
+            overlayHost?.layoutSubtreeIfNeeded()
+            overlayHost?.displayIfNeeded()
             panel.alphaValue = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 1 : 0
             panel.orderFrontRegardless()
             NSAnimationContext.runAnimationGroup { context in
@@ -348,14 +390,83 @@ private struct PaneOverlayHost: View {
         ["x": rect.minX, "y": rect.minY, "width": rect.width, "height": rect.height]
     }
 
-    private func trace(_ event: String, _ fields: [String: Any] = [:]) {
+    private func trace(_ event: String, _ fields: @autoclosure () -> [String: Any] = [:]) {
         guard workspace.store.defaults.bool(forKey: "paneDiagnosticsEnabled") else { return }
-        var entry = fields
+        var entry = fields()
         entry["event"] = event; entry["time"] = ProcessInfo.processInfo.systemUptime
         diagnosticEvents.append(entry)
         if diagnosticEvents.count > 150 { diagnosticEvents.removeFirst(diagnosticEvents.count - 150) }
         guard let data = try? JSONSerialization.data(withJSONObject: diagnosticEvents, options: [.prettyPrinted, .sortedKeys]) else { return }
         let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DeskNames/pane-events.json")
         diagnosticQueue.async { try? data.write(to: url, options: .atomic) }
+    }
+}
+
+
+extension SmartPaneController {
+    func verifyOverlayGeometryForTesting() async throws {
+        guard let screen = PaneScreen.current.first,
+              let next = makePresentation(at: CGPoint(x: screen.area.midX, y: screen.area.midY), screens: [screen], previewOnly: true) else {
+            throw WindowIssue("No pane preview is available for this test.")
+        }
+        defer { stop(); panel?.close() }
+        for afterResult in [false, true] {
+            if afterResult { showResult("Fixture placement", success: true, on: screen) }
+            show(next)
+            await NativeWindows.pause(0.2)
+            guard let panel, let overlayHost else { throw WindowIssue("Pane preview did not create its hosting view.") }
+            overlayHost.layoutSubtreeIfNeeded()
+            let expected = CGRect(origin: .zero, size: screen.panelFrame.size)
+            print("OVERLAY afterResult=\(afterResult) panel=\(panel.frame) host=\(overlayHost.frame) expected=\(screen.panelFrame)")
+            guard panel.frame == screen.panelFrame, overlayHost.frame == expected else {
+                throw WindowIssue("The visible pane preview differs from the placement coordinate space.")
+            }
+            hide()
+            precondition(overlayState.presentation == nil, "Hidden overlays must not retain a stale layout or highlight")
+        }
+        print("PASS: fresh and post-result overlay hosting frames match the detected work area")
+    }
+
+    func verifyUnrelatedClickForTesting() async throws {
+        let enabled = workspace.panes.enabled
+        workspace.panes.setEnabled(false)
+        defer { workspace.panes.setEnabled(enabled) }
+        workspace.run(interruptible: true) {
+            try await Task.sleep(nanoseconds: 80_000_000)
+            return "Placement survived unrelated click."
+        }
+        guard let event = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [],
+                                             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0,
+                                             context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else {
+            throw WindowIssue("Could not construct the local input fixture.")
+        }
+        receive(event)
+        await workspace.operationTask?.value
+        guard workspace.message == "Placement survived unrelated click." else { throw WindowIssue("An unrelated click cancelled the placement.") }
+        print("PASS: unrelated pointer clicks do not leave a placement half-finished")
+    }
+
+    func verifyLatestDropTargetForTesting(window: LiveWindow) async throws {
+        let screens = PaneScreen.current
+        guard let screen = screens.first, let desktop = desktop(on: screen) else { throw WindowIssue("Missing test desktop.") }
+        let config = workspace.paneConfiguration(for: desktop.id)
+        let geometry = PaneGeometry(area: screen.area, configuration: config, pixelScale: screen.pixelScale)
+        guard geometry.cells.count > 1 else { throw WindowIssue("Test requires two panes.") }
+        let oldPoint = CGPoint(x: geometry.cells[0].midX, y: geometry.cells[0].midY)
+        let releasePoint = CGPoint(x: geometry.cells[1].midX, y: geometry.cells[1].midY)
+        let now = ProcessInfo.processInfo.systemUptime
+        var evidence = PaneMoveEvidence(initialFrame: window.frame, initialPointer: oldPoint, time: now)
+        for i in 1...3 {
+            let offset = CGFloat(i*20)
+            evidence.observe(frame: window.frame.offsetBy(dx: offset, dy: 0), pointer: CGPoint(x: oldPoint.x+offset, y: oldPoint.y), time: now+Double(i)*0.04)
+        }
+        guard evidence.moved, workspace.beginUserWindowDrag() else { throw WindowIssue("Could not prepare the disposable drag session.") }
+        session = Session(window: window, screens: screens, desktops: workspace.store.desktops, evidence: evidence)
+        session?.presentation = makePresentation(at: oldPoint, screens: screens, previewOnly: false)
+        release(at: releasePoint, command: true)
+        await workspace.operationTask?.value
+        guard workspace.native.verifyFrame(geometry.cells[1], window: window) else { throw WindowIssue("Mouse-up used the stale pane instead of the latest pointer position.") }
+        stop(); panel?.close()
+        print("PASS: a mouse-up crossing panes resolves the latest pointer position")
     }
 }

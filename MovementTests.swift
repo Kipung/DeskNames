@@ -19,6 +19,23 @@ import AppKit
             }
         }
     }
+    let workArea = CGRect(x: 0, y: 31, width: 5120, height: 1409)
+    let frameCases = [
+        (CGRect(x: 692, y: 104, width: 603, height: 505), CGRect(x: 0, y: 31, width: 1707, height: 1409)),
+        (CGRect(x: 0, y: 31, width: 1707, height: 1409), CGRect(x: 3840, y: 31, width: 1280, height: 1409)),
+        (CGRect(x: 0, y: 31, width: 2560, height: 704), CGRect(x: 3840, y: 31, width: 1280, height: 1409))
+    ]
+    for (start, target) in frameCases {
+        var actual = start
+        for step in AccessibilityWindowWrite.frameSteps(to: target, from: start) {
+            switch step {
+            case .size(let size): actual.size = CGSize(width: min(size.width, workArea.maxX-actual.minX), height: min(size.height, workArea.maxY-actual.minY))
+            case .position(let point): actual.origin = CGPoint(x: min(point.x, workArea.maxX-actual.width), y: min(point.y, workArea.maxY-actual.height))
+            default: preconditionFailure("Unexpected frame operation")
+            }
+        }
+        precondition(actual == target, "Window bounds must not be clipped at the old location before moving")
+    }
     let custom = PaneConfiguration(preset: .thirds, gap: 12, splitPositions: ["x1": 0.3, "x2": 0.7])
     let grid = PaneGeometry(area: areas[0], configuration: custom)
     precondition(WindowAction.middleThird.frame(in: areas[0], current: areas[0], configuration: custom) == grid.cells[1])
@@ -29,6 +46,8 @@ import AppKit
             precondition(delay >= 0 && delay <= interval+0.000001, "Rendering work must not add a whole fixed delay")
         }
     }
+    precondition(WindowTransition.shouldFinishDirectly(writeDuration: 0.032, frameInterval: 1.0/144))
+    precondition(!WindowTransition.shouldFinishDirectly(writeDuration: 0.004, frameInterval: 1.0/144))
     let small = CGRect(x: 100, y: 100, width: 400, height: 400)
     precondition(WindowTransition.duration(from: small, to: small.offsetBy(dx: 10, dy: 0), in: areas[1]) < WindowTransition.duration(from: small, to: areas[1], in: areas[1]))
     print("PASS: shortcut/drag pixel agreement across landscape, portrait, Retina and translated displays; custom dividers; display-paced deadlines and distance-sensitive duration")
@@ -68,6 +87,9 @@ import AppKit
     guard let wa = native.localSnapshot(a), let wb = native.localSnapshot(b),
           let desktop = store.desktops.first(where: { $0.isCurrent && !$0.isFullScreen && $0.display == screenUUID(screen) }) else { throw WindowIssue("Fixture windows are unavailable.") }
     workspace.panes.set(PaneConfiguration(preset: .thirds, gap: 12), for: desktop.id)
+    try await SmartPaneController(workspace: workspace).verifyUnrelatedClickForTesting()
+    try await SmartPaneController(workspace: workspace).verifyOverlayGeometryForTesting()
+    try await SmartPaneController(workspace: workspace).verifyLatestDropTargetForTesting(window: wa)
     workspace.refresh(); workspace.selectedWindow = wa.id
     workspace.performWindowAction(.right)
     await NativeWindows.pause(0.04)

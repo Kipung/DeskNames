@@ -206,6 +206,7 @@ struct PaneOverlayView: View {
                                 .padding(.horizontal, 11).padding(.vertical, 5).background(.ultraThinMaterial, in: Capsule())
                         }
                     }
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.08), value: hovered)
                     .frame(width: rect.width, height: rect.height).position(x: rect.midX, y: rect.midY)
             }
             VStack {
@@ -223,7 +224,6 @@ struct PaneOverlayView: View {
                     .padding(.bottom, 22)
             }.frame(width: geometry.area.width, height: geometry.area.height)
         }.frame(width: geometry.area.width, height: geometry.area.height)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovered)
             .preferredColorScheme(.dark)
     }
 }

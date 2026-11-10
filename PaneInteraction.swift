@@ -138,7 +138,7 @@ extension LayoutController {
 struct WindowTransition {
     static func frame(from start: CGRect, to end: CGRect, progress: Double) -> CGRect {
         let t = min(1, max(0, progress))
-        let eased = 1 - pow(1-t, 3)
+        let eased = t*t*(3-2*t)
         func mix(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b-a)*eased }
         return CGRect(x: mix(start.minX, end.minX), y: mix(start.minY, end.minY),
                       width: mix(start.width, end.width), height: mix(start.height, end.height))
@@ -147,6 +147,9 @@ struct WindowTransition {
         let distance = max(hypot(end.minX-start.minX, end.minY-start.minY), hypot(end.maxX-start.maxX, end.maxY-start.maxY))
         let fraction = min(1, distance / max(1, hypot(area.width, area.height)))
         return 0.12 + 0.12*sqrt(fraction)
+    }
+    static func shouldFinishDirectly(writeDuration: TimeInterval, frameInterval: TimeInterval) -> Bool {
+        writeDuration > 2*frameInterval
     }
     static func pixelAligned(_ rect: CGRect, scale: CGFloat) -> CGRect {
         func pixel(_ value: CGFloat) -> CGFloat { (value*scale).rounded()/scale }
@@ -205,14 +208,22 @@ extension NativeWindows {
         let startedAt = ProcessInfo.processInfo.systemUptime
         var batches = 0
         var compatibilityFallback = false
+        var finishedDirectly = false
         var beforeFallback: [[String: Double]] = []
+        var writeDurations: [Double] = []
+        func values(_ frame: CGRect) -> [Double] { [frame.minX, frame.minY, frame.width, frame.height] }
         defer {
             recordWindowDiagnostic("window-motion-result.json", [
                 "elapsedSeconds": ProcessInfo.processInfo.systemUptime-startedAt,
                 "plannedSeconds": duration, "frameIntervalSeconds": interval,
                 "frameBatches": batches, "windows": targets.count,
                 "compatibilityFallback": compatibilityFallback, "cancelled": Task.isCancelled,
-                "beforeFallback": beforeFallback
+                "beforeFallback": beforeFallback, "finishedDirectly": finishedDirectly,
+                "frameWriteSeconds": writeDurations,
+                "frames": targets.indices.map { index in
+                    ["start": values(starts[index]), "target": values(destinations[index]),
+                     "actual": actualFrame(targets[index].0).map(values) ?? []]
+                }
             ])
         }
         var last = starts
@@ -230,7 +241,16 @@ extension NativeWindows {
                 }
                 do {
                     if !updates.isEmpty { batches += 1 }
+                    let writeStarted = ProcessInfo.processInfo.systemUptime
                     try await writeTransitionFrames(updates)
+                    if !updates.isEmpty {
+                        let elapsed = ProcessInfo.processInfo.systemUptime-writeStarted
+                        writeDurations.append(elapsed)
+                        if WindowTransition.shouldFinishDirectly(writeDuration: elapsed, frameInterval: interval) {
+                            finishedDirectly = true
+                            break
+                        }
+                    }
                 }
                 catch is CancellationError { throw CancellationError() }
                 catch {
@@ -251,12 +271,13 @@ extension NativeWindows {
             for index in targets.indices { try await setFrame(destinations[index], window: targets[index].0) }
             return
         }
-        // Give accepted writes a few display frames to appear before using the compatibility retry path.
-        for _ in 0..<3 {
+        // Receiving apps settle independently of the monitor's refresh rate.
+        let settleDeadline = ProcessInfo.processInfo.systemUptime + 0.12
+        repeat {
             try Task.checkCancellation()
             if targets.indices.allSatisfy({ verifyFrame(destinations[$0], window: targets[$0].0) }) { return }
             try await Task.sleep(nanoseconds: UInt64(interval*1_000_000_000))
-        }
+        } while ProcessInfo.processInfo.systemUptime < settleDeadline
         for index in targets.indices where !verifyFrame(destinations[index], window: targets[index].0) {
             if let actual = actualFrame(targets[index].0) {
                 let expected = destinations[index]
