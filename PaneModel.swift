@@ -2,12 +2,13 @@ import AppKit
 import SwiftUI
 
 enum PanePreset: String, Codable, CaseIterable, Identifiable {
-    case halves, thirds, quarters, rows, wideLeft, focus
+    case halves, thirds, fourColumns, quarters, rows, wideLeft, focus
     var id: String { rawValue }
     var name: String {
         switch self {
         case .halves: return "Two columns"
         case .thirds: return "Three columns"
+        case .fourColumns: return "Four columns"
         case .quarters: return "Four quarters"
         case .rows: return "Two rows"
         case .wideLeft: return "Wide + stack"
@@ -18,6 +19,7 @@ enum PanePreset: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .halves: return [CGRect(x: 0, y: 0, width: 0.5, height: 1), CGRect(x: 0.5, y: 0, width: 0.5, height: 1)]
         case .thirds: return (0..<3).map { CGRect(x: Double($0)/3, y: 0, width: 1.0/3, height: 1) }
+        case .fourColumns: return (0..<4).map { CGRect(x: Double($0)/4, y: 0, width: 0.25, height: 1) }
         case .quarters: return (0..<4).map { CGRect(x: Double($0%2)/2, y: Double($0/2)/2, width: 0.5, height: 0.5) }
         case .rows: return [CGRect(x: 0, y: 0, width: 1, height: 0.5), CGRect(x: 0, y: 0.5, width: 1, height: 0.5)]
         case .wideLeft: return [CGRect(x: 0, y: 0, width: 2.0/3, height: 1), CGRect(x: 2.0/3, y: 0, width: 1.0/3, height: 0.5), CGRect(x: 2.0/3, y: 0.5, width: 1.0/3, height: 0.5)]
@@ -29,8 +31,23 @@ enum PanePreset: String, Codable, CaseIterable, Identifiable {
 struct PaneConfiguration: Codable, Equatable {
     var preset: PanePreset = .halves
     var gap: Double = 12
+    var splitPositions: [String: Double]? = nil
     var sanitized: PaneConfiguration {
-        PaneConfiguration(preset: preset, gap: min(32, max(0, gap.isFinite ? gap : 12)))
+        var result = self
+        result.gap = min(32, max(0, gap.isFinite ? gap : 12))
+        if let positions = splitPositions {
+            let splits = PaneDivider.all(for: preset)
+            let valid = positions.allSatisfy { key, value in
+                splits.contains { $0.id == key && value.isFinite && value >= $0.lower + 0.05 && value <= $0.upper - 0.05 }
+            }
+            let ordered = [true, false].allSatisfy { vertical in
+                let axis = splits.filter { $0.vertical == vertical }
+                let values = [0.0] + axis.map { positions[$0.id] ?? $0.position } + [1.0]
+                return zip(values, values.dropFirst()).allSatisfy { $1 - $0 >= 0.05 }
+            }
+            result.splitPositions = valid && ordered && !positions.isEmpty ? positions : nil
+        }
+        return result
     }
 }
 
@@ -41,10 +58,12 @@ final class PanePreferences: ObservableObject {
     @Published private(set) var enabled: Bool
     @Published private(set) var desktops: [String: PaneConfiguration]
     @Published private(set) var edgeSnapping: Bool
+    @Published private(set) var linkedResizing: Bool
     var onChange: (() -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        linkedResizing = defaults.bool(forKey: "linkedPaneResizingEnabled")
         edgeSnapping = defaults.bool(forKey: "edgeSnappingEnabled")
         let saved = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(Saved.self, from: $0) }
         enabled = saved?.enabled ?? true
@@ -57,6 +76,7 @@ final class PanePreferences: ObservableObject {
         desktops[desktopID] = configuration.sanitized
         save()
     }
+    func setLinkedResizing(_ value: Bool) { linkedResizing = value; defaults.set(value, forKey: "linkedPaneResizingEnabled"); onChange?() }
     func setEdgeSnapping(_ value: Bool) { edgeSnapping=value;defaults.set(value,forKey:"edgeSnappingEnabled");onChange?() }
     func setEnabled(_ value: Bool) { enabled = value; save() }
     private func save() {
@@ -74,7 +94,7 @@ struct PaneGeometry: Equatable {
         guard Self.valid(area) else { cells = []; return }
         let gap = configuration.sanitized.gap
         let insetArea = area.insetBy(dx: gap/2, dy: gap/2)
-        let frames = configuration.preset.regions.map { region in
+        let frames = configuration.sanitized.regions.map { region in
             CGRect(x: insetArea.minX + region.minX * insetArea.width,
                    y: insetArea.minY + region.minY * insetArea.height,
                    width: region.width * insetArea.width, height: region.height * insetArea.height)

@@ -44,6 +44,9 @@ struct SmartPanesView: View {
                         .background(palette[3].opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
                 }
                 Toggle("Snap at screen edges and corners",isOn:Binding(get:{preferences.edgeSnapping},set:preferences.setEdgeSnapping)).font(.system(size:12))
+                Toggle("Resize neighboring panes together", isOn: Binding(get: { preferences.linkedResizing }, set: preferences.setLinkedResizing)).font(.system(size: 12))
+                Text("When windows fill neighboring panes, drag the handle between them to resize both sides. Escape cancels. Adjusted widths are remembered for this layout.")
+                    .font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Picker("Layout for", selection: Binding(get: { desktop?.id ?? "" }, set: { desktopID = $0; hoveredPane = nil })) {
                         ForEach(store.desktops.filter { !$0.isFullScreen }) { d in Text(store.name(d)).tag(d.id) }
@@ -112,7 +115,7 @@ struct SmartPanesView: View {
                 .disabled(!canEditConfiguration)
                 HStack(spacing: 12) {
                     Text("Space between panes").font(.system(size: 11))
-                    Slider(value: Binding(get: { config.gap }, set: { update(PaneConfiguration(preset: config.preset, gap: $0)) }), in: 0...32, step: 2)
+                    Slider(value: Binding(get: { config.gap }, set: { update(config.withGap($0)) }), in: 0...32, step: 2)
                         .frame(maxWidth: 200).accessibilityLabel("Space between panes")
                     Text("\(Int(config.gap)) pt").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).frame(width: 42)
                     Spacer()
@@ -131,9 +134,7 @@ struct SmartPanesView: View {
 
     private func update(_ config: PaneConfiguration) {
         guard let desktop else{return}
-        if let display=ConnectedDisplay.all().first(where:{$0.id==desktop.display}),models.values[display.profile.model]?.enabled == true {
-            models.set(display.profile,enabled:true,configuration:config)
-        } else {preferences.set(config, for: desktop.id)}
+        workspace.setPaneConfiguration(config, for: desktop)
     }
     private func instruction(_ number: String, _ title: String, _ detail: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
@@ -155,7 +156,7 @@ struct PaneDiagram: View {
     var body: some View {
         GeometryReader { proxy in
             let geometry = PaneGeometry(area: CGRect(origin: .zero, size: proxy.size),
-                                        configuration: PaneConfiguration(preset: configuration.preset, gap: compact ? 4 : max(3, configuration.gap/2)))
+                                        configuration: configuration.withGap(compact ? 4 : max(3, configuration.gap/2)))
             ZStack(alignment: .topLeading) {
                 ForEach(geometry.cells.indices, id: \.self) { i in
                     let frame = geometry.cells[i]

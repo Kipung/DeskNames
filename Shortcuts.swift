@@ -27,7 +27,7 @@ struct ShortcutAction: Identifiable {
     let id: UInt32
     let name: String
     let suggested: ShortcutBinding
-    static let all: [ShortcutAction] = [ShortcutAction(id:100,name:"Desktop switcher",suggested:ShortcutBinding(key:49,modifiers:UInt32(cmdKey|optionKey)))] + zip(1...9,[18,19,20,21,23,22,26,28,25]).map { ShortcutAction(id:UInt32($0.0),name:"Go to desktop \($0.0)",suggested:ShortcutBinding(key:UInt32($0.1),modifiers:UInt32(controlKey|optionKey))) } + [ShortcutAction(id:101,name:"Save active layout",suggested:ShortcutBinding(key:1,modifiers:UInt32(controlKey|optionKey))),ShortcutAction(id:102,name:"Restore active layout",suggested:ShortcutBinding(key:15,modifiers:UInt32(controlKey|optionKey)))] + WindowAction.allCases.map { ShortcutAction(id:$0.id,name:$0.name,suggested:$0.suggestion) }
+    static let all: [ShortcutAction] = [ShortcutAction(id:100,name:"Desktop switcher",suggested:ShortcutBinding(key:49,modifiers:UInt32(cmdKey|optionKey)))] + zip(1...9,[18,19,20,21,23,22,26,28,25]).map { ShortcutAction(id:UInt32($0.0),name:"Go to desktop \($0.0)",suggested:ShortcutBinding(key:UInt32($0.1),modifiers:UInt32(controlKey|optionKey))) } + [ShortcutAction(id:101,name:"Save active layout",suggested:ShortcutBinding(key:1,modifiers:UInt32(controlKey|optionKey))),ShortcutAction(id:102,name:"Restore active layout",suggested:ShortcutBinding(key:15,modifiers:UInt32(controlKey|optionKey)))] + WindowAction.allCases.map { ShortcutAction(id:$0.id,name:$0.name,suggested:$0.suggestion) } + PaneShortcut.all
 }
 
 struct ShortcutKey: Identifiable {
@@ -70,6 +70,14 @@ final class ShortcutSettings: ObservableObject {
         }
         if let error=Self.validation(next) { message=error;return }
         bindings=next;saveAndApply()
+    }
+    func addPaneSuggestions() {
+        var next = bindings
+        for action in PaneShortcut.all where next[action.id] == nil && !next.values.contains(action.suggested) {
+            next[action.id] = action.suggested
+        }
+        if let error = Self.validation(next) { message = error; return }
+        bindings = next; saveAndApply()
     }
     func setEnabled(_ value:Bool) {
         if value,let error=Self.validation(bindings) {message=error;return}
@@ -187,7 +195,10 @@ struct ShortcutSettingsView: View {
             Toggle("Enable global keyboard shortcuts", isOn: Binding(get: { settings.enabled }, set: { settings.setEnabled($0) }))
             Text(settings.enabled ? "Shortcuts work while you use other apps. Changes save automatically." : "Shortcuts are off. You can edit them below before turning them on.")
                 .font(.caption).foregroundStyle(.secondary)
-            Button("Add suggested window shortcuts") { settings.addWindowSuggestions() }
+            HStack {
+                Button("Add suggested window shortcuts") { settings.addWindowSuggestions() }
+                Button("Add suggested pane shortcuts") { settings.addPaneSuggestions() }
+            }
             Text("Click a shortcut, then press the keys you want to use.")
                 .font(.system(size: 13))
             if !settings.message.isEmpty {

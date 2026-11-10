@@ -5,13 +5,15 @@ import Carbon
 enum WindowAction: Int, CaseIterable, Identifiable {
     case left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight
     case leftThird, middleThird, rightThird, maximize, center, restore, smaller, larger, nextDisplay, previousDisplay
+    case column1, column2, column3, column4
     var id: UInt32 { UInt32(200 + rawValue) }
-    var name: String { ["Left half","Right half","Top half","Bottom half","Top left quarter","Top right quarter","Bottom left quarter","Bottom right quarter","Left third","Middle third","Right third","Maximize window","Center window","Restore previous size","Make smaller","Make larger","Next display","Previous display"][rawValue] }
+    var name: String { ["Left half","Right half","Top half","Bottom half","Top left quarter","Top right quarter","Bottom left quarter","Bottom right quarter","Left third","Middle third","Right third","Maximize window","Center window","Restore previous size","Make smaller","Make larger","Next display","Previous display","Column 1 of 4","Column 2 of 4","Column 3 of 4","Column 4 of 4"][rawValue] }
     var suggestion: ShortcutBinding {
-        let keys: [UInt32] = [123,124,126,125,32,34,38,40,18,19,20,36,8,51,27,24,124,123]
+        let keys: [UInt32] = [123,124,126,125,32,34,38,40,18,19,20,36,8,51,27,24,124,123,18,19,20,21]
         var mods = UInt32(controlKey | optionKey)
         if (8...10).contains(rawValue) { mods |= UInt32(shiftKey) }
         if rawValue >= 16 { mods |= UInt32(cmdKey) }
+        if rawValue >= 18 { mods |= UInt32(shiftKey) }
         return ShortcutBinding(key: keys[rawValue], modifiers: mods)
     }
     func frame(in area: CGRect, current: CGRect) -> CGRect? {
@@ -26,6 +28,7 @@ enum WindowAction: Int, CaseIterable, Identifiable {
         case .bottomLeft: region=CGRect(x:0,y:0.5,width:0.5,height:0.5)
         case .bottomRight: region=CGRect(x:0.5,y:0.5,width:0.5,height:0.5)
         case .leftThird,.middleThird,.rightThird: region=CGRect(x:Double(rawValue-8)/3,y:0,width:1.0/3,height:1)
+        case .column1, .column2, .column3, .column4: region = CGRect(x: Double(rawValue - 18)/4, y: 0, width: 0.25, height: 1)
         case .maximize: return area
         case .center,.smaller,.larger:
             let scale: CGFloat = self == .smaller ? 0.9 : self == .larger ? 1.1 : 1
@@ -117,7 +120,7 @@ extension LayoutController {
                     throw WindowIssue("The destination display has no available ordinary desktop.")
                 }
                 try await self.native.transfer(window,to:desktop,reader:self.store.reader,frame:target)
-            } else { try await self.native.setFrame(target,window:window) }
+            } else { try await self.native.animateFrames([(window, target)]) }
             guard self.native.verifyFrame(target,window:window) else { return "\(window.appName) constrained its window size or position." }
             if action == .restore { self.frameHistory.forget(window) }
             else { self.frameHistory.remember(window,frame:old,screen:source) }

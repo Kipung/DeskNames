@@ -17,13 +17,14 @@ DeskNames is compiled directly by `build.sh`. There is no package manager depend
 | `LayoutSnapshots.swift` | Layout capture, restored frame choice, destination resolution, overlap restoration, and preview |
 | `WorkspaceViews.swift` | Layout and window management interface |
 | `PaneModel.swift`, `PaneViews.swift` | Presets, stored pane settings, geometry, and settings interface |
+| `PaneInteraction.swift`, `LinkedPanes.swift` | Shared-divider geometry and persisted ratios, pane shortcut actions, time-based native frame transitions, divider handles and serialized linked-resize transactions |
 | `SmartPanes.swift` | Drag observation, overlays, snapping, cancellation, and edge snapping |
 | `WindowActions.swift` | Direct window commands and original-frame history |
 | `Shortcuts.swift` | Binding persistence, validation, recording, and Carbon hotkey registration |
 | `DisplayProfiles.swift`, `ScreenAwareWindows.swift` | Monitor identity/model matching, model-shared presets, and display-aware operations |
 | `WindowRouting.swift`, `WindowRoutingView.swift` | Rule persistence, window birth tracking, routing, and settings interface |
 | `NativeSpaceMove.m` | Native bridged Space transfer and symbol resolution |
-| `Tests.swift`, `GeometryTests.swift`, `PaneTests.swift`, `WindowActionTests.swift`, `ScreenLayoutTests.swift` | Matching, geometry, persistence, operation sessions, window commands, and screen cases |
+| `Tests.swift`, `GeometryTests.swift`, `PaneTests.swift`, `PaneInteractionTests.swift`, `WindowActionTests.swift`, `ScreenLayoutTests.swift` | Matching, geometry, persistence, operation sessions, window commands, and screen cases |
 | `Fixture.swift`, `probe.swift`, `geometry.swift`, `window-check.swift`, `verify_alignment.py` | Separate development fixtures and inspection helpers |
 | `Icon.swift`, `DeskNames.icns`, `DeskNames.iconset/` | Icon generation source and app icon resources |
 | `backup/DeskNames-v0.1.swift` | Historical source snapshot, excluded from the application build |

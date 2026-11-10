@@ -344,6 +344,7 @@ final class LabelPanel: NSPanel {
     var workspace:LayoutController!
     var hotkeys:HotKeys?
     var smartPanes:SmartPaneController!
+    var linkedPanes:LinkedPaneController!
     let shortcuts=ShortcutSettings()
     var switcher:NSPanel?
     func applicationDidFinishLaunching(_ notification:Notification) {
@@ -359,6 +360,7 @@ final class LabelPanel: NSPanel {
         workspace=LayoutController(store:store)
         smartPanes=SmartPaneController(workspace:workspace)
         smartPanes.start()
+        linkedPanes = LinkedPaneController(workspace: workspace)
         workspace.showSwitcher = { [weak self] in self?.showSwitcher() }
         workspace.onSwitch = { [weak self] in self?.switcher?.orderOut(nil) }
         hotkeys=HotKeys { [weak self] id in MainActor.assumeIsolated {self?.shortcut(id)} }
@@ -377,7 +379,7 @@ final class LabelPanel: NSPanel {
         window.appearance=NSAppearance(named:.darkAqua)
         window.contentView=NSHostingView(rootView:MainView(store:store,workspace:workspace,shortcuts:shortcuts))
         window.center()
-        timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.smartPanes.tick()} }
+        timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.smartPanes.tick();self.linkedPanes.tick()} }
         timer?.tolerance=0.04
         RunLoop.main.add(timer!,forMode:.common)
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
@@ -389,6 +391,7 @@ final class LabelPanel: NSPanel {
         shortcuts.lastAction=ShortcutAction.all.first(where:{$0.id==id})?.name ?? "Unknown action"
         if !workspace.busy {workspace.message=""}
         if let action=WindowAction.allCases.first(where:{$0.id==id}) { workspace.performWindowAction(action,focused:true);return }
+        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id); return }
         if id==100 {showSwitcher();return}
         store.refresh()
         if id<100 {
@@ -406,7 +409,7 @@ final class LabelPanel: NSPanel {
     }
     func updateStatus() { item?.button?.title="  "+store.desktops.filter(\.isCurrent).map{store.name($0)}.joined(separator:" · ") }
     @objc func showWindow() { NSApp.activate(ignoringOtherApps:true);window?.makeKeyAndOrderFront(nil) }
-    func applicationWillTerminate(_ notification:Notification) { smartPanes?.stop();timer?.invalidate();if let spaceObserver {NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)} }
+    func applicationWillTerminate(_ notification:Notification) { smartPanes?.stop();linkedPanes?.stop();timer?.invalidate();if let spaceObserver {NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)} }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool { showWindow();return true }
 }
 
@@ -420,6 +423,7 @@ if CommandLine.arguments.contains("--self-test") {
     runGeometryTests()
     runPaneTests()
     runWindowActionTests()
+    try runPaneInteractionTests()
     let testDomain="local.desknames.test.\(UUID().uuidString)"
     let d=UserDefaults(suiteName:testDomain)!
     defer {d.removePersistentDomain(forName:testDomain)}
@@ -433,6 +437,12 @@ if CommandLine.arguments.contains("--self-test") {
     restored.update(moved,name:String(repeating:"x",count:80),color:999)
     precondition(restored.style(moved).name.count==40 && restored.style(moved).color==4)
     print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
+} else if CommandLine.arguments.contains("--pane-interaction-test") {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        do { try await runPaneInteractionSessionTests(); exit(0) } catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
+    }
+    NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--window-refresh-test") {
     NSApplication.shared.setActivationPolicy(.prohibited)
     Task { @MainActor in

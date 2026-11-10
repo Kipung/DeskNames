@@ -75,7 +75,7 @@ func screenFor(_ rect:CGRect)->NSScreen? {
 }
 
 enum AccessibilityWindowWrite: Sendable {
-    case position(CGPoint), size(CGSize), minimized(Bool), raise
+    case position(CGPoint), size(CGSize), frame(CGRect), minimized(Bool), raise
     func apply(to element: AXUIElement) -> AXError {
         switch self {
         case .position(var point):
@@ -84,6 +84,10 @@ enum AccessibilityWindowWrite: Sendable {
         case .size(var size):
             guard let value=AXValueCreate(.cgSize,&size) else{return .illegalArgument}
             return AXUIElementSetAttributeValue(element,kAXSizeAttribute as CFString,value)
+        case .frame(let rect):
+            let sizeResult = AccessibilityWindowWrite.size(rect.size).apply(to: element)
+            let positionResult = AccessibilityWindowWrite.position(rect.origin).apply(to: element)
+            return sizeResult == .success ? positionResult : sizeResult
         case .minimized(let value):return AXUIElementSetAttributeValue(element,kAXMinimizedAttribute as CFString,value ? kCFBooleanTrue:kCFBooleanFalse)
         case .raise:return AXUIElementPerformAction(element,kAXRaiseAction as CFString)
         }
@@ -353,6 +357,16 @@ final class NativeWindows {
         knownWindows=current
         return current.values.sorted { ($0.bundleID,$0.id)<($1.bundleID,$1.id) }
     }
+    @MainActor func trackedPaneWindows() -> [LiveWindow] {
+        var current = knownWindows
+        for window in NSApp.windows.compactMap({ localSnapshot($0) }) { current[window.id] = window }
+        return current.values.compactMap { window in
+            guard let frame = currentFrame(window) else { return nil }
+            return LiveWindow(id: window.id, target: window.target, pid: window.pid, bundleID: window.bundleID,
+                appName: window.appName, title: window.title, frame: frame, spaceIDs: spaces(for: window.id), minimized: window.minimized)
+        }
+    }
+
     @MainActor func setFrame(_ rect:CGRect,window:LiveWindow) async throws {
         guard trusted else{throw WindowIssue("Enable Accessibility for DeskNames to move windows.")}
         try Task.checkCancellation()
@@ -590,7 +604,7 @@ final class NativeWindows {
                     completion("Window or desktop changed. Try dragging again.", false)
                     return "Window or desktop changed. Nothing was snapped."
                 }
-                try await self.native.setFrame(frame, window: current)
+                try await self.native.animateFrames([(current, frame)])
                 let matched = self.native.verifyFrame(frame, window: current)
                 if matched, let source=screenFor(originalFrame ?? window.frame) { self.frameHistory.remember(window,frame:originalFrame ?? window.frame,screen:source) }
                 let text = matched ? "Placed \(current.appName) in its pane." : "\(current.appName) needs a different window size."
@@ -735,7 +749,7 @@ final class NativeWindows {
     }
     func snap(_ cell:Int,columns:Int,rows:Int) {
         guard let w=windows.first(where:{$0.id==selectedWindow}),let screen=screenFor(w.frame) else{return}
-        run {let frames=Self.grid(screenArea(screen),columns:columns,rows:rows,gap:self.gap);guard frames.indices.contains(cell) else{throw WindowIssue("Select a valid grid cell.")};try await self.native.setFrame(frames[cell],window:w);if self.native.verifyFrame(frames[cell],window:w) {self.frameHistory.remember(w,frame:w.frame,screen:screen)};return self.native.verifyFrame(frames[cell],window:w) ? "Placed \(w.appName)." : "\(w.appName) kept a different size or position."}
+        run {let frames=Self.grid(screenArea(screen),columns:columns,rows:rows,gap:self.gap);guard frames.indices.contains(cell) else{throw WindowIssue("Select a valid grid cell.")};try await self.native.animateFrames([(w, frames[cell])]);if self.native.verifyFrame(frames[cell],window:w) {self.frameHistory.remember(w,frame:w.frame,screen:screen)};return self.native.verifyFrame(frames[cell],window:w) ? "Placed \(w.appName)." : "\(w.appName) kept a different size or position."}
     }
     func tile() {
         refresh();guard let d=selectedDesktop,d.isCurrent else{message="Switch to the selected desktop before arranging its windows.";return}

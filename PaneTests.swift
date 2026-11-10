@@ -107,7 +107,7 @@ import AppKit
     precondition(loaded.configuration(for: "stable-desktop-uuid").gap == 12)
     defaults.set(Data("invalid".utf8), forKey: "smartPanes.v1")
     precondition(PanePreferences(defaults: defaults).configuration(for: "stable-desktop-uuid") == PaneConfiguration())
-    print("PASS: 72 pane layouts across translated screens; non-overlap, hit/gap targets, asymmetric panes, invalid geometry; recorded fast drag with delayed bounds; selection, resize, opposite motion, stale trajectory and unrelated-speed rejection; UUID preference persistence and clamping")
+    print("PASS: 84 pane layouts across translated screens; non-overlap, hit/gap targets, asymmetric panes, invalid geometry; recorded fast drag with delayed bounds; selection, resize, opposite motion, stale trajectory and unrelated-speed rejection; UUID preference persistence and clamping")
 }
 
 @MainActor func runPaneSessionTests() async {

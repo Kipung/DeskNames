@@ -32,7 +32,7 @@ Exact geometry is preferred when resolution is unchanged, including when the Doc
 
 ### Smart panes and window commands
 
-Six presets are available: Two columns, Three columns, Four quarters, Two rows, Wide + stack, and Focus. Command-drag previews targets and snaps on mouse release. Cancelling, changing desktops, competing writes, and stale sessions must not trigger a late snap.
+Seven presets are available: Two columns, Three columns, Four columns, Four quarters, Two rows, Wide + stack, and Focus. Command-drag previews targets and snaps on mouse release. Cancelling, changing desktops, competing writes, and stale sessions must not trigger a late snap.
 
 Edge and corner snapping are independently optional. Direct commands include halves, quarters, thirds, maximize, center, size changes, restore previous size, and next/previous display. Original-frame history is bounded and belongs to the current app session, separate from persistent saved layouts.
 
@@ -80,3 +80,7 @@ DeskNames organizes windows and Spaces. It does not create a separate input sess
 ## Start future work
 
 Read this document, README.md, README.txt, and docs/architecture.md. Inspect the current Git state before changes. Run the calculation and pane tests after changes to their behavior. Reserve native layout and desktop-navigation checks for a time when temporary windows or visible desktop transitions are acceptable. Update validation notes with the exact build, environment, test, and remaining gap.
+
+## Pane interaction update — November 10, 2026
+
+Four columns, preset selection/cycling shortcuts, pane placement shortcuts, and opt-in linked pane resizing are implemented. Shared divider handles resize aligned neighboring windows together and save normalized divider positions only after verified completion; cancellation or app constraints roll back participating windows. Snaps and direct window size actions use short easing transitions and respect Reduce Motion. Existing saved shortcut bindings are preserved, with new suggestions opt-in. `--pane-interaction-test` exercises native fixture animation, cancellation, shared resize persistence, and constrained-neighbor rollback; external-app gesture and physical-monitor coverage must still be verified separately.
