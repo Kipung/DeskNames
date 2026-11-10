@@ -356,7 +356,7 @@ final class LabelPanel: NSPanel {
         item=NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength)
         item.button?.image=NSImage(systemSymbolName:"rectangle.3.group",accessibilityDescription:"DeskNames")
         item.button?.imagePosition = .imageLeading
-        item.button?.target=self;item.button?.action=#selector(showWindow)
+        item.button?.target=self;item.button?.action=#selector(showSwitcher)
         overlay=OverlayController(store)
         workspace=LayoutController(store:store)
         smartPanes=SmartPaneController(workspace:workspace)
@@ -374,19 +374,12 @@ final class LabelPanel: NSPanel {
         shortcuts.apply()
         store.onChange = { [weak self] in self?.updateStatus() }
         updateStatus()
-        window=NSWindow(contentRect:NSRect(x:0,y:0,width:1020,height:820),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false)
-        window.contentMinSize=NSSize(width:640,height:520)
-        window.title="DeskNames";window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.isReleasedWhenClosed=false
-        window.appearance=NSAppearance(named:.darkAqua)
-        window.contentView=NSHostingView(rootView:MainView(store:store,workspace:workspace,shortcuts:shortcuts))
-        window.center()
         timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.smartPanes.tick();self.linkedPanes.tick()} }
         timer?.tolerance=0.04
         RunLoop.main.add(timer!,forMode:.common)
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
             MainActor.assumeIsolated { self?.store.refresh();self?.workspace.tick() }
         }
-        showWindow()
     }
     func shortcut(_ id:UInt32) {
         shortcuts.lastAction=ShortcutAction.all.first(where:{$0.id==id})?.name ?? "Unknown action"
@@ -401,17 +394,18 @@ final class LabelPanel: NSPanel {
         }
         else if let d=workspace.native.activeDesktop(reader:store.reader) { workspace.targetDesktop=d.id; if id==101 {workspace.save(d)};if id==102 {workspace.selectedLayoutID="";workspace.restore()} }
     }
-    func showSwitcher() {
+    @objc func showSwitcher() {
         if switcher?.isVisible==true {closeSwitcher();return}
         store.refresh()
         let desktop = workspace.native.activeDesktop(reader: store.reader)
         switcherPreviousApp = NSWorkspace.shared.frontmostApplication
+        window?.orderOut(nil)
         let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:620),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
         panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
         panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,
             choose:{ [weak self] d in self?.workspace.switchTo(d) },
             close:{ [weak self] in self?.closeSwitcher() },
-            openSettings:{ [weak self] in self?.switcher?.orderOut(nil);self?.showWindow() }))
+            openSettings:{ [weak self] in self?.showWindow() }))
         if let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop?.display }) {
             let area = screen.visibleFrame
             panel.setFrameOrigin(CGPoint(x: area.midX-panel.frame.width/2, y: area.midY-panel.frame.height/2))
@@ -426,9 +420,26 @@ final class LabelPanel: NSPanel {
         switcherPreviousApp = nil
     }
     func updateStatus() { item?.button?.title="  "+store.desktops.filter(\.isCurrent).map{store.name($0)}.joined(separator:" · ") }
-    @objc func showWindow() { NSApp.activate(ignoringOtherApps:true);window?.makeKeyAndOrderFront(nil) }
+    private func showWindow() {
+        switcher?.orderOut(nil)
+        switcherPreviousApp = nil
+        if window == nil {
+            window=NSWindow(contentRect:NSRect(x:0,y:0,width:1020,height:820),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false)
+            window.contentMinSize=NSSize(width:640,height:520)
+            window.title="DeskNames";window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.isReleasedWhenClosed=false
+            window.appearance=NSAppearance(named:.darkAqua)
+            window.contentView=NSHostingView(rootView:MainView(store:store,workspace:workspace,shortcuts:shortcuts))
+            window.center()
+            window.isRestorable = false
+        }
+        NSApp.activate(ignoringOtherApps:true)
+        window.makeKeyAndOrderFront(nil)
+    }
     func applicationWillTerminate(_ notification:Notification) { smartPanes?.stop();linkedPanes?.stop();timer?.invalidate();if let spaceObserver {NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)} }
-    func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool { showWindow();return true }
+    func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
+        if switcher?.isVisible != true { showSwitcher() }
+        return false
+    }
 }
 
 try MainActor.assumeIsolated {

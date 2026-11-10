@@ -6,7 +6,7 @@ Status reviewed on November 10, 2026.
 
 DeskNames is a local macOS productivity utility that combines desktop names with window arrangement tools. The original goal was to name virtual desktops. The project expanded into saved layouts, snapping, keyboard controls, and background routing for new windows.
 
-The current product is version 0.5.0, build 26. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
+The current product is version 0.5.0, build 27. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
 
 ## Repository and working copy
 
@@ -110,3 +110,10 @@ The user subsequently tested physical Command-drag on the installed build and co
 The existing shortcut action 100 now opens a DeskNames control panel with Pane layouts and Desktops tabs. Existing shortcut bindings are retained; the suggestion for a new installation is Control–Option–Command–Space to avoid Finder. All seven layouts are illustrated, searchable, and selectable by click or arrows/Return. The panel captures the active desktop before activating DeskNames, shows its name and current layout, and rechecks the desktop identity/current status before saving. Changing a preset preserves spacing; selecting the current preset preserves custom dividers. It honors explicitly shared monitor presets and labels that scope. It changes pane guides, not existing window positions. Escape restores previous-app focus; Settings opens the full editor. Desktop switching remains available in its own tab.
 
 Build 26 validation: build/signature checks and `--self-test` passed on the final executable; `--movement-session-test` passed with the new popup preset-selection tests before the final height-only adjustment. Those tests cover all seven choices, preserved spacing/custom dividers, another desktop left unchanged, and stale/busy target refusal. Live UI checks verified arrow/Return selection of Four columns, reopening with the saved choice, search/Return restoring Three columns, desktop-tab search with no-result Return, and Escape dismissal. The final popup visibly fits all seven cards. Existing Accessibility approval was renewed after installation. Runtime preferences compare unchanged after the temporary selection test, and saved layout bytes are unchanged. Physical global-shortcut confirmation for this build is pending; automated shortcut injection did not open the panel. Installed executable SHA-256: `100a1b37f1ce9d7d5cae273482193494677a889645b62ffcfcc385cbb0c0b94c`.
+
+
+## Utility window behavior — build 27
+
+The user confirmed build 26's physical control-panel shortcut, but reported that the full editor appeared with it. Build 27 starts without creating or presenting the full editor. The menu-bar icon and app reopen route to the compact panel; opening that panel hides an existing editor before activating DeskNames. Only the panel's explicit Settings action creates/shows the editor, and that window is not restorable by AppKit. Closing the panel does not reopen the editor.
+
+Build 27 passed build/signature verification and `--self-test`. Live checks opened the compact panel, explicitly opened Settings, returned to the panel from that editor, and dismissed with Escape. Computer Use then reported `noWindowsAvailable`, confirming the editor was hidden instead of reappearing. Equivalent Accessibility approval was renewed. Installed executable SHA-256: `b8f082fdeff1edf3a2bc739bfbc79d76cbd59191ef3b9a33efbc25afd1a353c3`.
