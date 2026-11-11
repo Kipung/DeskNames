@@ -21,9 +21,8 @@ public_key = (root / 'release/sparkle-public-key.txt').read_text().strip()
 tools = root / '.build-deps/sparkle/bin'
 if info['SUPublicEDKey'] != public_key:
     raise SystemExit('The app embeds a different update key than release/sparkle-public-key.txt; refusing release.')
-key = subprocess.check_output([tools/'generate_keys', '--account', 'local.desknames.app', '-p'], text=True).strip()
-if public_key != key:
-    raise SystemExit('Signing key and embedded public key differ; refusing release.')
+# The Keychain key is read once, by generate_appcast. A different key is caught below, where both
+# signatures are verified against release/sparkle-public-key.txt.
 subprocess.run(['codesign', '--verify', '--deep', '--strict', app], check=True)
 archive = out / f'DeskNames-{version}-arm64.zip'
 if archive.exists():
