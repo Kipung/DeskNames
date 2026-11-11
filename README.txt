@@ -1,4 +1,4 @@
-DeskNames 0.6.0 preview. Desktop names, smart panes, window layouts, and switching.
+DeskNames preview. Desktop names, smart panes, window layouts, and switching.
 
 OPEN
 Install DeskNames.app in /Applications (see README.md), then open it or click the DeskNames menu bar item. Closing the editor leaves the app running; Command-Q quits it.

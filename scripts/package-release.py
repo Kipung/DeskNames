@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Package the built app and sign its update feed without exporting private keys."""
 import hashlib
+import html
+import os
 import plistlib
 import re
 import subprocess
@@ -17,8 +19,10 @@ if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version) or not build.isdigit():
     raise SystemExit('Release version/build must be numeric.')
 public_key = (root / 'release/sparkle-public-key.txt').read_text().strip()
 tools = root / '.build-deps/sparkle/bin'
+if info['SUPublicEDKey'] != public_key:
+    raise SystemExit('The app embeds a different update key than release/sparkle-public-key.txt; refusing release.')
 key = subprocess.check_output([tools/'generate_keys', '--account', 'local.desknames.app', '-p'], text=True).strip()
-if public_key != key or info['SUPublicEDKey'] != key:
+if public_key != key:
     raise SystemExit('Signing key and embedded public key differ; refusing release.')
 subprocess.run(['codesign', '--verify', '--deep', '--strict', app], check=True)
 archive = out / f'DeskNames-{version}-arm64.zip'
@@ -27,12 +31,17 @@ if archive.exists():
 subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', app, archive], check=True)
 base = f'https://github.com/Kipung/DeskNames/releases/download/v{version}'
 notes = out / f'DeskNames-{version}-arm64.html'
-notes.write_text('<p>Public preview: visual pane picker, smoother placement, and signed updates.</p><p>This app is not notarized by Apple. Accessibility approval may need renewal after updating.</p>')
+notes_file = os.environ.get('DESKNAMES_RELEASE_NOTES_FILE')
+paragraphs = [p.strip() for p in Path(notes_file).read_text().split('\n\n') if p.strip()] if notes_file else [f'DeskNames {version}.']
+notes.write_text(''.join(f'<p>{html.escape(p)}</p>' for p in paragraphs) +
+                 '<p>This app is not notarized by Apple. Accessibility approval may need renewal after updating.</p>')
 subprocess.run([tools/'generate_appcast', '--account', 'local.desknames.app', '--download-url-prefix', base+'/', '--link', 'https://github.com/Kipung/DeskNames', '--maximum-deltas', '0', '--embed-release-notes', out], check=True)
 feed = out / 'appcast.xml'
 sparkle = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
 enclosure = ET.parse(feed).find('.//enclosure')
-signature = enclosure.attrib[f'{{{sparkle}}}edSignature']
+signature = enclosure.attrib.get(f'{{{sparkle}}}edSignature')
+if not signature:
+    raise SystemExit('Sparkle did not sign the archive: the private key does not match release/sparkle-public-key.txt.')
 verifier = root / 'build/verify-update'
 subprocess.run(['xcrun', 'swiftc', root/'scripts/verify-update.swift', '-o', verifier], check=True)
 subprocess.run([verifier, root/'release/sparkle-public-key.txt', archive, signature], check=True)

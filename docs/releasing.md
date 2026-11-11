@@ -6,24 +6,34 @@ The first downloadable release is an **unnotarized Apple Silicon preview**. A De
 
 Sparkle update signatures are independent of Apple code signing. They establish that updates were produced by the holder of the DeskNames update key, not Apple approval of the app.
 
-## Build and package
+## Publishing a release
 
-1. Update the marketing version and increasing numeric build in `build.sh`. Never reuse a public tag or silently replace an existing release archive.
-2. Run `DESKNAMES_SIGN_IDENTITY=- ./build.sh` for the unnotarized preview. Do not publish a personal Apple Development signature.
-3. Run the self-test and relevant native session tests. Verify the installed artifact, not just source calculations.
-4. Run `python3 scripts/package-release.py` on the release Mac. It validates the code signature, checks that the Keychain public key matches the app, creates the ZIP, uses Sparkle’s official `generate_appcast` to sign the archive/feed together, independently verifies both with CryptoKit and the public key, and writes `release/appcast.xml`, and emits checksums and a Homebrew cask under `dist/`.
-5. Review changes and media for personal data. Commit source, docs, and the signed feed. The archive, dependency cache, and private keys stay out of Git.
-6. Create an immutable tag and a draft GitHub release for that exact commit. Upload `dist/DeskNames-VERSION-arm64.zip`, `dist/SHA256SUMS.txt`, and `dist/appcast.xml`; then publish it after verifying asset hashes. Release notes must state the unnotarized preview limitation.
-7. Publish the generated `dist/desknames.rb` as `Casks/desknames.rb` in `Kipung/homebrew-desknames`. Keep version, URL, and checksum together. Validate its Ruby syntax and `brew info --cask` metadata, then test downloading the published archive.
-8. Confirm the public feed and asset URLs resolve. Check for updates from the release app and record what was tested. A valid signature or “up to date” response alone does not prove an older-version installation/relaunch cycle.
+Releases run from the release Mac, which holds the update key in its login Keychain. On `main`, with everything committed and pushed, run:
 
-The feed URL is `https://raw.githubusercontent.com/Kipung/DeskNames/main/release/appcast.xml`. GitHub may cache changes briefly. The feed contains the latest full archive; older compatible installations can update directly. Do not edit a signed XML feed after signing it.
+```sh
+./scripts/release.sh 0.6.1 "What changed. Blank lines separate paragraphs."
+```
+
+The notes appear in the update window and on the GitHub release. The script:
+
+1. Checks the version is newer, the tag is unused, and `main` matches GitHub.
+2. Bumps the version and build number in `build.sh`, builds an ad-hoc-signed app, and runs the self-test.
+3. Runs `scripts/package-release.py`, which creates the ZIP, signs it and the feed with the Keychain key, and verifies both signatures against `release/sparkle-public-key.txt`.
+4. Shows the release and asks before publishing. Until then nothing is pushed, and a failure or a "no" restores `build.sh`.
+5. Commits the version bump, tags it, and pushes both.
+6. Publishes the GitHub release with the ZIP, `SHA256SUMS.txt`, and `appcast.xml`, then downloads the published ZIP and checks its hash.
+7. Only then commits and pushes `release/appcast.xml`. Installed apps read the feed from `main`, so this is the moment the update goes live.
+8. Updates `Casks/desknames.rb` in `Kipung/homebrew-desknames`.
+
+If a later step fails, the script says which steps finished. Complete the rest by hand in the same order. Never push an edited `release/appcast.xml` unless its ZIP is already published.
+
+After a release, check for updates from an older installed version and record what was tested. A valid signature or an “up to date” response alone does not prove the install-and-relaunch cycle.
 
 ## Signing key
 
 The dedicated Sparkle key is in the release Mac’s login Keychain, account **local.desknames.app**. Only `release/sparkle-public-key.txt` is public. The `generate_keys` and `sign_update` tools come from the pinned official Sparkle distribution.
 
-Do not regenerate or overwrite that key for each release. Keep a secure backup through the Keychain owner's normal backup process. Losing the key can prevent unnotarized installations from accepting future updates. Exporting it is not part of this repository's build or CI. CI builds and tests; release signing happens locally. Do not put private keys in workflow logs, artifacts, Git, or the app bundle.
+Do not regenerate or overwrite that key for each release. Keep a secure backup through the Keychain owner's normal backup process. Losing the key can prevent unnotarized installations from accepting future updates. The key never leaves this Mac: releases are signed locally, and GitHub Actions is not used for releasing. Do not put private keys in workflow logs, artifacts, Git, or the app bundle.
 
 Sparkle is pinned to 2.10.1 in `scripts/fetch-sparkle.sh`, including the SHA-256 from its official GitHub release metadata. Review and update both together when upgrading the dependency. The build signs nested Sparkle helpers inside-out, then the framework, then the app. Normal app startup creates the updater; tests and rendering branches do not start it.
 

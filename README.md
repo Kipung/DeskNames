@@ -8,11 +8,11 @@ A quiet macOS menu-bar utility for named desktops, visual pane layouts, and reme
 
 **Apple Silicon · macOS 14+ · Free and open source (MIT)**
 
-[**Download for Mac**](https://github.com/Kipung/DeskNames/releases/tag/v0.6.0) · [Install with Homebrew](#install) · [User guide](README.txt) · [Report a bug](https://github.com/Kipung/DeskNames/issues)
+[**Download for Mac**](https://github.com/Kipung/DeskNames/releases/latest) · [Install with Homebrew](#install) · [User guide](README.txt) · [Report a bug](https://github.com/Kipung/DeskNames/issues)
 
 <img src="docs/media/panes-demo.gif" width="760" alt="Illustrated demo: choosing Three columns in the DeskNames panel, Command-dragging three sample windows into the guides, saving the arrangement, moving windows with keyboard shortcuts, restoring the saved arrangement, and jumping to a desktop named Read">
 
-<sub>Illustrated demo with fictional sample windows, drawn with DeskNames’ own pane geometry. Not a screen recording. <a href="docs/media/panes-demo.mp4">MP4 version</a>.<br>0.6.0 is an unnotarized public preview. See <a href="#install">Install</a> before first launch.</sub>
+<sub>Illustrated demo with fictional sample windows, drawn with DeskNames’ own pane geometry. Not a screen recording. <a href="docs/media/panes-demo.mp4">MP4 version</a>.<br>DeskNames is an unnotarized public preview. See <a href="#install">Install</a> before first launch.</sub>
 
 </div>
 
@@ -57,7 +57,7 @@ Every binding can be changed. The [user guide](README.txt) lists them all.
 ## Install
 
 > [!IMPORTANT]
-> **0.6.0 is an unnotarized public preview.** It is ad-hoc signed, not Developer ID signed or notarized by Apple, so macOS may block first launch. Review [Apple’s guidance for opening downloaded apps](https://support.apple.com/en-us/102445); DeskNames does not disable Gatekeeper or remove quarantine. Updating may require renewing its Accessibility approval.
+> **DeskNames is an unnotarized public preview.** It is ad-hoc signed, not Developer ID signed or notarized by Apple, so macOS may block first launch. Review [Apple’s guidance for opening downloaded apps](https://support.apple.com/en-us/102445); DeskNames does not disable Gatekeeper or remove quarantine. Updating may require renewing its Accessibility approval.
 >
 > The download is **Apple Silicon only**. Intel Macs are not supported.
 
@@ -71,7 +71,7 @@ The [tap](https://github.com/Kipung/homebrew-desknames) pins the release archive
 
 ### Option 2: Direct download
 
-1. Download [DeskNames-0.6.0-arm64.zip](https://github.com/Kipung/DeskNames/releases/download/v0.6.0/DeskNames-0.6.0-arm64.zip).
+1. Download `DeskNames-VERSION-arm64.zip` from the [latest release](https://github.com/Kipung/DeskNames/releases/latest).
 2. Unzip it and drag **DeskNames.app** into **Applications**.
 
 Release assets include checksums. No account or subscription is required.
@@ -88,7 +88,7 @@ The [0.6.0 validation report](docs/release-0.6.0-validation.md) covers the teste
 
 ## Updates
 
-The control panel includes **Check for Updates…**, **Check automatically**, and **Download and install updates automatically**. Background checks and automatic installation **start off**; enable the behavior you want.
+The control panel includes **Check for Updates…**, **Check automatically**, and **Download and install updates automatically**. On its second launch, DeskNames asks once whether to check for updates automatically. Automatic installation **starts off**. You can change both settings at any time.
 
 Updates use [Sparkle](https://sparkle-project.org/). Both the feed and archives are verified with the embedded Ed25519 public key, and downloads use HTTPS. Update signing is separate from Apple notarization: this preview is still unnotarized after an update. Builds from before the updater was added need a one-time manual upgrade.
 

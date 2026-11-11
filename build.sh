@@ -38,7 +38,6 @@ cat > "$DEST/DeskNames.app/Contents/Info.plist" <<'PLIST'
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 <key>SUFeedURL</key><string>https://raw.githubusercontent.com/Kipung/DeskNames/main/release/appcast.xml</string>
-<key>SUEnableAutomaticChecks</key><false/>
 <key>SUAutomaticallyUpdate</key><false/>
 <key>SUVerifyUpdateBeforeExtraction</key><true/>
 <key>SURequireSignedFeed</key><true/>
