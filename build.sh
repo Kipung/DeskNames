@@ -32,8 +32,8 @@ cat > "$DEST/DeskNames.app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>DeskNames.icns</string>
 <key>CFBundleName</key><string>DeskNames</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.6.0</string>
-<key>CFBundleVersion</key><string>28</string>
+<key>CFBundleShortVersionString</key><string>0.6.1</string>
+<key>CFBundleVersion</key><string>29</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
