@@ -57,7 +57,8 @@ private struct PaneDemoFrame: View {
 
     private static let stage = CGRect(x: 40, y: 36, width: 1040, height: 580)
     private static let area = CGRect(x: 52, y: 76, width: 1016, height: 528)
-    private static let panel = CGRect(x: 730, y: 70, width: 330, height: 362)
+    // The real control panel opens centered on the screen.
+    private static let panel = CGRect(x: 395, y: 159, width: 330, height: 362)
     private static let menuItem = CGPoint(x: 925, y: 50)
     private static let rest = CGPoint(x: 860, y: 480)
     private static let cells = PaneGeometry(area: area, configuration: PaneConfiguration(preset: .thirds, gap: 10)).cells
@@ -71,7 +72,7 @@ private struct PaneDemoFrame: View {
     private static func card(_ index: Int) -> CGRect {
         CGRect(x: panel.minX + 16 + Double(index%3)*102, y: panel.minY + 98 + Double(index/3)*84, width: 92, height: 58)
     }
-    private static let clicks = [0.75, 1.95, 11.6]
+    private static let clicks = [11.6]
     private static func region(_ x: Double, _ y: Double, _ w: Double, _ h: Double) -> CGRect {
         PaneGeometry.frames(in: area, regions: [CGRect(x: x, y: y, width: w, height: h)], gap: 10)[0]
     }
@@ -85,6 +86,9 @@ private struct PaneDemoFrame: View {
     ] + (0..<3).map { Move(window: $0, start: 13.25 + 0.06*Double($0), target: cells[$0], duration: 0.45) }
     private struct Keystroke { let time: Double; let keys: [String]; let label: String }
     private static let keystrokes = [
+        Keystroke(time: 0.45, keys: ["⌃", "⌥", "⌘", "Space"], label: "Open DeskNames"),
+        Keystroke(time: 1.45, keys: ["→"], label: "Three columns"),
+        Keystroke(time: 1.95, keys: ["↩"], label: "Choose layout"),
         Keystroke(time: 7.7, keys: ["⌃", "⌥", "S"], label: "Save layout for Create"),
         Keystroke(time: 9.2, keys: ["⌃", "⌥", "↩"], label: "Maximize"),
         Keystroke(time: 10.0, keys: ["⌃", "⌥", "→"], label: "Right half"),
@@ -98,8 +102,7 @@ private struct PaneDemoFrame: View {
         index + 1 < keystrokes.count ? min(keystrokes[index + 1].time - 0.1, keystrokes[index].time + 1.1) : 17.6
     }
     private static let path: [(Double, CGPoint)] = {
-        var keys: [(Double, CGPoint)] = [(0, rest), (0.2, rest), (0.7, menuItem), (1.1, menuItem),
-                                         (1.85, CGPoint(x: card(1).midX, y: card(1).midY)), (2.15, CGPoint(x: card(1).midX, y: card(1).midY))]
+        var keys: [(Double, CGPoint)] = [(0, rest), (2.15, rest)]
         for (step, window) in dragOrder.enumerated() {
             let p = press(step)
             keys += [(p - 0.05, grab(window)), (p + 0.1, grab(window)), (p + 0.8, drop(window)), (p + 1.0, drop(window))]
@@ -226,7 +229,6 @@ private struct PaneDemoFrame: View {
 
     private func menuBar(_ t: Double) -> some View {
         let name = t < 15.3 ? "Create" : "Read"
-        let active = t >= 0.75 && t < 2.35
         return ZStack(alignment: .topLeading) {
             UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20).fill(.black.opacity(0.35))
                 .frame(width: Self.stage.width, height: 28).position(x: Self.stage.midX, y: Self.stage.minY + 14)
@@ -237,13 +239,12 @@ private struct PaneDemoFrame: View {
                 Text(name)
             }.font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
                 .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(.white.opacity(active ? 0.2 : 0), in: RoundedRectangle(cornerRadius: 5))
-                .frame(width: 100).position(Self.menuItem)
+                                .frame(width: 100).position(Self.menuItem)
         }
     }
 
     private func controlPanel(_ t: Double) -> some View {
-        let visible = ramp(t, 0.8, 1.05) * (1 - ramp(t, 2.15, 2.35))
+        let visible = ramp(t, 0.55, 0.8) * (1 - ramp(t, 2.05, 2.25))
         let panel = Self.panel
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.13, green: 0.15, blue: 0.18).opacity(0.97))
@@ -265,11 +266,11 @@ private struct PaneDemoFrame: View {
             }.padding(2).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
                 .position(x: panel.midX, y: panel.minY + 62)
             layoutGrid(t)
-        }.opacity(visible).scaleEffect(0.96 + 0.04*visible, anchor: UnitPoint(x: 0.75, y: 0))
+        }.opacity(visible).scaleEffect(0.96 + 0.04*visible)
     }
 
     private func layoutGrid(_ t: Double) -> some View {
-        let chosen = t >= 1.95
+        let chosen = t >= 1.45
         return ZStack(alignment: .topLeading) {
             ForEach(Array(PanePreset.allCases.enumerated()), id: \.offset) { index, preset in
                 let card = Self.card(index)

@@ -34,7 +34,7 @@ Sparkle is pinned to 2.10.1 in `scripts/fetch-sparkle.sh`, including the SHA-256
 ./scripts/render-demo.sh
 ```
 
-Requires `gifski` (GIF) and `ffmpeg` (MP4): `brew install gifski ffmpeg`. `--render-marketing` creates isolated preference/layout stores and substitutes fictional desktops before creating the views. The control-panel PNG renders the production SwiftUI view. The animated scene is an **illustrated demonstration**, using synthetic sample windows and the production geometry/interpolation functions. It is not a screen recording or a claim that choosing a preset immediately tiles existing windows.
+Requires `ffmpeg` for GIF/MP4 encoding. `--render-marketing` creates isolated preference/layout stores and substitutes fictional desktops before creating the views. The control-panel PNG renders the production SwiftUI view. The animated scene is an **illustrated demonstration**, using synthetic sample windows and the production geometry/interpolation functions. It is not a screen recording or a claim that choosing a preset immediately tiles existing windows.
 
 No screenshot of the user's display, real app content, personal saved layout, or runtime preference export is included. Inspect the generated PNG and representative animation frames before publication. Never use the older `--render-preview` entry point for public media; it reads normal app settings.
 
