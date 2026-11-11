@@ -6,7 +6,7 @@ Status reviewed on November 10, 2026.
 
 DeskNames is a local macOS productivity utility that combines desktop names with window arrangement tools. The original goal was to name virtual desktops. The project expanded into saved layouts, snapping, keyboard controls, and background routing for new windows.
 
-The current product is version 0.5.0, build 27. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
+The current product is version 0.6.0, build 28. It is a native Swift, SwiftUI, and AppKit menu bar application with a small Objective-C bridge. It uses Carbon for global shortcut registration and Accessibility for window inspection and manipulation.
 
 ## Repository and working copy
 
@@ -63,7 +63,7 @@ The original build 22 validation recorded successful build/signature checks, sel
 
 Only one physical screen was connected during that work. Cross-monitor transfer, reconnects, and simultaneous identical-monitor mapping remain unverified on hardware. Global hotkey delivery through a physical keyboard also remains a user check. App-specific Accessibility constraints and private macOS API changes remain compatibility risks.
 
-The preview is ad hoc signed and has no notarized distribution pipeline. The build script targets Apple Silicon and macOS 14 or later; native background transfer support is narrower. No broad OS compatibility claim follows from the deployment target.
+The preview is ad hoc signed and is not notarized. Version 0.6.0 adds downloadable distribution and signed Sparkle updates; Apple notarization remains unavailable without Developer ID membership. The build script targets Apple Silicon and macOS 14 or later; native background transfer support is narrower. No broad OS compatibility claim follows from the deployment target.
 
 ## Next work
 
@@ -117,3 +117,12 @@ Build 26 validation: build/signature checks and `--self-test` passed on the fina
 The user confirmed build 26's physical control-panel shortcut, but reported that the full editor appeared with it. Build 27 starts without creating or presenting the full editor. The menu-bar icon and app reopen route to the compact panel; opening that panel hides an existing editor before activating DeskNames. Only the panel's explicit Settings action creates/shows the editor, and that window is not restorable by AppKit. Closing the panel does not reopen the editor.
 
 Build 27 passed build/signature verification and `--self-test`. Live checks opened the compact panel, explicitly opened Settings, returned to the panel from that editor, and dismissed with Escape. Computer Use then reported `noWindowsAvailable`, confirming the editor was hidden instead of reappearing. Equivalent Accessibility approval was renewed. Installed executable SHA-256: `b8f082fdeff1edf3a2bc739bfbc79d76cbd59191ef3b9a33efbc25afd1a353c3`.
+
+
+## Public preview distribution — 0.6.0, build 28
+
+The user requested a public GitHub presentation, sample-only media, Homebrew/Mac downloads, and automatic updates, and confirmed they do not have paid Apple Developer membership. Distribution must therefore remain explicitly unnotarized; no Gatekeeper/quarantine bypass is included. A pinned Sparkle 2.10.1 framework handles manual update checks and opt-in automatic checking/download/installation. Feed and archive signatures are required before extraction; signed-feed validation does not expire. System profiling is disabled. The dedicated private key stays in the Mac Keychain under account `local.desknames.app`; only its public key is committed.
+
+The rewritten README uses an actual control-panel view rendered with fictional sample data, plus clearly labeled illustrated GIF/MP4 assets. No personal screen recording or saved preferences/layouts are published. `scripts/render-demo.sh` reproduces those assets. The build downloads a checksum-pinned official Sparkle release. `scripts/package-release.py` creates the ZIP, checksums, signed appcast and generated cask. The new GitHub build workflow compiles/tests on an Apple Silicon macOS runner without signing secrets. See docs/releasing.md for the repeatable local signing/publication process and future notarization requirements.
+
+Release preparation passed build, code-signature validation, self-tests and pane-session tests. Official Sparkle generate_appcast signed the ZIP/feed with one local Keychain approval; the independent CryptoKit verifier accepted both original artifacts and rejected modified archive/feed copies. Archive SHA-256: `4d999cfb5b431c136493cfb84d2aac46219faba93e2d64a3f04c6a67696fadb9`. Marketing PNG and representative animation frames were visually inspected and contain only fixture content. Public endpoint, Homebrew and live updater validation follow publication; do not infer an installation/relaunch test from signature checks alone.

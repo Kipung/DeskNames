@@ -62,3 +62,10 @@ Layout storage is separate from application code. Window titles and app identifi
 Public AppKit, SwiftUI, Accessibility, Core Graphics, and Carbon APIs provide UI and window controls. Private Space and SkyLight interfaces supply functionality unavailable through stable public APIs. Unsupported native transfers are refused for automatic routing. Manual same-display operations can retain the older simulated drag path where applicable.
 
 These dependencies make native testing on each intended macOS version necessary. Deployment target, compilation success, and simulated display tests establish different facts and must be reported separately.
+
+
+## Releases and update boundaries
+
+`AppUpdater.swift` wraps Sparkle 2.10.1 and exposes manual checks and persisted opt-in settings. AppDelegate starts it only in normal application mode; native tests and marketing rendering do not start update checks. Feed and archive verification are required. `build.sh` embeds the pinned framework and signs helpers inside-out. `scripts/package-release.py` packages the built artifact, verifies the Keychain/public-key match, signs/verifies the archive and feed, and generates the cask checksum. CI compiles/tests without private signing material.
+
+`MarketingPreview.swift` renders the real control-panel view with isolated fictional data, plus an explicitly illustrated pane animation. It neither captures the screen nor renders actual saved preferences/layouts. `scripts/render-demo.sh` encodes these fixture frames as GIF/MP4.

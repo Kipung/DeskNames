@@ -346,6 +346,7 @@ final class LabelPanel: NSPanel {
     var smartPanes:SmartPaneController!
     var linkedPanes:LinkedPaneController!
     let shortcuts=ShortcutSettings()
+    let updater = AppUpdater()
     var switcher:NSPanel?
     private var switcherPreviousApp: NSRunningApplication?
     func applicationDidFinishLaunching(_ notification:Notification) {
@@ -372,6 +373,7 @@ final class LabelPanel: NSPanel {
             return result
         }
         shortcuts.apply()
+        updater.start()
         store.onChange = { [weak self] in self?.updateStatus() }
         updateStatus()
         timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.smartPanes.tick();self.linkedPanes.tick()} }
@@ -400,9 +402,9 @@ final class LabelPanel: NSPanel {
         let desktop = workspace.native.activeDesktop(reader: store.reader)
         switcherPreviousApp = NSWorkspace.shared.frontmostApplication
         window?.orderOut(nil)
-        let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:620),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
+        let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:690),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
         panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
-        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,
+        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,
             choose:{ [weak self] d in self?.workspace.switchTo(d) },
             close:{ [weak self] in self?.closeSwitcher() },
             openSettings:{ [weak self] in self?.showWindow() }))
@@ -496,6 +498,9 @@ if CommandLine.arguments.contains("--self-test") {
     app.setActivationPolicy(.prohibited)
     Task { @MainActor in await runPaneSessionTests(); exit(0) }
     app.run()
+} else if let index = CommandLine.arguments.firstIndex(of: "--render-marketing"), CommandLine.arguments.count > index+1 {
+    NSApplication.shared.setActivationPolicy(.prohibited)
+    try renderMarketing(to: URL(fileURLWithPath: CommandLine.arguments[index+1], isDirectory: true))
 } else if let index=CommandLine.arguments.firstIndex(of:"--render-preview"),CommandLine.arguments.count>index+1 {
     let app=NSApplication.shared
     app.setActivationPolicy(.prohibited)

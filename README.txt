@@ -45,7 +45,7 @@ Previous alignment values remain saved but no longer affect label positions. Nam
 LOCAL DATA
 Names, colors, and legacy label calibration remain in local.desknames.app preferences.
 Layouts: ~/Library/Application Support/DeskNames/layouts-v1.json
-Layouts contain application bundle identifiers, window titles and normalized geometry. They are stored only on this Mac. There are no accounts, network requests or analytics. This release does not add itself to login items.
+Layouts contain application bundle identifiers, window titles and normalized geometry. They are stored only on this Mac. There are no accounts or analytics. Optional Sparkle update checks contact GitHub; update downloads use GitHub release hosting. System-profile reporting is disabled. Desktop names, window titles and layout files are not sent with update checks. This release does not add itself to login items.
 
 BUILD AND TEST
 Requires Apple Silicon and Xcode command line tools. Build target: macOS 14+. Development testing: macOS 26.6.2.
@@ -110,3 +110,8 @@ Older saves remain usable but must be saved once again to acquire exact geometry
 Verification commands: --self-test, --pane-session-test, --layout-session-test, --pane-interaction-test, --movement-session-test. The movement session checks rapid retargeting, cancellation, restore history, persistent divider handles, and linked neighbors placed by shortcuts even when another guide layout is selected. The pane interaction test creates four disposable native windows and uses temporary settings to verify animated placement, linked resizing, and constrained-window rollback. The layout session creates three disposable overlapping windows and uses a temporary settings domain/layout file; it cannot enumerate external-app windows. Native TextEdit tests verified background routing, unchanged existing windows and no rerouting after a manual move. Physical cross-monitor testing still needs a connected second monitor. Pure checks cover translated screens, equivalent replacement units and eight identical-monitor role assignments.
 
 Native bridge adapted from ferry (https://github.com/softmaxe/ferry) and yabai (https://github.com/asmvik/yabai). See THIRD_PARTY_NOTICES.txt.
+
+
+0.6.0 distribution and updates
+------------------------------
+The public preview includes a ZIP download, a project-maintained Homebrew cask, and Sparkle updates. It is ad-hoc signed and not Apple-notarized. See README.md for installation and first-launch limitations. In the compact control panel, Check for Updates checks manually; Check automatically and Download and install updates automatically are opt-in. Signed feeds and archives are verified before extraction. User layouts remain local. Promotional screenshots and illustrated animations use isolated fictional sample content.

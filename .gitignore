@@ -9,3 +9,10 @@ window-check
 # Editor/tool state and macOS clutter
 .serena/
 .DS_Store
+
+# Downloaded dependencies and release artifacts
+.build-deps/
+dist/
+*.p12
+*.p8
+__pycache__/

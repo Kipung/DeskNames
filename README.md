@@ -1,28 +1,83 @@
+<div align="center">
+
 # DeskNames
 
-A native macOS menu bar app for named desktops, window layouts, smart panes, and one-time window routing.
+**Give every desktop a name. Give every window a place.**
 
-DeskNames helps you organize macOS Spaces around activities such as Work, Research, and Code. It adds name labels to the expanded Mission Control desktop strip and remembers window arrangements for later restoration.
+A quiet macOS menu-bar utility for named desktops, visual pane layouts, and remembered window arrangements.
 
-**Current version: 0.5.0, build 22.** This is an experimental, ad-hoc-signed local preview for Apple Silicon. The build targets macOS 14 or later. Development and native window-transfer testing were recorded on macOS 26.6.2. Targeting macOS 14 does not establish that every feature works on every supported OS version.
+[Download for Mac](https://github.com/Kipung/DeskNames/releases/tag/v0.6.0) · [Install with Homebrew](#install) · [User guide](README.txt) · [Report a bug](https://github.com/Kipung/DeskNames/issues)
 
-## What it does
+**Apple Silicon · macOS 14+ · Free and open source**
 
-- Give desktops names and colors, stored against stable Space UUIDs.
-- Display custom labels below the expanded Mission Control desktop thumbnails.
-- Find desktops by name in a quick switcher and jump directly to their thumbnails.
-- Save and restore window positions, sizes, screen assignments, desktop assignments, and overlap order.
-- Restore visible-desktop window geometry automatically when entering a desktop, if enabled.
-- Snap windows into six pane presets with Command-drag. Each desktop remembers its preset and spacing.
-- Snap to screen edges and corners through a separate optional setting.
-- Apply halves, quarters, thirds, maximize, center, resize, restore-size, and display-movement commands.
-- Record custom global shortcuts and report registration conflicts. Global shortcuts are opt-in.
-- Send newly opened windows to a desktop using app rules and an optional title match.
-- Match saved screens by exact identity first, then by equivalent monitor model where the destination is unambiguous.
+![Illustrated pane-layout demo using only fictional sample windows](docs/media/panes-demo.gif)
 
-## Build and run
+<sub>Illustrated demo with synthetic sample windows, using DeskNames’ pane geometry. No personal desktop was recorded.</sub>
 
-Install the Xcode command line tools on an Apple Silicon Mac. The build uses Apple's frameworks without third-party package dependencies.
+</div>
+
+## A small panel, then back to work
+
+Press **Control–Option–Command–Space** to choose a pane layout for the current desktop, or find another desktop by name. Search, click, or use the arrow keys and Return. The full settings window opens only when you ask for it.
+
+<p align="center"><img src="docs/media/control-panel.png" width="480" alt="DeskNames control panel showing seven illustrated layouts for the fictional Create desktop"></p>
+
+- **Seven pane layouts:** two, three, or four columns; quarters; rows; wide + stack; and focus.
+- **Command-drag to fit:** choose a guide, drag a window, and release the mouse before Command. Per-desktop spacing includes an edge-to-edge option.
+- **Resize neighbors together:** an optional shared divider adjusts windows on both sides.
+- **Name your desktops:** names and colors follow Space identities, with labels in expanded Mission Control.
+- **Remember arrangements:** save and restore window bounds and overlap order. Optional routing sends a newly opened window to its chosen desktop once.
+- **Keep control:** shortcuts, edge snapping, routing, and automatic updates are configurable. Existing shortcut bindings survive upgrades.
+
+Selecting a pane preset changes the guides; it does not rearrange every open window at once. The separate tiling and restore commands handle arrangements.
+
+## Install
+
+**0.6.0 is an unnotarized public preview.** It is ad-hoc signed, not Developer ID signed or notarized by Apple. macOS may block first launch. Review [Apple’s guidance for opening downloaded apps](https://support.apple.com/en-us/102445); DeskNames does not disable Gatekeeper or remove quarantine. Updating may require renewing its Accessibility approval. Intel Macs are not supported by this download.
+
+### Homebrew
+
+```sh
+brew tap Kipung/desknames
+brew install --cask desknames
+```
+
+The [tap](https://github.com/Kipung/homebrew-desknames) pins the release archive’s SHA-256. This is a project-maintained tap, not a listing in Homebrew’s official cask repository.
+
+### Download for Mac
+
+1. Download [DeskNames-0.6.0-arm64.zip](https://github.com/Kipung/DeskNames/releases/download/v0.6.0/DeskNames-0.6.0-arm64.zip).
+2. Unzip it and drag **DeskNames.app** into **Applications**.
+3. Open DeskNames, then click its menu-bar icon. It starts without a full app window.
+4. Choose **Settings** and enable DeskNames in **System Settings → Privacy & Security → Accessibility** for window management.
+5. In **Keyboard shortcuts**, enable global shortcuts to use **Control–Option–Command–Space**. They start off so DeskNames does not take over existing bindings.
+
+Release assets include checksums. No account or subscription is required.
+
+## Updates
+
+The control panel includes **Check for Updates…**, **Check automatically**, and **Download and install updates automatically**. Background checks and automatic installation start off; enable the behavior you want.
+
+Updates use [Sparkle](https://sparkle-project.org/). Both the feed and archives are verified with the embedded Ed25519 public key, and downloads use HTTPS. Update signing is separate from Apple notarization: this preview is still unnotarized after an update.
+
+Homebrew users can also run:
+
+```sh
+brew update
+brew upgrade --cask desknames
+```
+
+## Privacy
+
+Desktop names, shortcuts, pane preferences, rules, and saved arrangements stay on your Mac. There are no accounts or analytics. DeskNames does not request Screen Recording permission.
+
+Update checks contact GitHub for the feed, and update downloads use GitHub release hosting. Sparkle’s optional system-profile reporting is disabled. Window titles, desktop names, and layout files are not sent with update checks.
+
+Promotional media is generated offscreen from fictional fixture content. [Download the MP4 demo](docs/media/panes-demo.mp4) or [reproduce the media](docs/releasing.md#sample-only-media).
+
+## Build from source
+
+Install Xcode’s command-line tools on an Apple Silicon Mac, then:
 
 ```sh
 git clone https://github.com/Kipung/DeskNames.git
@@ -31,69 +86,22 @@ cd DeskNames
 open build/DeskNames.app
 ```
 
-The script compiles the Objective-C bridge and Swift sources, creates an app bundle, and signs it ad hoc. There is no Xcode project or Swift package to open. To install the build, quit any running copy first and copy `build/DeskNames.app` into `/Applications` using Finder.
-
-Enable DeskNames in **System Settings > Privacy & Security > Accessibility** for window management and desktop switching. Rebuilding may require removing a stale permission entry and approving the current app again. DeskNames itself does not request Screen Recording permission.
-
-For repeated development builds, [configure a persistent signing identity](docs/development-signing.md). Ad-hoc signing changes the identity recognized by macOS when the code changes; certificate signing can keep it stable across rebuilds.
-
-This repository does not provide an Apple-notarized installer. Build locally for now.
-
-## Use it
-
-Start with desktop names and colors in the editor. Expand the Mission Control desktop strip by hovering near the top of the screen to see the labels.
-
-To save an arrangement, open and arrange your windows, enter the desktop, and choose **Save current layout** in **Layouts & windows**. By default, a capture includes the active desktop on each connected screen. Manual restore also restores overlap order. Automatic restore preserves focus and leaves stacking unchanged.
-
-Choose a preset in **Smart panes**, then hold Command while dragging a window by its title bar. Release the mouse before Command to snap. Release Command first, or press Escape, to cancel. Edge snapping has a separate switch.
-
-For window routing, choose a running app, an optional title substring, and a destination desktop. Enable **Automatically send new windows**. Existing windows remain in place. A new window is considered once, so moving it manually does not make DeskNames send it back.
-
-See [the complete user guide and version history](README.txt) for settings, suggested shortcuts, matching rules, and troubleshooting.
-
-## Verify a build
+The build script downloads a pinned, checksum-verified Sparkle framework and compiles the native Swift/AppKit/SwiftUI app. Local builds are ad-hoc signed by default. [Persistent development signing](docs/development-signing.md) is optional.
 
 ```sh
 build/DeskNames.app/Contents/MacOS/DeskNames --self-test
-build/DeskNames.app/Contents/MacOS/DeskNames --pane-session-test
 ```
 
-The native layout session test creates temporary overlapping windows and exercises restoration. Run it when a brief visual test will not interrupt your work:
+The movement, pane, and layout session tests create disposable native windows and may briefly affect the display. See [validation notes](docs/validation.md) and [the contributor guide](CONTRIBUTING.md).
 
-```sh
-build/DeskNames.app/Contents/MacOS/DeskNames --layout-session-test
-```
+## Compatibility
 
-Test coverage and hardware gaps are recorded in [validation notes](docs/validation.md). Passing calculation tests does not prove physical multi-monitor behavior.
+The deployment target is macOS 14; current native validation is on macOS 26.6.2. That is not a claim that all functionality has been validated on every OS release. Background window transfers use private macOS interfaces and are supported more narrowly; automatic routing refuses unsupported transfers.
 
-## Limits and compatibility
+Apps can enforce minimum window sizes or reject Accessibility actions. Multiple-monitor reconnects and identical-monitor arrangements still need broader physical testing. Restoring a layout does not recreate closed documents or browser tabs.
 
-DeskNames uses private macOS interfaces to read Spaces and, on supported macOS 26 systems, move windows in the background. Apple can change these interfaces. Automatic routing refuses unsupported transfers rather than falling back to a focus-changing simulated drag.
+[Full user guide](README.txt) · [Architecture](docs/architecture.md) · [Release process](docs/releasing.md) · [Project context](PROJECT_CONTEXT.md)
 
-- Physical cross-monitor movement, monitor reconnection, and simultaneous identical monitors still need live validation.
-- Some apps enforce minimum window sizes or reject Accessibility actions.
-- Full-screen, minimized, utility, and all-desktop windows have operation-specific exclusions.
-- Layouts restore matching windows. They do not recreate unsaved documents, browser tabs, or application content.
-- Old captures need saving again to acquire exact geometry, monitor metadata, and overlap order.
-- Global shortcut registration and editing were tested. Physical keyboard delivery still needs a user check.
-- Desktop jumps use Mission Control and can visibly change your desktop. Manual restore can activate desktops and raise windows. DeskNames does not isolate a computer-use agent inside a Space.
+## License
 
-## Privacy and local storage
-
-DeskNames has no accounts, analytics, or application network requests. It stores names, colors, rules, shortcuts, and pane preferences in the `local.desknames.app` preferences domain. Window layouts live at `~/Library/Application Support/DeskNames/layouts-v1.json`; they include app identifiers, window titles, geometry, and screen metadata.
-
-Do not publish your personal preference exports, saved layouts, or diagnostic captures in bug reports without reviewing their contents. The app does not add itself to login items.
-
-## Project documentation
-
-- [Project context](PROJECT_CONTEXT.md): scope, current state, decisions, and next work.
-- [Architecture](docs/architecture.md): source map and runtime behavior.
-- [Validation](docs/validation.md): recorded evidence and remaining checks.
-- [Contributing](CONTRIBUTING.md): build, test, and review expectations.
-- [User guide and history](README.txt): detailed operation and earlier versions.
-
-## License and attribution
-
-DeskNames is MIT licensed. See [LICENSE](LICENSE).
-
-The native bridge adapts work from [ferry](https://github.com/softmaxe/ferry) and [yabai](https://github.com/asmvik/yabai). Their MIT notices are preserved in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and copied into the app bundle. Additional design and API research references are recorded in the user guide.
+[MIT](LICENSE). Native bridge attribution for ferry and yabai, and Sparkle’s license, are preserved in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and the app bundle.

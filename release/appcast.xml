@@ -1,0 +1,21 @@
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>DeskNames</title>
+        <item>
+            <title>0.6.0</title>
+            <pubDate>Tue, 10 Nov 2026 16:09:09 -0800</pubDate>
+            <link>https://github.com/Kipung/DeskNames</link>
+            <sparkle:version>28</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<p>Public preview: visual pane picker, smoother placement, and signed updates.</p><p>This app is not notarized by Apple. Accessibility approval may need renewal after updating.</p>]]></description>
+            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.6.0/DeskNames-0.6.0-arm64.zip" length="2874730" type="application/octet-stream" sparkle:edSignature="7HQkjm63CUr72Yx47V4nsPv46gW7nJ/xgiRuYT0tUUMGhSyaCzfbEjYRm7SoYlH8x8pO1eMjgw95S8Vzf7z5Cw=="></enclosure>
+        </item>
+    </channel>
+</rss><!-- sparkle-signatures:
+edSignature: ELqEbBaxRJ/uQf4D7s12YVDgwcIygiviqkZ0ykC+ZqCB/S6sBl8q7egQojNum0M1q5Q2cvHpaDymdsbd0LQ8CQ==
+length: 1421
+-->

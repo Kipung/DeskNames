@@ -85,6 +85,7 @@ struct SwitcherView: View {
     @ObservedObject var preferences: PanePreferences
     @ObservedObject var models: MonitorPresets
     let desktop: Desktop?
+    var updater: AppUpdater? = nil
     let choose: (Desktop) -> Void
     let close: () -> Void
     let openSettings: () -> Void
@@ -180,6 +181,7 @@ struct SwitcherView: View {
                 }
             }
             if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.orange) }
+            if let updater { UpdateControls(updater: updater) }
             Divider()
             HStack {
                 Text("↑ ↓ ← →  Browse    ↩  Choose").font(.caption)
@@ -187,7 +189,7 @@ struct SwitcherView: View {
                 Text("esc  Close").font(.caption)
             }.foregroundStyle(.secondary)
         }
-        .padding(20).frame(width: 560, height: 620)
+        .padding(20).frame(width: 560, height: updater == nil ? 620 : 690)
         .background(Color(red: 0.09, green: 0.11, blue: 0.135)).preferredColorScheme(.dark)
         .onAppear { focused = true; index = presets.firstIndex(of: config.preset) ?? 0 }
         .onChange(of: search) { index = 0; error = "" }

@@ -1,0 +1,25 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build Apple Silicon app
+        env:
+          DESKNAMES_SIGN_IDENTITY: '-'
+        run: ./build.sh
+      - name: Verify signatures and calculations
+        run: |
+          codesign --verify --deep --strict build/DeskNames.app
+          build/DeskNames.app/Contents/MacOS/DeskNames --self-test
+      - name: Check release scripts
+        run: |
+          zsh -n build.sh scripts/fetch-sparkle.sh scripts/render-demo.sh
+          python3 -m py_compile scripts/package-release.py
