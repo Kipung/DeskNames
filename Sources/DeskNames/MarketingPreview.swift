@@ -45,12 +45,13 @@ import SwiftUI
 }
 
 
-// Illustrated, looping walkthrough: pick a layout, Command-drag windows into it, switch desktops by name.
+// Illustrated, looping walkthrough: pick a layout, Command-drag windows into it, save the arrangement,
+// rearrange with shortcuts, restore it, then jump to another named desktop.
 // Window motion uses the production PaneGeometry and WindowTransition functions.
 private struct PaneDemoFrame: View {
     // GIF delays are whole centiseconds; 50 fps gives an even 2 cs per frame.
     static let fps = 50.0
-    static let duration = 12.4
+    static let duration = 18.4
     static let canvas = CGRect(x: 0, y: 0, width: 1120, height: 700)
     let time: Double
 
@@ -58,7 +59,7 @@ private struct PaneDemoFrame: View {
     private static let area = CGRect(x: 52, y: 76, width: 1016, height: 528)
     private static let panel = CGRect(x: 730, y: 70, width: 330, height: 362)
     private static let menuItem = CGPoint(x: 925, y: 50)
-    private static let rest = CGPoint(x: 640, y: 560)
+    private static let rest = CGPoint(x: 860, y: 480)
     private static let cells = PaneGeometry(area: area, configuration: PaneConfiguration(preset: .thirds, gap: 10)).cells
     private static let halves = PaneGeometry(area: area, configuration: PaneConfiguration(preset: .halves, gap: 10)).cells
     private static let starts = (0..<3).map { CGRect(x: 150 + Double($0)*150, y: 120 + Double($0)*45, width: 430, height: 330) }
@@ -70,9 +71,32 @@ private struct PaneDemoFrame: View {
     private static func card(_ index: Int) -> CGRect {
         CGRect(x: panel.minX + 16 + Double(index%3)*102, y: panel.minY + 98 + Double(index/3)*84, width: 92, height: 58)
     }
-    private static func row(_ index: Int) -> CGRect { CGRect(x: panel.minX + 12, y: panel.minY + 98 + Double(index)*46, width: panel.width - 24, height: 40) }
-    private static let desktopsTab = CGPoint(x: panel.minX + 247, y: panel.minY + 62)
-    private static let clicks = [0.75, 1.95, 7.75, 8.4, 8.9]
+    private static let clicks = [0.75, 1.95, 11.6]
+    private static func region(_ x: Double, _ y: Double, _ w: Double, _ h: Double) -> CGRect {
+        PaneGeometry.frames(in: area, regions: [CGRect(x: x, y: y, width: w, height: h)], gap: 10)[0]
+    }
+    private struct Move { let window: Int; let start: Double; let target: CGRect; var duration = 0.24 }
+    // Shortcut moves act on the focused window: Draft was dragged last, then Tasks is clicked.
+    private static let moves: [Move] = [
+        Move(window: 0, start: 9.25, target: region(0, 0, 1, 1)),
+        Move(window: 0, start: 10.05, target: region(0.5, 0, 0.5, 1)),
+        Move(window: 0, start: 10.85, target: region(0, 0.5, 0.5, 0.5)),
+        Move(window: 2, start: 12.25, target: region(0, 0, 0.5, 0.5)),
+    ] + (0..<3).map { Move(window: $0, start: 13.25 + 0.06*Double($0), target: cells[$0], duration: 0.45) }
+    private struct Keystroke { let time: Double; let keys: [String]; let label: String }
+    private static let keystrokes = [
+        Keystroke(time: 7.7, keys: ["⌃", "⌥", "S"], label: "Save layout for Create"),
+        Keystroke(time: 9.2, keys: ["⌃", "⌥", "↩"], label: "Maximize"),
+        Keystroke(time: 10.0, keys: ["⌃", "⌥", "→"], label: "Right half"),
+        Keystroke(time: 10.8, keys: ["⌃", "⌥", "J"], label: "Bottom-left quarter"),
+        Keystroke(time: 12.2, keys: ["⌃", "⌥", "U"], label: "Top-left quarter"),
+        Keystroke(time: 13.2, keys: ["⌃", "⌥", "R"], label: "Restore layout"),
+        Keystroke(time: 14.7, keys: ["⌃", "⌥", "2"], label: "Go to Read"),
+        Keystroke(time: 16.0, keys: [], label: "Each desktop keeps its own name, panes, and layout."),
+    ]
+    private static func keystrokeEnd(_ index: Int) -> Double {
+        index + 1 < keystrokes.count ? min(keystrokes[index + 1].time - 0.1, keystrokes[index].time + 1.1) : 17.6
+    }
     private static let path: [(Double, CGPoint)] = {
         var keys: [(Double, CGPoint)] = [(0, rest), (0.2, rest), (0.7, menuItem), (1.1, menuItem),
                                          (1.85, CGPoint(x: card(1).midX, y: card(1).midY)), (2.15, CGPoint(x: card(1).midX, y: card(1).midY))]
@@ -80,21 +104,21 @@ private struct PaneDemoFrame: View {
             let p = press(step)
             keys += [(p - 0.05, grab(window)), (p + 0.1, grab(window)), (p + 0.8, drop(window)), (p + 1.0, drop(window))]
         }
-        keys += [(7.7, menuItem), (7.85, menuItem), (8.35, desktopsTab), (8.45, desktopsTab),
-                 (8.85, CGPoint(x: row(1).midX - 40, y: row(1).midY)), (9.0, CGPoint(x: row(1).midX - 40, y: row(1).midY)), (10.2, rest)]
+        let tasks = CGPoint(x: cells[2].midX + 40, y: cells[2].midY + 60)
+        keys += [(7.95, rest), (11.0, rest), (11.5, tasks), (11.75, tasks), (12.6, rest)]
         return keys
     }()
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Dip through the background so the loop restarts cleanly.
-            if time < 12.0 { scene(time).opacity(1 - ramp(time, 11.6, 12.0)) } else { scene(0).opacity(ramp(time, 12.0, 12.4)) }
+            if time < 18.0 { scene(time).opacity(1 - ramp(time, 17.6, 18.0)) } else { scene(0).opacity(ramp(time, 18.0, 18.4)) }
         }.frame(width: Self.canvas.width, height: Self.canvas.height)
             .background(Color(red: 0.055, green: 0.07, blue: 0.085)).preferredColorScheme(.dark)
     }
 
     private func scene(_ t: Double) -> some View {
-        let slide = ramp(t, 9.0, 9.8)
+        let slide = ramp(t, 14.9, 15.7)
         let shift = -Self.stage.width*slide
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 20).fill(Color(red: 0.08, green: 0.11, blue: 0.145))
@@ -106,6 +130,7 @@ private struct PaneDemoFrame: View {
                 .mask(RoundedRectangle(cornerRadius: 20).frame(width: Self.stage.width, height: Self.stage.height).position(x: Self.stage.midX, y: Self.stage.midY))
             menuBar(t)
             controlPanel(t)
+            keystrokeHUD(t)
             cursor(t)
             captions(t)
         }.frame(width: Self.canvas.width, height: Self.canvas.height, alignment: .topLeading)
@@ -148,7 +173,8 @@ private struct PaneDemoFrame: View {
     }
 
     private func window(title: String, heading: String, body: String, accent: Color, lifted: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Overlaying on a flexible clear view keeps the window at its given size; overflow clips at the bottom.
+        Color.clear.overlay(alignment: .topLeading) { VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 ForEach([Color.red, .yellow, .green], id: \.self) { color in Circle().fill(color.opacity(0.8)).frame(width: 7, height: 7) }
                 Spacer()
@@ -156,14 +182,15 @@ private struct PaneDemoFrame: View {
                 Spacer()
             }.padding(13).background(.white.opacity(0.04))
             VStack(alignment: .leading, spacing: 16) {
-                Text(heading).font(.system(size: 27, weight: .semibold))
-                Text(body).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(7)
+                // Fixed height lets small windows clip their content like a real window instead of truncating text.
+                Text(heading).font(.system(size: 27, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                Text(body).font(.system(size: 13)).foregroundStyle(.secondary).lineSpacing(7).fixedSize(horizontal: false, vertical: true)
                 ForEach(0..<3) { row in
                     RoundedRectangle(cornerRadius: 3).fill(accent.opacity(0.14)).frame(width: CGFloat(140 + row*20), height: 7)
                 }
                 Spacer(minLength: 0)
             }.padding(22)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        } }
             .background(Color(red: 0.11, green: 0.14, blue: 0.17))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(lifted ? 0.22 : 0.12)))
@@ -177,6 +204,7 @@ private struct PaneDemoFrame: View {
     }
 
     private func stackOrder(_ index: Int, _ t: Double) -> Double {
+        if index == 2 && t >= 11.6 { return 20 }
         guard let step = Self.dragOrder.firstIndex(of: index), t >= Self.press(step) else { return Double(index) }
         return 10 + Double(step)
     }
@@ -187,14 +215,18 @@ private struct PaneDemoFrame: View {
         guard t >= p else { return start }
         let hand = t < p + 0.8 ? cursorPoint(t) : Self.drop(index)
         let carried = start.offsetBy(dx: hand.x - grab.x, dy: hand.y - grab.y)
-        return WindowTransition.frame(from: carried, to: Self.cells[index], progress: (t - p - 0.8)/0.35)
+        var frame = WindowTransition.frame(from: carried, to: Self.cells[index], progress: (t - p - 0.8)/0.35)
+        for move in Self.moves where move.window == index && t >= move.start {
+            frame = WindowTransition.frame(from: frame, to: move.target, progress: (t - move.start)/move.duration)
+        }
+        return frame
     }
 
     // MARK: Chrome
 
     private func menuBar(_ t: Double) -> some View {
-        let name = t < 9.4 ? "Create" : "Read"
-        let active = (t >= 0.75 && t < 2.35) || (t >= 7.75 && t < 9.15)
+        let name = t < 15.3 ? "Create" : "Read"
+        let active = t >= 0.75 && t < 2.35
         return ZStack(alignment: .topLeading) {
             UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20).fill(.black.opacity(0.35))
                 .frame(width: Self.stage.width, height: 28).position(x: Self.stage.midX, y: Self.stage.minY + 14)
@@ -211,10 +243,7 @@ private struct PaneDemoFrame: View {
     }
 
     private func controlPanel(_ t: Double) -> some View {
-        let first = ramp(t, 0.8, 1.05) * (1 - ramp(t, 2.15, 2.35))
-        let second = ramp(t, 7.8, 8.05) * (1 - ramp(t, 8.95, 9.15))
-        let visible = max(first, second)
-        let desktopsTab = t >= 8.4
+        let visible = ramp(t, 0.8, 1.05) * (1 - ramp(t, 2.15, 2.35))
         let panel = Self.panel
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 14).fill(Color(red: 0.13, green: 0.15, blue: 0.18).opacity(0.97))
@@ -227,7 +256,7 @@ private struct PaneDemoFrame: View {
             }.position(x: panel.minX + 68, y: panel.minY + 24)
             HStack(spacing: 0) {
                 ForEach(0..<2) { tab in
-                    let selected = (tab == 1) == desktopsTab
+                    let selected = tab == 0
                     Text(["Pane layouts", "Desktops"][tab]).font(.system(size: 12, weight: .medium))
                         .foregroundStyle(selected ? Color.white : .secondary)
                         .frame(width: (panel.width - 32)/2, height: 24)
@@ -235,7 +264,7 @@ private struct PaneDemoFrame: View {
                 }
             }.padding(2).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
                 .position(x: panel.midX, y: panel.minY + 62)
-            if desktopsTab { desktopList(t) } else { layoutGrid(t) }
+            layoutGrid(t)
         }.opacity(visible).scaleEffect(0.96 + 0.04*visible, anchor: UnitPoint(x: 0.75, y: 0))
     }
 
@@ -267,24 +296,6 @@ private struct PaneDemoFrame: View {
         }
     }
 
-    private func desktopList(_ t: Double) -> some View {
-        let hover = t >= 8.7 ? 1 : 0
-        return ZStack(alignment: .topLeading) {
-            ForEach(0..<3) { index in
-                let row = Self.row(index)
-                HStack {
-                    Image(systemName: icons[index]).foregroundStyle(palette[index]).frame(width: 24)
-                    Text(["Create", "Read", "Plan"][index]).font(.system(size: 13))
-                    Spacer()
-                    if index == 0 { Text("Current").font(.caption).foregroundStyle(.secondary) }
-                    Text("\(index + 1)").monospacedDigit().foregroundStyle(.secondary)
-                }.padding(.horizontal, 12).frame(width: row.width, height: row.height)
-                    .background(index == hover ? Color.white.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 8))
-                    .position(x: row.midX, y: row.midY)
-            }
-        }
-    }
-
     private func cursor(_ t: Double) -> some View {
         let point = cursorPoint(t)
         let pressed = dragging(t) != nil || Self.clicks.contains { abs(t - $0) < 0.08 }
@@ -308,26 +319,44 @@ private struct PaneDemoFrame: View {
     }
 
     private func captions(_ t: Double) -> some View {
-        let step = t < 2.6 ? 0 : t < 7.5 ? 1 : 2
-        let done = t >= 9.8
-        return HStack(spacing: 10) {
-            ForEach(0..<3) { index in
-                let active = index == step && !done
-                HStack(spacing: 8) {
-                    Text("\(index + 1)").font(.system(size: 12, weight: .bold)).frame(width: 20, height: 20)
+        let labels = ["Choose a layout", "Command-drag", "Save", "Shortcuts", "Restore", "Switch desktops"]
+        let step = [2.6, 7.6, 9.1, 13.1, 14.6].firstIndex { t < $0 } ?? 5
+        return HStack(spacing: 6) {
+            ForEach(0..<labels.count, id: \.self) { index in
+                let active = index == step
+                HStack(spacing: 7) {
+                    Text("\(index + 1)").font(.system(size: 11, weight: .bold)).frame(width: 19, height: 19)
                         .background(active ? palette[0] : .white.opacity(0.12), in: Circle())
                         .foregroundStyle(active ? Color.black : .secondary)
-                    Text(["Choose a layout", "Command-drag to fit", "Switch desktops by name"][index])
-                        .font(.system(size: 15, weight: active ? .semibold : .regular))
+                    Text(labels[index]).font(.system(size: 14, weight: active ? .semibold : .regular))
                         .foregroundStyle(active ? Color.white : .secondary)
-                }.padding(.horizontal, 12).padding(.vertical, 8)
+                }.padding(.horizontal, 11).padding(.vertical, 7)
                     .background(active ? Color.white.opacity(0.08) : .clear, in: Capsule())
             }
             Spacer()
-            Text(done ? "Each desktop keeps its own name and layout." : "Illustrated demo · sample content")
-                .font(.system(size: done ? 15 : 11, weight: done ? .medium : .regular))
-                .foregroundStyle(done ? palette[0] : .secondary)
+            Text("Illustrated demo · sample content").font(.system(size: 11)).foregroundStyle(.secondary)
         }.frame(width: Self.stage.width).position(x: Self.stage.midX, y: Self.stage.maxY + 44)
+    }
+
+    private func keystrokeHUD(_ t: Double) -> some View {
+        let index = Self.keystrokes.lastIndex { t >= $0.time }
+        let stroke = index.map { Self.keystrokes[$0] }
+        let opacity = index.map { ramp(t, Self.keystrokes[$0].time, Self.keystrokes[$0].time + 0.12) * (1 - ramp(t, Self.keystrokeEnd($0) - 0.15, Self.keystrokeEnd($0))) } ?? 0
+        let pressed = index.map { t - Self.keystrokes[$0].time < 0.14 } ?? false
+        return HStack(spacing: 6) {
+            ForEach(Array((stroke?.keys ?? []).enumerated()), id: \.offset) { _, key in
+                Text(key).font(.system(size: 17, weight: .semibold)).frame(minWidth: 34, minHeight: 32)
+                    .background(Color(white: 0.93), in: RoundedRectangle(cornerRadius: 7)).foregroundStyle(.black)
+                    .shadow(color: .black.opacity(0.35), radius: pressed ? 1 : 3, y: pressed ? 1 : 3)
+                    .offset(y: pressed ? 2 : 0)
+            }
+            Text(stroke?.label ?? "").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
+                .padding(.leading, (stroke?.keys.isEmpty ?? true) ? 4 : 8)
+        }.padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Color(red: 0.06, green: 0.08, blue: 0.1).opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(palette[0].opacity(0.35)))
+            .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+            .opacity(opacity).position(x: Self.stage.midX, y: Self.stage.maxY - 56)
     }
 
     // MARK: Timing

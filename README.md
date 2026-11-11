@@ -10,7 +10,7 @@ A quiet macOS menu-bar utility for named desktops, visual pane layouts, and reme
 
 [**Download for Mac**](https://github.com/Kipung/DeskNames/releases/tag/v0.6.0) · [Install with Homebrew](#install) · [User guide](README.txt) · [Report a bug](https://github.com/Kipung/DeskNames/issues)
 
-<img src="docs/media/panes-demo.gif" width="760" alt="Illustrated demo: choosing Three columns in the DeskNames panel, Command-dragging three sample windows into the guides, then switching to a desktop named Read">
+<img src="docs/media/panes-demo.gif" width="760" alt="Illustrated demo: choosing Three columns in the DeskNames panel, Command-dragging three sample windows into the guides, saving the arrangement, moving windows with keyboard shortcuts, restoring the saved arrangement, and jumping to a desktop named Read">
 
 <sub>Illustrated demo with fictional sample windows, drawn with DeskNames’ own pane geometry. Not a screen recording. <a href="docs/media/panes-demo.mp4">MP4 version</a>.<br>0.6.0 is an unnotarized public preview. See <a href="#install">Install</a> before first launch.</sub>
 
@@ -24,8 +24,26 @@ DeskNames lives in the menu bar. Open its compact panel to pick a pane layout fo
 - **Command-drag to fit:** choose a guide, drag a window, and release the mouse before Command. Per-desktop spacing includes an edge-to-edge option.
 - **Resize neighbors together:** an optional shared divider adjusts windows on both sides.
 - **Name your desktops:** names and colors follow Space identities, with labels in expanded Mission Control.
-- **Remember arrangements:** save and restore window bounds and overlap order. Optional routing sends a newly opened window to its chosen desktop once.
+- **Remember arrangements:** save where every window sits on a desktop, including overlap order, and put them all back in one step after things get messy. Restores can run automatically when you enter a desktop. Optional routing sends a newly opened window to its chosen desktop once.
 - **Keep control:** shortcuts, edge snapping, routing, and automatic updates are configurable. Existing shortcut bindings survive upgrades.
+
+### Keyboard shortcuts
+
+Shortcuts start **off**. Turn them on in **Settings → Keyboard shortcuts**, and use the **Add suggested** buttons for the window and pane shortcuts. Suggestions never replace bindings you already set.
+
+| Action | Suggested shortcut |
+| --- | --- |
+| Open the DeskNames panel | ⌃⌥⌘ Space |
+| Save / restore this desktop’s arrangement | ⌃⌥S / ⌃⌥R |
+| Go to desktop 1–9 | ⌃⌥1 … ⌃⌥9 |
+| Left / right / top / bottom half | ⌃⌥← / → / ↑ / ↓ |
+| Quarters | ⌃⌥U, I, J, K |
+| Thirds | ⌃⌥⇧1, 2, 3 |
+| Maximize / center / restore previous size | ⌃⌥↩ / ⌃⌥C / ⌃⌥⌫ |
+| Move the window into pane 1–4 | ⌃⌥F1 … F4 |
+| Previous / next pane layout | ⌃⌥[ / ⌃⌥] |
+
+Every binding can be changed. The [user guide](README.txt) lists them all.
 
 > [!NOTE]
 > Selecting a pane preset changes the guides; it does not rearrange every open window at once. The separate tiling and restore commands handle arrangements.
