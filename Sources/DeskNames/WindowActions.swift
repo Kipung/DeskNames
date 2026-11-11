@@ -34,12 +34,14 @@ enum WindowAction: Int, CaseIterable, Identifiable {
         }
         switch self {
         case .maximize: return area
-        case .center, .smaller, .larger:
-            let scale: CGFloat = self == .smaller ? 0.9 : self == .larger ? 1.1 : 1
+        case .center:
+            let w = min(area.width, max(1/pixelScale, current.width))
+            return CGRect(x: ((area.midX - w/2)*pixelScale).rounded()/pixelScale, y: area.minY, width: w, height: area.height)
+        case .smaller, .larger:
+            let scale: CGFloat = self == .smaller ? 0.9 : 1.1
             let w = min(area.width, max(1/pixelScale, current.width*scale))
             let h = min(area.height, max(1/pixelScale, current.height*scale))
-            let x = self == .center ? area.midX-w/2 : current.midX-w/2
-            let y = self == .center ? area.midY-h/2 : current.midY-h/2
+            let x = current.midX-w/2, y = current.midY-h/2
             return CGRect(x: min(max(x, area.minX), area.maxX-w), y: min(max(y, area.minY), area.maxY-h), width: w, height: h)
         default: return nil
         }

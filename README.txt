@@ -79,7 +79,7 @@ BUILD 13: ANIMATION AND RESOURCE USE
 Pane overlays reuse a persistent hosting view, animate highlights and fade in over 120 ms, and respect macOS Reduce Motion. There is no repeating animation while idle. Desktop-state polling runs once per second outside Mission Control; Space-change notifications trigger an immediate refresh. Mission Control detection retains its existing 200 ms cadence. The editor adapts down to 640×520, collapsing its sidebar to labelled-accessible icon buttons below 850 points wide; settings remain scrollable.
 
 0.4.0 WINDOW COMMANDS
-Layouts & windows now includes direct commands for halves, quarters, thirds, maximize, center, restore previous size, smaller/larger, and next/previous display. Select a window before using these controls. Keyboard commands act on the focused ordinary window instead.
+Layouts & windows now includes direct commands for halves, quarters, thirds, maximize, center, restore previous size, smaller/larger, and next/previous display. Center keeps the window's width, centers it horizontally, and fills the usable height. Select a window before using these controls. Keyboard commands act on the focused ordinary window instead.
 
 Open Keyboard shortcuts and click Add suggested window shortcuts to fill unassigned window commands without replacing existing bindings. Record any replacement by clicking its field. Existing installations preserve their bindings and enabled setting. Suggestions use Control–Option with arrows for halves, U/I/J/K for quarters, Shift–1/2/3 for thirds, Return to maximize, C to center, Delete to restore, minus/equal to shrink/grow, and Command–Left/Right for display movement. Global shortcuts remain opt-in and registration conflicts are reported.
 

@@ -17,6 +17,12 @@ import AppKit
         let bigger=WindowAction.larger.frame(in:area,current:current)!
         let smaller=WindowAction.smaller.frame(in:area,current:current)!
         precondition(bigger.width>current.width && smaller.width<current.width && bigger.midX==current.midX && smaller.midY==current.midY)
+        let offCenter=CGRect(x:area.minX+40,y:area.minY+60,width:500,height:400)
+        let centered=WindowAction.center.frame(in:area,current:offCenter)!
+        precondition(centered.width==500 && centered.midX==area.midX && centered.minY==area.minY && centered.height==area.height,
+                     "Center keeps the width, centers horizontally, and fills the usable height")
+        let wide=WindowAction.center.frame(in:area,current:CGRect(x:area.minX,y:area.minY,width:area.width+300,height:200))!
+        precondition(wide == area, "Center never exceeds the usable area")
     }
     let moved=WindowAction.movedFrame(CGRect(x:500,y:30,width:634,height:1040),from:CGRect(x:0,y:30,width:1920,height:1050),to:CGRect(x:263,y:1112,width:1470,height:924))
     precondition(moved.width==634 && moved.height==924 && CGRect(x:263,y:1112,width:1470,height:924).contains(moved),"Display movement preserves width instead of shrinking below app minimums")
