@@ -4,18 +4,18 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>DeskNames</title>
         <item>
-            <title>0.6.1</title>
-            <pubDate>Tue, 10 Nov 2026 19:34:18 -0800</pubDate>
+            <title>0.6.2</title>
+            <pubDate>Tue, 10 Nov 2026 20:22:48 -0800</pubDate>
             <link>https://github.com/Kipung/DeskNames</link>
-            <sparkle:version>29</sparkle:version>
-            <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
+            <sparkle:version>30</sparkle:version>
+            <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Pinned windows that follow you between desktops, full-height Center, and divider handles that hide under other windows.</p><p>This app is not notarized by Apple. Accessibility approval may need renewal after updating.</p>]]></description>
-            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.6.1/DeskNames-0.6.1-arm64.zip" length="2960552" type="application/octet-stream" sparkle:edSignature="BSpPPdZGouYrUkpyZD+gCyNk/bEEJ83HpETfyg12KYz7ok9FIaA+t1eRD7jrRzFYplkUFxluVFz/5m/v3yvFBw=="></enclosure>
+            <description><![CDATA[<p>DeskNames is now signed with a stable certificate. After this update, approve DeskNames in Accessibility once more; future updates keep that approval.</p><p>This app is not notarized by Apple.</p>]]></description>
+            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.6.2/DeskNames-0.6.2-arm64.zip" length="2977255" type="application/octet-stream" sparkle:edSignature="VyRHqRYRMFbcVbRtsmAwasDQQdcSulhzdQuUJChn0YtjHS/4VS4REyehrjbvgxL6K8dWrpwz5V4FsWBhvoR1BQ=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: CVasF2i10+dYqzAs7A0MvkSep08ShOG5tucQOJ4zImeufHoli3bJhVKY9yMeFdlY7Qk7u62opAmJHKdrhcgGAA==
-length: 1465
+edSignature: R45oM07PPvqAnv2A0ja07kA1JxZMzJaUzoKoVuyQzBoEct+XXt3lnwSuBj3BIwZy4/J/poYp1DuyPKa4Qm2fAQ==
+length: 1440
 -->
