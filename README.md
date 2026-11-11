@@ -38,8 +38,7 @@ Selecting a pane preset changes the guides; it does not rearrange every open win
 ### Homebrew
 
 ```sh
-brew tap Kipung/desknames
-brew install --cask desknames
+brew install --cask kipung/desknames/desknames
 ```
 
 The [tap](https://github.com/Kipung/homebrew-desknames) pins the release archive’s SHA-256. This is a project-maintained tap, not a listing in Homebrew’s official cask repository.
@@ -53,6 +52,8 @@ The [tap](https://github.com/Kipung/homebrew-desknames) pins the release archive
 5. In **Keyboard shortcuts**, enable global shortcuts to use **Control–Option–Command–Space**. They start off so DeskNames does not take over existing bindings.
 
 Release assets include checksums. No account or subscription is required.
+
+See the [0.6.0 validation report](docs/release-0.6.0-validation.md) for the tested Homebrew installation, signed updater installation/relaunch, and remaining limits.
 
 ## Updates
 
