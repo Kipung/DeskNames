@@ -19,7 +19,7 @@ The notes appear in the update window and on the GitHub release. The script:
 1. Checks the version is newer, the tag is unused, and `main` matches GitHub.
 2. Bumps the version and build number in `build.sh`, builds an ad-hoc-signed app, and runs the self-test.
 3. Runs `scripts/package-release.py`, which creates the ZIP, signs it and the feed with the Keychain key, and verifies both signatures against `release/sparkle-public-key.txt`.
-4. Shows the release and asks before publishing. Until then nothing is pushed, and a failure or a "no" restores `build.sh`.
+4. Shows the release and asks before publishing (add `--yes` as a third argument where prompts can't be answered, such as Claude Code's `!` commands). Until then nothing is pushed, and a failure or a "no" restores `build.sh`.
 5. Commits the version bump, tags it, and pushes both.
 6. Publishes the GitHub release with the ZIP, `SHA256SUMS.txt`, and `appcast.xml`, then downloads the published ZIP and checks its hash.
 7. Only then commits and pushes `release/appcast.xml`. Installed apps read the feed from `main`, so this is the moment the update goes live.

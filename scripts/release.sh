@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Release DeskNames from this Mac in one command.
-# Usage: scripts/release.sh 0.6.1 "What changed. Blank lines separate paragraphs."
+# Usage: scripts/release.sh 0.6.1 "What changed. Blank lines separate paragraphs." [--yes]
+# --yes publishes without the final question (for places that cannot answer prompts).
 #
 # Everything that can fail locally (build, self-test, signing) happens before anything is pushed.
 # Installed apps read release/appcast.xml from main, so the feed is pushed only after the
@@ -10,8 +11,8 @@ cd "${0:A:h}/.."
 die() { print -u2 "\n$1"; exit 1 }
 step() { print "\n→ $1" }
 
-version=${1:-}; notes=${2:-}
-[[ -n $version && -n $notes ]] || die 'Usage: scripts/release.sh VERSION "Release notes"'
+version=${1:-}; notes=${2:-}; confirmed=${3:-}
+[[ -n $version && -n $notes && ( -z $confirmed || $confirmed == --yes ) ]] || die 'Usage: scripts/release.sh VERSION "Release notes" [--yes]'
 [[ $version =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || die "Use a version like 0.6.1."
 [[ $(git branch --show-current) == main ]] || die "Release from the main branch."
 [[ -z $(git status --porcelain) ]] || die "Commit or stash your changes first."
@@ -42,8 +43,11 @@ print -r -- "$notes" > build/release-notes.txt
 DESKNAMES_RELEASE_NOTES_FILE=build/release-notes.txt python3 scripts/package-release.py
 
 print "\nReady to publish DeskNames $current → $version:\n\n$notes\n"
-if ! read -q "?Publish it to everyone now? [y/N] "; then undo; exit 1; fi
-print
+if [[ $confirmed != --yes ]]; then
+  [[ -t 0 ]] || { undo; die "Can't ask for confirmation here. Add --yes to the end of the command to publish."; }
+  if ! read -q "?Publish it to everyone now? [y/N] "; then print; undo; exit 1; fi
+  print
+fi
 trap - ERR INT
 published() { print -u2 "\nStopped after: $1. Fix the problem, then finish the remaining steps in docs/releasing.md."; }
 
