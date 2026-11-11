@@ -12,6 +12,13 @@ SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 if [[ "$SIGNING_IDENTITY" != - ]]; then
   identities="$(security find-identity -p codesigning)"
   [[ "$identities" == *" $SIGNING_IDENTITY "* || "$identities" == *\"$SIGNING_IDENTITY\"* ]] || { print -u2 'The configured code-signing identity is unavailable. Restore it instead of falling back to ad-hoc signing.'; exit 1; }
+  identity_name="$(print -r -- "$identities" | grep -F -- "$SIGNING_IDENTITY" | head -1 | sed -E 's/.*"(.*)".*/\1/')"
+fi
+# Hardened runtime only lets the app load Sparkle when both carry an Apple Team ID, which
+# self-signed certificates lack. Use it (and timestamps) only with Apple-issued identities.
+HARDENED=()
+if [[ "$SIGNING_IDENTITY" == - || "${identity_name:-}" == "Apple "* || "${identity_name:-}" == "Developer ID "* ]]; then
+  HARDENED=(--options runtime)
 fi
 ./scripts/fetch-sparkle.sh
 DEST="${1:-$PWD/build}"
@@ -48,14 +55,16 @@ PLIST
 /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(cat release/sparkle-public-key.txt)" "$DEST/DeskNames.app/Contents/Info.plist"
 SPARKLE="$DEST/DeskNames.app/Contents/Frameworks/Sparkle.framework/Versions/B"
 for component in "$SPARKLE/XPCServices/Installer.xpc" "$SPARKLE/XPCServices/Downloader.xpc" "$SPARKLE/Autoupdate" "$SPARKLE/Updater.app" "$DEST/DeskNames.app/Contents/Frameworks/Sparkle.framework"; do
-  codesign --force --sign "$SIGNING_IDENTITY" --options runtime "$component"
+  codesign --force --sign "$SIGNING_IDENTITY" "${HARDENED[@]}" "$component"
 done
 if [[ "$SIGNING_IDENTITY" == - ]]; then
   print -u2 'Ad-hoc signing: Accessibility approval may need renewal after a changed build. See docs/development-signing.md.'
 fi
 if [[ "$SIGNING_IDENTITY" == - ]]; then
   codesign --force --sign - "$DEST/DeskNames.app"
-else
+elif (( ${#HARDENED} )); then
   codesign --force --sign "$SIGNING_IDENTITY" --options runtime --timestamp "$DEST/DeskNames.app"
+else
+  codesign --force --sign "$SIGNING_IDENTITY" "$DEST/DeskNames.app"
 fi
 codesign --verify --deep --strict "$DEST/DeskNames.app"

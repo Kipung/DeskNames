@@ -17,7 +17,7 @@ Releases run from the release Mac, which holds the update key in its login Keych
 The notes appear in the update window and on the GitHub release. The script:
 
 1. Checks the version is newer, the tag is unused, and `main` matches GitHub.
-2. Bumps the version and build number in `build.sh`, builds an ad-hoc-signed app, and runs the self-test.
+2. Bumps the version and build number in `build.sh`, builds the app signed with the **DeskNames Release** certificate, and runs the self-test.
 3. Runs `scripts/package-release.py`, which creates the ZIP, signs it and the feed with the Keychain key, and verifies both signatures against `release/sparkle-public-key.txt`.
 4. Shows the release and asks before publishing (add `--yes` as a third argument where prompts can't be answered, such as Claude Code's `!` commands). Until then nothing is pushed, and a failure or a "no" restores `build.sh`.
 5. Commits the version bump, tags it, and pushes both.
@@ -28,6 +28,16 @@ The notes appear in the update window and on the GitHub release. The script:
 If a later step fails, the script says which steps finished. Complete the rest by hand in the same order. Never push an edited `release/appcast.xml` unless its ZIP is already published.
 
 After a release, check for updates from an older installed version and record what was tested. A valid signature or an “up to date” response alone does not prove the install-and-relaunch cycle.
+
+## Release certificate
+
+Releases are signed with a self-signed **DeskNames Release** code-signing certificate in the release Mac’s login Keychain (valid until 2036). Its designated requirement is the bundle identifier plus that certificate, so it stays the same across builds and macOS keeps users’ Accessibility approval when they update. Ad-hoc signatures change with every build, which made every update ask again.
+
+A self-signed certificate has no Apple Team ID, so `build.sh` signs without hardened runtime or a timestamp for it (hardened runtime’s library validation would refuse to load Sparkle). Hardened runtime is only required for notarization; Apple-issued identities still get it. The certificate does not affect Gatekeeper: the app remains unnotarized.
+
+Verified on November 10, 2026 (macOS 26.6.2, Apple Silicon): after approving a certificate-signed build in Accessibility, a second build with a different code hash and the same certificate kept working without a new approval. The first switch from ad-hoc signing needs one approval.
+
+Keep the certificate and its private key: export a password-protected backup from Keychain Access and store it with the update-key backup. Losing it costs users one more Accessibility approval after the next update, not their updates. Codesign needs permission to use the key without a prompt each time; on a new Mac, after importing it, run `security set-key-partition-list -S apple-tool:,apple:,codesign: -s -l "DeskNames Release" ~/Library/Keychains/login.keychain-db` once.
 
 ## Signing key
 

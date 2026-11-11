@@ -57,7 +57,7 @@ Every binding can be changed. The [user guide](README.txt) lists them all.
 ## Install
 
 > [!IMPORTANT]
-> **DeskNames is an unnotarized public preview.** It is ad-hoc signed, not Developer ID signed or notarized by Apple, so macOS may block first launch. Review [Apple’s guidance for opening downloaded apps](https://support.apple.com/en-us/102445); DeskNames does not disable Gatekeeper or remove quarantine. Updating may require renewing its Accessibility approval.
+> **DeskNames is an unnotarized public preview.** It is signed with the project’s own certificate, not Developer ID signed or notarized by Apple, so macOS may block first launch. Review [Apple’s guidance for opening downloaded apps](https://support.apple.com/en-us/102445); DeskNames does not disable Gatekeeper or remove quarantine. Accessibility approval carries over between updates from 0.6.2 on. Updating from 0.6.1 or earlier asks for it once more.
 >
 > The download is **Apple Silicon only**. Intel Macs are not supported.
 

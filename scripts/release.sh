@@ -20,6 +20,9 @@ git fetch --quiet --tags origin main
 [[ $(git rev-parse HEAD) == $(git rev-parse origin/main) ]] || die "Sync main with GitHub first (git pull / git push)."
 git rev-parse --quiet --verify "refs/tags/v$version" >/dev/null && die "v$version already exists."
 gh auth status >/dev/null 2>&1 || die "Sign in to GitHub first: gh auth login"
+# A stable certificate keeps users' Accessibility approval across updates. See docs/releasing.md.
+identity=${DESKNAMES_RELEASE_IDENTITY:-DeskNames Release}
+security find-identity -p codesigning | grep -qF "\"$identity\"" || die "The '$identity' signing certificate is missing from your Keychain. See docs/releasing.md."
 
 current=$(sed -nE 's#.*<key>CFBundleShortVersionString</key><string>([0-9.]+)</string>.*#\1#p' build.sh)
 build=$(sed -nE 's#.*<key>CFBundleVersion</key><string>([0-9]+)</string>.*#\1#p' build.sh)
@@ -33,7 +36,7 @@ sed -i '' -E "s#(<key>CFBundleShortVersionString</key><string>)[0-9.]+#\1$versio
 undo() { git checkout -- build.sh release/appcast.xml 2>/dev/null; print -u2 "\nStopped before publishing; nothing was pushed." }
 trap undo ERR INT
 rm -rf dist
-DESKNAMES_SIGN_IDENTITY=- ./build.sh >/dev/null
+DESKNAMES_SIGN_IDENTITY=$identity ./build.sh >/dev/null
 codesign --verify --deep --strict build/DeskNames.app
 build/DeskNames.app/Contents/MacOS/DeskNames --self-test >/dev/null
 

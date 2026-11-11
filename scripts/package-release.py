@@ -33,7 +33,7 @@ notes = out / f'DeskNames-{version}-arm64.html'
 notes_file = os.environ.get('DESKNAMES_RELEASE_NOTES_FILE')
 paragraphs = [p.strip() for p in Path(notes_file).read_text().split('\n\n') if p.strip()] if notes_file else [f'DeskNames {version}.']
 notes.write_text(''.join(f'<p>{html.escape(p)}</p>' for p in paragraphs) +
-                 '<p>This app is not notarized by Apple. Accessibility approval may need renewal after updating.</p>')
+                 '<p>This app is not notarized by Apple.</p>')
 subprocess.run([tools/'generate_appcast', '--account', 'local.desknames.app', '--download-url-prefix', base+'/', '--link', 'https://github.com/Kipung/DeskNames', '--maximum-deltas', '0', '--embed-release-notes', out], check=True)
 feed = out / 'appcast.xml'
 sparkle = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
@@ -72,8 +72,8 @@ cask = f'''cask "desknames" do
   caveats <<~EOS
     DeskNames is an unnotarized preview. macOS may require first-launch approval
     in System Settings > Privacy & Security. See the README before installing.
-    Window management requires Accessibility permission. An ad-hoc-signed update
-    may require renewing that approval. Uninstall preserves settings; --zap removes them.
+    Window management requires Accessibility permission, which carries over
+    between updates. Uninstall preserves settings; --zap removes them.
   EOS
 end
 '''
