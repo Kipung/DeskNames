@@ -48,7 +48,8 @@ import SwiftUI
 // Illustrated, looping walkthrough: pick a layout, Command-drag windows into it, switch desktops by name.
 // Window motion uses the production PaneGeometry and WindowTransition functions.
 private struct PaneDemoFrame: View {
-    static let fps = 24.0
+    // GIF delays are whole centiseconds; 50 fps gives an even 2 cs per frame.
+    static let fps = 50.0
     static let duration = 12.4
     static let canvas = CGRect(x: 0, y: 0, width: 1120, height: 700)
     let time: Double
@@ -96,8 +97,7 @@ private struct PaneDemoFrame: View {
         let slide = ramp(t, 9.0, 9.8)
         let shift = -Self.stage.width*slide
         return ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 20).fill(LinearGradient(colors: [Color(red: 0.08, green: 0.12, blue: 0.15), Color(red: 0.09, green: 0.09, blue: 0.16)],
-                                                                   startPoint: .topLeading, endPoint: .bottomTrailing))
+            RoundedRectangle(cornerRadius: 20).fill(Color(red: 0.08, green: 0.11, blue: 0.145))
                 .frame(width: Self.stage.width, height: Self.stage.height).position(x: Self.stage.midX, y: Self.stage.midY)
             ZStack(alignment: .topLeading) {
                 createDesktop(t).offset(x: shift)
@@ -338,7 +338,9 @@ private struct PaneDemoFrame: View {
         guard next > 0 else { return keys[0].1 }
         let (t0, a) = keys[next - 1], (t1, b) = keys[next]
         let e = ramp(t, t0, t1)
-        return CGPoint(x: a.x + (b.x - a.x)*e, y: a.y + (b.y - a.y)*e)
+        // Bow the path slightly, like a hand moving a mouse.
+        let bow = sin(Double.pi*e)*0.08
+        return CGPoint(x: a.x + (b.x - a.x)*e - (b.y - a.y)*bow, y: a.y + (b.y - a.y)*e + (b.x - a.x)*bow)
     }
 
     private func ramp(_ t: Double, _ start: Double, _ end: Double) -> Double {
