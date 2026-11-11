@@ -1,10 +1,13 @@
 # Build output (recreate with ./build.sh)
 build/
 
-# Compiled helper tools (sources are geometry.swift, probe.swift, window-check.swift)
-geometry
-probe
-window-check
+# Compiled helper tools (sources are in Tools/)
+/geometry
+/probe
+/window-check
+Tools/geometry
+Tools/probe
+Tools/window-check
 
 # Editor/tool state and macOS clutter
 .serena/

@@ -91,7 +91,7 @@ Direct halves/thirds/fourths/quarters and Command-drag now share monitor work-ar
 
 Linked handles are reused between scans and detect aligned standard shortcut layouts as well as the active guide. Linked writes are batched and paced against display deadlines. Active-preset divider changes persist; inferred layouts retain adjusted ratios for the current session without changing the chosen guide. The opt-in linked-resizing setting and existing shortcut bindings are preserved.
 
-`--movement-session-test` adds native cancellation/retargeting/restore-history and shared-divider coverage. See SMOOTH_MOVEMENT_REPORT.md for measured external-app results and hardware limits.
+`--movement-session-test` adds native cancellation/retargeting/restore-history and shared-divider coverage. See docs/smooth-movement-report.md for measured external-app results and hardware limits.
 
 
 ## Command-drag and motion correction — build 25

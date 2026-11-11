@@ -2,11 +2,13 @@
 
 ## Application structure
 
-DeskNames is compiled directly by `build.sh`. There is no package manager dependency graph. The script compiles `NativeSpaceMove.m`, links Swift sources against AppKit, SwiftUI, and Carbon, writes Info.plist, copies resources and third-party notices, and signs the bundle. Signing defaults to ad hoc; a configured persistent certificate supports repeated development builds without changing the designated identity.
+DeskNames is compiled directly by `build.sh`. There is no package manager dependency graph. The script compiles `NativeSpaceMove.m`, links every Swift file under `Sources/DeskNames/` against AppKit, SwiftUI, and Carbon, writes Info.plist, copies resources and third-party notices, and signs the bundle. Signing defaults to ad hoc; a configured persistent certificate supports repeated development builds without changing the designated identity.
 
 `main.swift` defines desktop identity, preference-backed names and colors, Space enumeration, the editor, Mission Control labels, and application lifecycle. It also dispatches command-line test and preview modes.
 
 ## Source map
+
+Application sources live in `Sources/DeskNames/`; the self-tests compiled into the app (run with `--self-test`) live in `Sources/DeskNames/SelfTests/`.
 
 | Files | Responsibility |
 | --- | --- |
@@ -24,10 +26,11 @@ DeskNames is compiled directly by `build.sh`. There is no package manager depend
 | `DisplayProfiles.swift`, `ScreenAwareWindows.swift` | Monitor identity/model matching, model-shared presets, and display-aware operations |
 | `WindowRouting.swift`, `WindowRoutingView.swift` | Rule persistence, window birth tracking, routing, and settings interface |
 | `NativeSpaceMove.m` | Native bridged Space transfer and symbol resolution |
-| `Tests.swift`, `GeometryTests.swift`, `PaneTests.swift`, `PaneInteractionTests.swift`, `WindowActionTests.swift`, `ScreenLayoutTests.swift` | Matching, geometry, persistence, operation sessions, window commands, and screen cases |
-| `Fixture.swift`, `probe.swift`, `geometry.swift`, `window-check.swift`, `verify_alignment.py` | Separate development fixtures and inspection helpers |
-| `Icon.swift`, `DeskNames.icns`, `DeskNames.iconset/` | Icon generation source and app icon resources |
-| `backup/DeskNames-v0.1.swift` | Historical source snapshot, excluded from the application build |
+| `SelfTests/`: `Tests.swift`, `GeometryTests.swift`, `PaneTests.swift`, `PaneInteractionTests.swift`, `MovementTests.swift`, `WindowActionTests.swift`, `ScreenLayoutTests.swift` | Matching, geometry, persistence, operation sessions, window commands, and screen cases |
+| `MarketingPreview.swift` | Offscreen, fixture-only rendering of the README screenshot and illustrated demo |
+| `Tools/`: `Fixture.swift`, `probe.swift`, `geometry.swift`, `window-check.swift`, `verify_alignment.py` | Separate development fixtures and inspection helpers, not part of the app build |
+| `Tools/Icon.swift`, `Resources/DeskNames.icns`, `Resources/DeskNames.iconset/` | Icon generation source and app icon resources |
+| `docs/command-drag-review.md`, `docs/smooth-movement-report.md` | Historical design review and measured movement results |
 
 ## Runtime flow
 
