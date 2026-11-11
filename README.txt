@@ -1,7 +1,7 @@
-DeskNames 0.5.0 preview. Desktop names, smart panes, window layouts, and switching.
+DeskNames 0.6.0 preview. Desktop names, smart panes, window layouts, and switching.
 
 OPEN
-Installed locally at /Applications/DeskNames.app. Open it there, or click the DeskNames menu bar item. Closing the editor leaves the app running; Command-Q quits it.
+Install DeskNames.app in /Applications (see README.md), then open it or click the DeskNames menu bar item. Closing the editor leaves the app running; Command-Q quits it.
 
 ACCESSIBILITY
 Window management and desktop switching require DeskNames to be enabled under System Settings → Privacy & Security → Accessibility. The Layouts & windows page has an Open Accessibility settings button. Accessibility permits reading window titles, resizing/repositioning windows, and generating desktop-switch and drag events. No Screen Recording permission is requested. With access off, window controls are disabled. If macOS Settings crashes, restart Settings and check the switch again. A rebuilt ad-hoc-signed app can require permission to be granted again. If the switch is on but DeskNames still reports no access, the entry may belong to an earlier build: remove that entry and add /Applications/DeskNames.app again. If macOS leaves the old entry stuck, a developer can reset only this app with `tccutil reset Accessibility local.desknames.app`, then use the app’s Open Accessibility settings button and approve the current build.
@@ -69,8 +69,6 @@ This build also includes the reviewed reductions in idle editor redraws and labe
 Live validation of 0.2.1: same-title windows restored to their respective saved positions; moving one to another desktop and gathering it back succeeded; automatic restoration on return through Go succeeded; replacing both saved same-title windows with one new same-title window correctly skipped both entries and did not move or resize the replacement. The user's original layout was restored and the temporary windows were closed.
 
 In paired 20-second samples on this Mac with the Label settings page visible and the same field focused, idle CPU averaged 5.64% before and 0.50% after the update. This is a short local measurement, not a general performance guarantee.
-
-The source package includes MatchingFixture.swift as an optional separate test app for the duplicate-title scenario; it is not part of the DeskNames executable.
 
 0.2.4 UPDATE
 Shortcut dropdowns are replaced by clickable recorder fields. Click a binding and press the new combination; it saves automatically. Escape or Tab cancels, and Delete or Clear removes it. Duplicate or unsupported combinations leave the recorder open without changing the saved binding. Punctuation, navigation, and function keys are now supported with Command, Option, or Control. Recording temporarily releases DeskNames' global shortcut registrations and restores them when recording ends; it does not change the enabled preference.
