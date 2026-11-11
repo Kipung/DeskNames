@@ -389,6 +389,7 @@ final class LabelPanel: NSPanel {
         if let action=WindowAction.allCases.first(where:{$0.id==id}) { workspace.performWindowAction(action,focused:true);return }
         if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id); return }
         if id==100 {showSwitcher();return}
+        if id==ShortcutAction.pin.id {workspace.togglePin(workspace.native.focusedWindow());return}
         store.refresh()
         if id<100 {
             guard let d=store.desktops.first(where:{$0.number==Int(id)}) else {workspace.message="Desktop \(id) does not exist. Create it in Mission Control first.";return}
@@ -401,10 +402,12 @@ final class LabelPanel: NSPanel {
         store.refresh()
         let desktop = workspace.native.activeDesktop(reader: store.reader)
         switcherPreviousApp = NSWorkspace.shared.frontmostApplication
+        // Read before DeskNames activates, so this is the window the user was working in.
+        let pinCandidate = switcherPreviousApp?.processIdentifier == getpid() ? nil : workspace.native.focusedWindow()
         window?.orderOut(nil)
         let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:690),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
         panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
-        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,
+        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,pinCandidate:pinCandidate,
             choose:{ [weak self] d in self?.workspace.switchTo(d) },
             close:{ [weak self] in self?.closeSwitcher() },
             openSettings:{ [weak self] in self?.showWindow() }))

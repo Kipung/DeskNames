@@ -25,6 +25,7 @@ DeskNames lives in the menu bar. Open its compact panel to pick a pane layout fo
 - **Resize neighbors together:** an optional shared divider adjusts windows on both sides.
 - **Name your desktops:** names and colors follow Space identities, with labels in expanded Mission Control.
 - **Remember arrangements:** save where every window sits on a desktop, including overlap order, and put them all back in one step after things get messy. Restores can run automatically when you enter a desktop. Optional routing sends a newly opened window to its chosen desktop once.
+- **Pin a window:** a pinned window follows you to whichever desktop you switch to, landing a moment after the switch. Pin with ⌃⌥P or from the panel’s Desktops tab; pins last until DeskNames quits.
 - **Keep control:** shortcuts, edge snapping, routing, and automatic updates are configurable. Existing shortcut bindings survive upgrades.
 
 ### Keyboard shortcuts
@@ -36,6 +37,7 @@ Shortcuts start **off**. Turn them on in **Settings → Keyboard shortcuts**, an
 | Open the DeskNames panel | ⌃⌥⌘ Space |
 | Save / restore this desktop’s arrangement | ⌃⌥S / ⌃⌥R |
 | Go to desktop 1–9 | ⌃⌥1 … ⌃⌥9 |
+| Pin / unpin the focused window | ⌃⌥P |
 | Left / right / top / bottom half | ⌃⌥← / → / ↑ / ↓ |
 | Quarters | ⌃⌥U, I, J, K |
 | Thirds | ⌃⌥⇧1, 2, 3 |

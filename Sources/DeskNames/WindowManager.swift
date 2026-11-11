@@ -589,6 +589,8 @@ final class NativeWindows {
     let file:URL
     var lastActive:Set<String>=[]
     var pending:Task<Void,Never>?
+    @Published var pinnedWindows:[UInt32:LiveWindow]=[:]
+    var pinTracking=PinTracking()
     private var queuedDesktop: Desktop?
     var operationTask:Task<Void,Never>?
     private var interactivePlacement = false
@@ -805,6 +807,7 @@ final class NativeWindows {
     func tick() {
         setTrusted()
         scanNewWindows()
+        followPinnedWindows()
         let active=Set(store.desktops.filter(\.isCurrent).map(\.id))
         guard active != lastActive else{return}
         let entered=active.subtracting(lastActive);lastActive=active

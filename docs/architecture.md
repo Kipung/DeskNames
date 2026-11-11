@@ -24,6 +24,7 @@ Application sources live in `Sources/DeskNames/`; the self-tests compiled into t
 | `WindowActions.swift` | Direct window commands and original-frame history |
 | `Shortcuts.swift` | Binding persistence, validation, recording, and Carbon hotkey registration |
 | `DisplayProfiles.swift`, `ScreenAwareWindows.swift` | Monitor identity/model matching, model-shared presets, and display-aware operations |
+| `PinnedWindows.swift` | Session-only pinned windows that follow the current desktop on their display, the pin confirmation bubble, and the control-panel pin section |
 | `WindowRouting.swift`, `WindowRoutingView.swift` | Rule persistence, window birth tracking, routing, and settings interface |
 | `NativeSpaceMove.m` | Native bridged Space transfer and symbol resolution |
 | `SelfTests/`: `Tests.swift`, `GeometryTests.swift`, `PaneTests.swift`, `PaneInteractionTests.swift`, `MovementTests.swift`, `WindowActionTests.swift`, `ScreenLayoutTests.swift` | Matching, geometry, persistence, operation sessions, window commands, and screen cases |

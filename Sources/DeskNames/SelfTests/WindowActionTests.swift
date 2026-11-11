@@ -24,6 +24,16 @@ import AppKit
         let wide=WindowAction.center.frame(in:area,current:CGRect(x:area.minX,y:area.minY,width:area.width+300,height:200))!
         precondition(wide == area, "Center never exceeds the usable area")
     }
+    func desk(_ space:UInt64,_ display:String,current:Bool,fullScreen:Bool=false)->Desktop {
+        Desktop(id:"d\(space)",spaceID:space,display:display,position:Int(space),number:Int(space),isCurrent:current,isFullScreen:fullScreen)
+    }
+    let desks=[desk(1,"A",current:false),desk(2,"A",current:true),desk(3,"B",current:true),desk(4,"B",current:false)]
+    let follow=PinnedFollow.destinations([.init(id:7,display:"A",spaces:[1]),.init(id:8,display:"B",spaces:[3]),.init(id:9,display:"A",spaces:[1,2])],desktops:desks,attempted:[:])
+    precondition(follow.count==1 && follow[0].id==7 && follow[0].desktop.spaceID==2,
+                 "A pinned window moves to the current desktop on its own display; windows already there or on several desktops stay put")
+    precondition(PinnedFollow.destinations([.init(id:7,display:"A",spaces:[1])],desktops:desks,attempted:[7:2]).isEmpty,"A refused move is not retried during the same visit")
+    precondition(PinnedFollow.destinations([.init(id:7,display:"A",spaces:[1])],desktops:[desk(1,"A",current:false),desk(5,"A",current:true,fullScreen:true)],attempted:[:]).isEmpty,
+                 "Pinned windows never move into a full-screen app's space")
     let moved=WindowAction.movedFrame(CGRect(x:500,y:30,width:634,height:1040),from:CGRect(x:0,y:30,width:1920,height:1050),to:CGRect(x:263,y:1112,width:1470,height:924))
     precondition(moved.width==634 && moved.height==924 && CGRect(x:263,y:1112,width:1470,height:924).contains(moved),"Display movement preserves width instead of shrinking below app minimums")
     let domain="local.desknames.actions.test.\(UUID().uuidString)"

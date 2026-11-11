@@ -86,6 +86,7 @@ struct SwitcherView: View {
     @ObservedObject var models: MonitorPresets
     let desktop: Desktop?
     var updater: AppUpdater? = nil
+    var pinCandidate: LiveWindow? = nil
     let choose: (Desktop) -> Void
     let close: () -> Void
     let openSettings: () -> Void
@@ -179,6 +180,7 @@ struct SwitcherView: View {
                         }
                     }.onChange(of: index) { proxy.scrollTo(index) }
                 }
+                PinControls(workspace: workspace, candidate: pinCandidate)
             }
             if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.orange) }
             if let updater { UpdateControls(updater: updater) }
