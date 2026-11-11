@@ -10,9 +10,9 @@ A quiet macOS menu-bar utility for named desktops, visual pane layouts, and reme
 
 [**Download for Mac**](https://github.com/Kipung/DeskNames/releases/tag/v0.6.0) · [Install with Homebrew](#install) · [User guide](README.txt) · [Report a bug](https://github.com/Kipung/DeskNames/issues)
 
-<img src="docs/media/control-panel.png" width="420" alt="DeskNames control panel with the Pane layouts tab open, showing seven layout cards for a fictional desktop named Create, with Three columns selected">
+<img src="docs/media/panes-demo.gif" width="760" alt="Illustrated demo: choosing Three columns in the DeskNames panel, Command-dragging three sample windows into the guides, then switching to a desktop named Read">
 
-<sub>The actual DeskNames control panel, shown with fictional sample data.<br>0.6.0 is an unnotarized public preview. See <a href="#install">Install</a> before first launch.</sub>
+<sub>Illustrated demo with fictional sample windows, drawn with DeskNames’ own pane geometry. Not a screen recording. <a href="docs/media/panes-demo.mp4">MP4 version</a>.<br>0.6.0 is an unnotarized public preview. See <a href="#install">Install</a> before first launch.</sub>
 
 </div>
 
@@ -30,15 +30,9 @@ DeskNames lives in the menu bar. Open its compact panel to pick a pane layout fo
 > [!NOTE]
 > Selecting a pane preset changes the guides; it does not rearrange every open window at once. The separate tiling and restore commands handle arrangements.
 
-<details>
-<summary><strong>Illustrated demo</strong> (animated, synthetic windows)</summary>
-<br>
+<p align="center"><img src="docs/media/control-panel.png" width="420" alt="DeskNames control panel with the Pane layouts tab open, showing seven layout cards for a fictional desktop named Create, with Three columns selected"></p>
 
-<p align="center"><img src="docs/media/panes-demo.gif" alt="Illustrated pane-layout demo using only fictional sample windows"></p>
-
-<sub>Illustrated demo with synthetic sample windows, using DeskNames’ pane geometry. It is not a screen recording, and no personal desktop was recorded. Also available as an <a href="docs/media/panes-demo.mp4">MP4</a>.</sub>
-
-</details>
+<p align="center"><sub>The actual control panel, rendered with fictional sample data.</sub></p>
 
 ## Install
 
