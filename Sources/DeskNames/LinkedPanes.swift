@@ -14,6 +14,31 @@ struct PaneOccupancy {
     }
 }
 
+// Handles are floating panels, so they would draw over any app window. Hide one when another
+// window overlaps it in front of any of its panes.
+enum PaneHandleCover {
+    static func hidden(_ handle: CGRect, panes: Set<UInt32>, frontToBack: [(id: UInt32, frame: CGRect)]) -> Bool {
+        var remaining = panes.intersection(frontToBack.map(\.id))
+        for window in frontToBack {
+            if remaining.remove(window.id) != nil {
+                if remaining.isEmpty { return false }
+            } else if window.frame.insetBy(dx: 1, dy: 1).intersects(handle) {
+                return true
+            }
+        }
+        return false
+    }
+    static func onScreenWindows() -> [(id: UInt32, frame: CGRect)] {
+        let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        return infos.compactMap { info in
+            guard info[kCGWindowLayer as String] as? Int == 0, let id = info[kCGWindowNumber as String] as? UInt32,
+                  let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+                  let frame = CGRect(dictionaryRepresentation: bounds) else { return nil }
+            return (id, frame)
+        }
+    }
+}
+
 private final class PaneDividerHandle: NSView {
     let vertical: Bool
     var begin: (() -> Void)?
@@ -111,6 +136,7 @@ private final class PaneDividerHandle: NSView {
         guard now-lastScan > 1 else { return }
         lastScan = now
         let windows = seededWindows ? workspace.native.trackedPaneWindows() : workspace.native.windows()
+        let stack = PaneHandleCover.onScreenWindows()
         seededWindows = true
         let previous = handles
         var next: [Handle] = []
@@ -125,7 +151,8 @@ private final class PaneDividerHandle: NSView {
                 let occupants = PaneOccupancy.matching(windows, geometry: geometry, spaceID: desktop.spaceID)
                 for divider in PaneDivider.all(for: config.preset) {
                     guard divider.before.contains(where: { occupants[$0] != nil }),
-                          divider.after.contains(where: { occupants[$0] != nil }), let frame = divider.handle(in: geometry) else { continue }
+                          divider.after.contains(where: { occupants[$0] != nil }), let frame = divider.handle(in: geometry),
+                          !PaneHandleCover.hidden(frame, panes: Set(occupants.values.map(\.id)), frontToBack: stack) else { continue }
                     let key = desktop.id + "/" + config.preset.rawValue + "/" + divider.id
                     let existing = previous.first { $0.key == key }
                     let panel = existing?.panel ?? NSPanel(contentRect: cocoaFrame(frame), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)

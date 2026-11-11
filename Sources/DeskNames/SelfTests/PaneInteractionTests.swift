@@ -1,6 +1,17 @@
 import AppKit
 
 @MainActor func runPaneInteractionTests() throws {
+    // Divider handles hide behind windows that cover them, but not behind their own panes or windows further back.
+    let handle = CGRect(x: 954, y: 500, width: 12, height: 80)
+    let left = (id: UInt32(1), frame: CGRect(x: 0, y: 40, width: 960, height: 1040))
+    let right = (id: UInt32(2), frame: CGRect(x: 960, y: 40, width: 960, height: 1040))
+    let cover = (id: UInt32(3), frame: CGRect(x: 200, y: 60, width: 1500, height: 1000))
+    let elsewhere = (id: UInt32(4), frame: CGRect(x: 0, y: 40, width: 300, height: 300))
+    precondition(!PaneHandleCover.hidden(handle, panes: [1, 2], frontToBack: [left, right]))
+    precondition(PaneHandleCover.hidden(handle, panes: [1, 2], frontToBack: [cover, left, right]), "A window in front of both panes hides the handle")
+    precondition(PaneHandleCover.hidden(handle, panes: [1, 2], frontToBack: [left, cover, right]), "A window in front of one pane still hides the handle")
+    precondition(!PaneHandleCover.hidden(handle, panes: [1, 2], frontToBack: [left, right, cover]), "Windows behind both panes do not matter")
+    precondition(!PaneHandleCover.hidden(handle, panes: [1, 2], frontToBack: [elsewhere, left, right]), "Windows away from the handle do not matter")
     let area = CGRect(x: -1920, y: 40, width: 1920, height: 1040)
     let config = PaneConfiguration(preset: .fourColumns, gap: 12)
     let geometry = PaneGeometry(area: area, configuration: config)
