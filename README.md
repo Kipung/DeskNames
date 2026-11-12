@@ -56,35 +56,49 @@ Every binding can be changed. The [user guide](README.txt) lists them all.
 
 ## Install
 
-> [!IMPORTANT]
-> **DeskNames is an unnotarized public preview.** It is signed with the project’s own certificate, not Developer ID signed or notarized by Apple, so macOS may block first launch. Review [Apple’s guidance for opening downloaded apps](https://support.apple.com/en-us/102445); DeskNames does not disable Gatekeeper or remove quarantine. Accessibility approval carries over between updates from 0.6.2 on. Updating from 0.6.1 or earlier asks for it once more.
->
-> The download is **Apple Silicon only**. Intel Macs are not supported.
+You need a Mac with Apple Silicon (M1 or later) running macOS 14 or later. Setup takes about two minutes.
 
-### Option 1: Homebrew
+### Step 1: Get the app
+
+**With Homebrew** (paste into Terminal):
 
 ```sh
 brew install --cask kipung/desknames/desknames
 ```
 
-The [tap](https://github.com/Kipung/homebrew-desknames) pins the release archive’s SHA-256. This is a project-maintained tap, not a listing in Homebrew’s official cask repository.
+**Or download it:**
 
-### Option 2: Direct download
+1. Download **DeskNames-VERSION-arm64.zip** from the [latest release](https://github.com/Kipung/DeskNames/releases/latest).
+2. Double-click the ZIP, then drag **DeskNames.app** into your **Applications** folder.
 
-1. Download `DeskNames-VERSION-arm64.zip` from the [latest release](https://github.com/Kipung/DeskNames/releases/latest).
-2. Unzip it and drag **DeskNames.app** into **Applications**.
+### Step 2: Allow it to open (first time only)
 
-Release assets include checksums. No account or subscription is required.
+DeskNames is free and isn’t notarized by Apple, so macOS asks you to confirm it once. This is normal for apps outside the App Store that aren’t notarized. DeskNames doesn’t turn off any macOS protection to get around it.
 
-### First launch
+1. Open **DeskNames** from Applications. macOS says *“DeskNames” Not Opened*. Click **Done**.
+2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+3. Next to *“DeskNames” was blocked to protect your Mac*, click **Open Anyway**, then confirm with your password or Touch ID.
+4. Click **Open Anyway** once more in the dialog that appears.
 
-1. Open DeskNames, then click its menu-bar icon. It starts without a full app window.
-2. Choose **Settings** and enable DeskNames in **System Settings → Privacy & Security → Accessibility** for window management.
-3. Optional: in **Keyboard shortcuts**, enable global shortcuts to open the panel with **Control–Option–Command–Space**. Shortcuts start off so DeskNames does not take over existing bindings.
+On macOS 14 you can instead Control-click **DeskNames.app** in Applications and choose **Open**. Apple explains this in [Open a Mac app from an unknown developer](https://support.apple.com/en-us/102445).
 
-If window controls stay disabled after an update, macOS may be holding a stale Accessibility approval. Toggling it alone may not help; resetting DeskNames’ Accessibility approval and adding the installed app again resolved it in testing.
+### Step 3: Turn on window controls
 
-The [0.6.0 validation report](docs/release-0.6.0-validation.md) covers the tested Homebrew installation, signed updater installation/relaunch, and remaining limits.
+The DeskNames panel opens automatically the first time. After that, click the **DeskNames icon in the menu bar** (top right of your screen) to open it.
+
+1. In the panel, choose **Settings**. On the **Layouts & windows** page, click **Open Accessibility settings**.
+2. Turn on **DeskNames** in the list. macOS may ask for your password.
+
+That’s it. To use keyboard shortcuts, turn them on in **Settings → Keyboard shortcuts**. They start off so DeskNames doesn’t take over shortcuts you already use.
+
+### If something doesn’t work
+
+- **No “Open Anyway” button:** open DeskNames once first (Step 2.1). The button only appears after macOS blocks an attempt, and it stays for about an hour.
+- **Window controls stay off after an update, even though DeskNames is turned on in Accessibility:** select DeskNames in the Accessibility list, remove it with the **–** button, then click **Open Accessibility settings** in DeskNames again and turn it back on. From 0.6.2 on, updates keep the approval.
+- **Can’t find the menu bar icon:** a crowded menu bar can hide it behind the notch. Open DeskNames from Applications again and the panel appears.
+- **Intel Mac:** not supported.
+
+To check a download, compare it with `SHA256SUMS.txt` from the release. The Homebrew [tap](https://github.com/Kipung/homebrew-desknames) checks the archive automatically. It is maintained by this project; DeskNames isn’t in Homebrew’s official cask list. The [0.6.0 validation report](docs/release-0.6.0-validation.md) has the tested install and update details.
 
 ## Updates
 

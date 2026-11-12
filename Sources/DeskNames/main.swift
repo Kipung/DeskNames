@@ -382,6 +382,14 @@ final class LabelPanel: NSPanel {
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
             MainActor.assumeIsolated { self?.store.refresh();self?.workspace.tick() }
         }
+        // DeskNames has no Dock icon or window, so a first launch looks like nothing happened.
+        // Show the panel once for new installs; existing users with names or layouts skip it.
+        if !store.defaults.bool(forKey:"didShowFirstLaunchPanel") {
+            store.defaults.set(true,forKey:"didShowFirstLaunchPanel")
+            if store.appearance.isEmpty && workspace.layouts.isEmpty {
+                DispatchQueue.main.async { [weak self] in self?.showSwitcher() }
+            }
+        }
     }
     func shortcut(_ id:UInt32) {
         shortcuts.lastAction=ShortcutAction.all.first(where:{$0.id==id})?.name ?? "Unknown action"
