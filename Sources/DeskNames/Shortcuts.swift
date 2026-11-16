@@ -285,6 +285,10 @@ final class HotKeys {
                 guard GetEventParameter(event,EventParamName(kEventParamDirectObject),EventParamType(typeEventHotKeyID),nil,MemoryLayout<EventHotKeyID>.size,nil,&id)==noErr,id.signature==0x444E414D else{return OSStatus(eventNotHandledErr)}
                 let owner=Unmanaged<HotKeys>.fromOpaque(data).takeUnretainedValue()
                 guard owner.active.contains(id.id) else{return OSStatus(eventNotHandledErr)}
+                ShortcutTrace.record("carbon", ["actionID": id.id, "timestamp": GetEventTime(event),
+                    "polledModifiers": ShortcutBinding.carbonModifiers(NSEvent.modifierFlags),
+                    "combinedFlags": CGEventSource.flagsState(.combinedSessionState).rawValue,
+                    "hidFlags": CGEventSource.flagsState(.hidSystemState).rawValue])
                 owner.action(id.id)
                 return noErr
             },1,&type,Unmanaged.passUnretained(self).toOpaque(),&handler)
@@ -310,6 +314,7 @@ final class HotKeys {
     }
     func refreshChordMonitors(trusted: Bool) {
         guard !activeBindings.isEmpty, monitorTrust != trusted else { return }
+        ShortcutTrace.record("monitor-trust", ["trusted": trusted])
         removeChordMonitors()
         chordInterrupted?()
         monitorTrust = trusted
@@ -332,10 +337,17 @@ final class HotKeys {
         }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
                                                                                object: nil, queue: .main) { [weak self] _ in
+            ShortcutTrace.record("activation", ["pid": NSWorkspace.shared.frontmostApplication?.processIdentifier as Any? ?? NSNull()])
             self?.chordInterrupted?()
         }
     }
     private func observeChordEvent(_ event: NSEvent) {
+        ShortcutTrace.record("input-event", ["type": event.type.rawValue,
+            "key": event.type == .keyDown ? UInt32(event.keyCode) : 0, "timestamp": event.timestamp,
+            "eventModifiers": ShortcutBinding.carbonModifiers(event.modifierFlags),
+            "polledModifiers": ShortcutBinding.carbonModifiers(NSEvent.modifierFlags),
+            "combinedFlags": CGEventSource.flagsState(.combinedSessionState).rawValue,
+            "hidFlags": CGEventSource.flagsState(.hidSystemState).rawValue])
         observeChordInput(event.type, key: event.type == .keyDown ? UInt32(event.keyCode) : 0,
                           modifiers: ShortcutBinding.carbonModifiers(event.modifierFlags))
     }
