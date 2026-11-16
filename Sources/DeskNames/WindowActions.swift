@@ -87,6 +87,7 @@ enum WindowAction: Int, CaseIterable, Identifiable {
 
 extension NativeWindows {
     @MainActor func focusedWindow() -> LiveWindow? {
+        guard trusted else { return nil }
         if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let window=NSApp.keyWindow { return localSnapshot(window) }
         let system=AXUIElementCreateSystemWide();AXUIElementSetMessagingTimeout(system,0.2)
         guard let app=axValue(system,kAXFocusedApplicationAttribute),CFGetTypeID(app)==AXUIElementGetTypeID(),
@@ -97,10 +98,14 @@ extension NativeWindows {
 
 extension LayoutController {
     func performWindowAction(_ action: WindowAction, focused: Bool = false) {
+        guard native.trusted else { message="Enable Accessibility before using window shortcuts.";return }
         guard !busy || canRetargetPlacement else { message="A window operation is in progress. Try this shortcut again when it finishes.";return }
-        let candidate=focused ? native.focusedWindow() : windows.first{$0.id==selectedWindow}
-        guard let candidate else { message="Select an ordinary window first.";return }
+        let selected = windows.first { $0.id == selectedWindow }
         run(interruptible: action != .nextDisplay && action != .previousDisplay) {
+            let candidate = focused ? await self.native.focusedWindowForOperation() : selected
+            try Task.checkCancellation()
+            guard self.native.trusted else { throw WindowIssue("Enable Accessibility before using window shortcuts.") }
+            guard let candidate else { throw WindowIssue("No focused ordinary window is available. The app may be unresponsive.") }
             let refreshed=await self.native.refreshedForOperation(candidate)
             try Task.checkCancellation()
             guard let window=refreshed,let source=screenFor(window.frame) else { throw WindowIssue("Could not confirm this window's current state. Refresh and try again.") }

@@ -197,6 +197,10 @@ struct SwitcherView: View {
                 PinControls(workspace: workspace, candidate: pinCandidate)
             }
             if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.orange) }
+            if !workspace.shortcutStatus.isEmpty {
+                Text("Last shortcut: " + workspace.shortcutStatus).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(3).textSelection(.enabled)
+            }
             if let updater { UpdateControls(updater: updater) }
             Divider()
             HStack {

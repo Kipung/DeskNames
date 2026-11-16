@@ -100,6 +100,7 @@ private final class PaneDividerHandle: NSView {
     private var session: Session?
     private var lastScan = -Double.infinity
     private var seededWindows = false
+    private var discoveryTask: Task<Void, Never>?
     private var detectedConfigurations: [String: [PanePreset: PaneConfiguration]] = [:]
     private var globalMonitor: Any?
     private var localMonitor: Any?
@@ -115,6 +116,7 @@ private final class PaneDividerHandle: NSView {
         }
     }
     func stop() {
+        discoveryTask?.cancel()
         session?.phase = .cancelled
         hide()
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
@@ -135,7 +137,19 @@ private final class PaneDividerHandle: NSView {
         let now = ProcessInfo.processInfo.systemUptime
         guard now-lastScan > 1 else { return }
         lastScan = now
-        let windows = seededWindows ? workspace.native.trackedPaneWindows() : workspace.native.windows()
+        if !seededWindows {
+            guard discoveryTask == nil else { return }
+            discoveryTask = Task { [weak self] in
+                guard let self else { return }
+                defer { discoveryTask = nil }
+                _ = await workspace.native.windowsForOperation()
+                guard !Task.isCancelled else { return }
+                seededWindows = true
+                lastScan = -Double.infinity
+            }
+            return
+        }
+        let windows = workspace.native.trackedPaneWindows()
         let stack = PaneHandleCover.onScreenWindows()
         seededWindows = true
         let previous = handles
@@ -213,8 +227,9 @@ private final class PaneDividerHandle: NSView {
         guard environmentMatches(next) else { hide(); return }
         session = next
         for other in handles where other.panel !== handle.panel { other.panel.orderOut(nil) }
-        workspace.run(refreshWindows: false) { [self] in
-            defer { session = nil; hide(); lastScan = -Double.infinity }
+        workspace.run(refreshWindows: false, completion: { [weak self] _ in
+            self?.session = nil; self?.hide(); self?.lastScan = -Double.infinity
+        }) { [self] in
             let entries = handle.windows.sorted { $0.key < $1.key }
             return try await workspace.native.withImmediateFrames(entries.map { $0.value }) {
                 var touched = false

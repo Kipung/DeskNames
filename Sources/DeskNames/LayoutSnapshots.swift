@@ -28,12 +28,38 @@ extension SavedWindow {
 }
 
 extension LayoutController {
+    static func captureDesktopsUnchanged(_ before: [Desktop], _ after: [Desktop]) -> Bool {
+        MissionControlSlot.snapshot(before) == MissionControlSlot.snapshot(after) &&
+            Set(before.filter(\.isCurrent).map(\.id)) == Set(after.filter(\.isCurrent).map(\.id))
+    }
+    static func captureDesktop(_ requested: Desktop?, in desktops: [Desktop]) -> Desktop? {
+        guard let requested else { return nil }
+        return desktops.first { $0.id == requested.id && $0.display == requested.display && $0.isCurrent && !$0.isFullScreen }
+    }
     var restoreSelection:DesktopLayout? {layouts[selectedLayoutID.isEmpty ? (selectedDesktop?.id ?? ""):selectedLayoutID]}
     func save(_ desktop:Desktop?=nil) {
         guard !busy else {message="Wait for the window operation to finish before saving.";return}
-        store.refresh();refresh()
         guard native.trusted else {message="Enable Accessibility before saving a layout.";return}
-        guard let d=desktop ?? selectedDesktop,d.isCurrent else {message="Go to this desktop before saving its arrangement.";return}
+        store.refresh()
+        guard let requested = Self.captureDesktop(desktop ?? selectedDesktop, in: store.desktops) else {
+            message="Go to this desktop before saving its arrangement.";return
+        }
+        let topology = store.desktops, screens = ConnectedDisplay.all()
+        run(refreshWindows: false) {
+            self.windows = try await self.native.windowsForLayout()
+            try Task.checkCancellation()
+            guard self.native.trusted else { throw WindowIssue("Enable Accessibility before saving a layout.") }
+            guard Self.captureDesktopsUnchanged(topology, self.store.reader.read()),
+                  screens.map(\.id) == ConnectedDisplay.all().map(\.id), screens.map(\.area) == ConnectedDisplay.all().map(\.area) else {
+                throw WindowIssue("The screen or desktop arrangement changed while saving; the previous layout was kept.")
+            }
+            self.captureLayout(requested)
+            return self.message
+        }
+    }
+    private func captureLayout(_ desktop: Desktop?) {
+        store.refresh()
+        guard let d=Self.captureDesktop(desktop, in: store.desktops) else {message="Go to this desktop before saving its arrangement.";return}
         let topology=store.reader.read(),screens=ConnectedDisplay.all()
         let scope=topology.filter{!$0.isFullScreen && (saveAcrossScreens ? $0.isCurrent:$0.id==d.id)}
         let ids=Set(scope.map(\.spaceID))

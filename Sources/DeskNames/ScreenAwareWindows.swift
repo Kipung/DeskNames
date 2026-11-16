@@ -58,8 +58,11 @@ extension NativeWindows {
         throw WindowIssue("The window transfer could not be verified. It will not be retried automatically.")
     }
     @MainActor func activeDesktop(reader:SpaceReader) -> Desktop? {
+        activeDesktop(reader: reader, focusedWindow: focusedWindow())
+    }
+    @MainActor func activeDesktop(reader:SpaceReader, focusedWindow: LiveWindow?) -> Desktop? {
         let all=reader.read()
-        let focused=focusedWindow().flatMap{screenFor($0.frame)}
+        let focused=focusedWindow.flatMap{screenFor($0.frame)}
         let screen=focused ?? NSScreen.screens.first(where:{$0.frame.contains(NSEvent.mouseLocation)}) ?? NSScreen.main
         if let screen,let desktop=all.first(where:{$0.display==screenUUID(screen) && $0.isCurrent && !$0.isFullScreen}) {return desktop}
         let current=all.filter{$0.isCurrent && !$0.isFullScreen}

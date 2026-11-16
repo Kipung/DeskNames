@@ -127,56 +127,64 @@ extension LayoutController {
         let accepting = !busy && NSEvent.pressedMouseButtons == 0 && !OverlayController.isMissionControlOpen()
         let ready = births.observe(census: census, now: now, revision: routing.revision, acceptingWork: accepting)
         guard accepting, !ready.isEmpty else { return }
-        let windows = native.windows()
-        let desktops = store.reader.read()
-        var batch: [(WindowBirthIdentity, LiveWindow, Desktop, WindowBirthObservation)] = []
-        for id in ready {
-            guard let window = windows.first(where: { $0.id == id.windowID && $0.pid == id.pid }) else { continue }
-            guard id.pid != getpid(), let app = apps[id.pid], app.activationPolicy == .regular,
-                  !window.minimized, window.spaceIDs.count == 1,
-                  let source = desktops.first(where: { $0.spaceID == window.spaceIDs[0] }), !source.isFullScreen,
-                  let initial = births.observation(for: id),
-                  initial.matches(WindowBirthObservation(frame: window.frame, spaces: Set(window.spaceIDs))) else {
-                births.consume(id)
-                continue
-            }
-            let rules = routing.rules.filter { $0.enabled && $0.bundleID == window.bundleID }
-            if window.title.isEmpty, rules.contains(where: { !$0.titleContains.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
-               (births.age(of: id, now: now) ?? 2) < 2 { continue }
-            let rule = rules.first {
-                let title = $0.titleContains.trimmingCharacters(in: .whitespacesAndNewlines)
-                return title.isEmpty || window.title.localizedCaseInsensitiveContains(title)
-            }
-            births.consume(id)
-            guard let rule,
-                  let destination = rule.destination(desktops:desktops,screens:ConnectedDisplay.all()),
-                  NSScreen.screens.contains(where: { screenUUID($0) == destination.display }) else {
-                if rule != nil {message="A routing destination is unavailable. Check its desktop and screen."}
-                continue
-            }
-            batch.append((id, window, destination, initial))
-        }
-        guard !batch.isEmpty else { return }
         let revision = routing.revision
-        run {
-            var moved = 0
-            var skipped = 0
-            for (id, window, destination, initial) in batch {
-                try Task.checkCancellation()
-                let refreshed=await self.native.refreshedForOperation(window)
-                try Task.checkCancellation()
-                guard self.routing.enabled, self.routing.revision == revision, self.native.trusted,
-                      NSEvent.pressedMouseButtons == 0, !OverlayController.isMissionControlOpen(),
-                      let app = NSRunningApplication(processIdentifier: id.pid), app.launchDate == id.launch,
-                      let live = refreshed, !live.minimized,
-                      initial.matches(WindowBirthObservation(frame: live.frame, spaces: Set(live.spaceIDs))),
-                      let target = self.store.reader.read().first(where: { $0.id == destination.id && $0.display == destination.display && !$0.isFullScreen }),
-                      NSScreen.screens.contains(where: { screenUUID($0) == target.display }) else { skipped += 1; continue }
-                do { try await self.native.transfer(live, to: target, reader: self.store.reader); moved += 1 }
-                catch is CancellationError { throw CancellationError() }
-                catch { return "Moved \(moved) new windows. Routing stopped: \(error.localizedDescription)" }
+        guard routingScanTask == nil else { return }
+        routingScanTask = Task {
+            defer { routingScanTask = nil }
+            let windows = await native.windowsForOperation()
+            guard !Task.isCancelled, routing.enabled, routing.revision == revision, native.trusted,
+                  !busy, NSEvent.pressedMouseButtons == 0, !OverlayController.isMissionControlOpen() else {
+                births.reset(); return
             }
-            return "Moved \(moved) new windows.\(skipped > 0 ? " Skipped \(skipped) changed windows." : "")"
+            let desktops = store.reader.read()
+            var batch: [(WindowBirthIdentity, LiveWindow, Desktop, WindowBirthObservation)] = []
+            for id in ready {
+                guard let window = windows.first(where: { $0.id == id.windowID && $0.pid == id.pid }) else { continue }
+                guard id.pid != getpid(), let app = apps[id.pid], app.activationPolicy == .regular,
+                      !window.minimized, window.spaceIDs.count == 1,
+                      let source = desktops.first(where: { $0.spaceID == window.spaceIDs[0] }), !source.isFullScreen,
+                      let initial = births.observation(for: id),
+                      initial.matches(WindowBirthObservation(frame: window.frame, spaces: Set(window.spaceIDs))) else {
+                    births.consume(id)
+                    continue
+                }
+                let rules = routing.rules.filter { $0.enabled && $0.bundleID == window.bundleID }
+                if window.title.isEmpty, rules.contains(where: { !$0.titleContains.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
+                   (births.age(of: id, now: now) ?? 2) < 2 { continue }
+                let rule = rules.first {
+                    let title = $0.titleContains.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return title.isEmpty || window.title.localizedCaseInsensitiveContains(title)
+                }
+                births.consume(id)
+                guard let rule,
+                      let destination = rule.destination(desktops:desktops,screens:ConnectedDisplay.all()),
+                      NSScreen.screens.contains(where: { screenUUID($0) == destination.display }) else {
+                    if rule != nil {message="A routing destination is unavailable. Check its desktop and screen."}
+                    continue
+                }
+                batch.append((id, window, destination, initial))
+            }
+            guard !batch.isEmpty else { return }
+            run {
+                var moved = 0
+                var skipped = 0
+                for (id, window, destination, initial) in batch {
+                    try Task.checkCancellation()
+                    let refreshed=await self.native.refreshedForOperation(window)
+                    try Task.checkCancellation()
+                    guard self.routing.enabled, self.routing.revision == revision, self.native.trusted,
+                          NSEvent.pressedMouseButtons == 0, !OverlayController.isMissionControlOpen(),
+                          let app = NSRunningApplication(processIdentifier: id.pid), app.launchDate == id.launch,
+                          let live = refreshed, !live.minimized,
+                          initial.matches(WindowBirthObservation(frame: live.frame, spaces: Set(live.spaceIDs))),
+                          let target = self.store.reader.read().first(where: { $0.id == destination.id && $0.display == destination.display && !$0.isFullScreen }),
+                          NSScreen.screens.contains(where: { screenUUID($0) == target.display }) else { skipped += 1; continue }
+                    do { try await self.native.transfer(live, to: target, reader: self.store.reader); moved += 1 }
+                    catch is CancellationError { throw CancellationError() }
+                    catch { return "Moved \(moved) new windows. Routing stopped: \(error.localizedDescription)" }
+                }
+                return "Moved \(moved) new windows.\(skipped > 0 ? " Skipped \(skipped) changed windows." : "")"
+            }
         }
     }
 }

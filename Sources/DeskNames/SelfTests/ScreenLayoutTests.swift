@@ -131,6 +131,7 @@ import AppKit
     let native=NativeWindows(trustCheck:{true},includeExternal:false)
     let controller=LayoutController(store:store,file:file,native:native)
     controller.saveAcrossScreens=true;controller.save()
+    await controller.operationTask?.value
     guard let desktop=controller.selectedDesktop,let capture=controller.layouts[desktop.id] else {throw WindowIssue("Fixture capture failed: "+controller.message)}
     precondition(capture.windows.count==3)
     precondition(capture.stackingSource==DesktopLayout.currentStackingSource)

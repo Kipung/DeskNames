@@ -131,8 +131,89 @@ private struct AccessibilityReadResult: Sendable {
     let snapshot:AccessibilitySnapshot?;let cachedFailure:String;let freshFound:Bool
 }
 
+struct AccessibilityReadBudget {
+    let deadline: TimeInterval
+    init(now: TimeInterval, duration: TimeInterval = 1) { deadline = now + duration }
+    func permitsRead(now: TimeInterval, cancelled: Bool) -> Bool { !cancelled && now < deadline }
+}
+
+enum AccessibilityWorker {
+    static func read<Value: Sendable>(on queue: DispatchQueue, _ body: @escaping @Sendable () -> Value) async -> Value {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: body()) }
+        }
+    }
+    static func cancellableRead<Value: Sendable>(on queue: DispatchQueue, cancelledValue: Value,
+                                                _ body: @escaping @Sendable (AccessibilityReadCancellation) -> Value) async -> Value {
+        let cancellation = AccessibilityReadCancellation()
+        return await withTaskCancellationHandler(operation: {
+            await read(on: queue) { cancellation.isCancelled ? cancelledValue : body(cancellation) }
+        }, onCancel: { cancellation.cancel() })
+    }
+}
+
+struct FocusedWindowRequest {
+    let pid: pid_t
+    func accepts(currentPID: pid_t?, trusted: Bool, cancelled: Bool) -> Bool {
+        trusted && !cancelled && currentPID == pid
+    }
+}
+
+struct AccessibilityCensusStatus {
+    private(set) var complete = true
+    mutating func observe(_ error: AXError) {
+        switch error {
+        case .success, .noValue, .attributeUnsupported, .notImplemented, .invalidUIElement: break
+        default: complete = false
+        }
+    }
+}
+
+struct WindowDiscovery {
+    let windows: [LiveWindow]
+    let complete: Bool
+    func forLayout() throws -> [LiveWindow] {
+        guard complete else { throw WindowIssue("Window discovery was incomplete. Try again when the other apps respond; saved layouts were kept.") }
+        return windows
+    }
+}
+
+enum WindowCapture {
+    case local(LiveWindow)
+    case external(id: UInt32, pid: pid_t, frame: CGRect)
+    var frame: CGRect {
+        switch self {
+        case .local(let window): return window.frame
+        case .external(_, _, let frame): return frame
+        }
+    }
+}
+
+final class AccessibilityReadCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    func cancel() { lock.lock(); cancelled = true; lock.unlock() }
+    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+}
+
+private struct AccessibilityApplication: Sendable {
+    let pid: pid_t; let bundle: String; let name: String
+}
+private struct AccessibilityListedWindow: @unchecked Sendable {
+    let element: AXUIElement; let id: UInt32; let app: AccessibilityApplication
+    let frame: CGRect; let title: String; let minimized: Bool
+}
+private struct AccessibilityWindowCensus: Sendable {
+    var windows: [AccessibilityListedWindow] = []
+    var complete = true
+}
+
 final class NativeWindows {
+    private static let configureTimeout: Void = {
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.2)
+    }()
     private static let accessibilityWrites = DispatchQueue(label: "local.desknames.accessibility-writes", qos: .userInitiated)
+    private static let accessibilityDiscovery = DispatchQueue(label: "local.desknames.accessibility-discovery", qos: .userInitiated)
     @MainActor private static var processQueues: [pid_t: DispatchQueue] = [:]
     @MainActor private static func accessibilityQueue(for pid: pid_t) -> DispatchQueue {
         if let queue = processQueues[pid] { return queue }
@@ -151,9 +232,30 @@ final class NativeWindows {
     private let includeExternal:Bool
     private let diagnosticsDirectory:URL?
     init(trustCheck: @escaping () -> Bool = { AXIsProcessTrusted() },includeExternal:Bool=true,diagnosticsDirectory:URL?=nil) {
+        _ = Self.configureTimeout
         self.trustCheck=trustCheck;self.includeExternal=includeExternal;self.diagnosticsDirectory=diagnosticsDirectory
     }
     var trusted:Bool {trustCheck()}
+    @MainActor func focusedWindowForOperation() async -> LiveWindow? {
+        guard trusted, !Task.isCancelled, let frontmost = NSWorkspace.shared.frontmostApplication else { return nil }
+        let pid = frontmost.processIdentifier
+        let request = FocusedWindowRequest(pid: pid)
+        if pid == getpid() { return NSApp.keyWindow.flatMap(localSnapshot) }
+        guard includeExternal else { return nil }
+        let snapshot: AccessibilitySnapshot? = await AccessibilityWorker.cancellableRead(on: Self.accessibilityQueue(for: pid), cancelledValue: nil) { cancellation in
+                let app = AXUIElementCreateApplication(pid)
+                AXUIElementSetMessagingTimeout(app, 0.2)
+                guard let value = axValue(app, kAXFocusedWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() else {
+                    return nil
+                }
+                guard !cancellation.isCancelled else { return nil }
+                return Self.inspectAccessibilityWindow(value as! AXUIElement, messagingTimeout: 0.1)
+        }
+        guard request.accepts(currentPID: NSWorkspace.shared.frontmostApplication?.processIdentifier, trusted: trusted, cancelled: Task.isCancelled),
+              let snapshot, snapshot.pid == pid, let frame = Self.windowServerFrame(id: snapshot.id, pid: pid) else { return nil }
+        return LiveWindow(id: snapshot.id, target: .accessibility(snapshot.element), pid: pid, bundleID: snapshot.bundle,
+                          appName: snapshot.appName, title: "", frame: frame, spaceIDs: spaces(for: snapshot.id), minimized: false)
+    }
     func requestPermission() {
         // An approval saved for an older signature still shows as on in System Settings,
         // but macOS refuses it and won't prompt again. Clearing only DeskNames' own entry
@@ -196,6 +298,54 @@ final class NativeWindows {
         else if let value = axValue(hit, kAXWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() { element = value as! AXUIElement }
         else { onFailure("no-containing-window pid=\(pid) role=\(role)"); return nil }
         return liveWindow(element, onFailure: onFailure)
+    }
+    @MainActor func captureWindow(at point: CGPoint, localWindow: NSWindow? = nil) -> WindowCapture? {
+        guard trusted else { return nil }
+        if let localWindow { return window(at: point, localWindow: localWindow).map(WindowCapture.local) }
+        guard includeExternal,
+              let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
+              let hit = infos.first(where: { info in
+                  guard info[kCGWindowLayer as String] as? Int == 0,
+                        let bounds = info[kCGWindowBounds as String] as? [String: Any],
+                        let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return false }
+                  return frame.contains(point)
+              }), let id = hit[kCGWindowNumber as String] as? UInt32,
+              let pid = hit[kCGWindowOwnerPID as String] as? pid_t, pid != getpid(),
+              let bounds = hit[kCGWindowBounds as String] as? [String: Any],
+              let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return nil }
+        return .external(id: id, pid: pid, frame: frame)
+    }
+    @MainActor func windowForOperation(_ capture: WindowCapture) async -> LiveWindow? {
+        guard trusted, !Task.isCancelled else { return nil }
+        guard case .external(let id, let pid, let originalFrame) = capture else {
+            if case .local(let window) = capture, refreshed(window) != nil { return window }
+            return nil
+        }
+        let snapshot: AccessibilitySnapshot? = await AccessibilityWorker.cancellableRead(on: Self.accessibilityQueue(for: pid), cancelledValue: nil) { cancellation in
+            let app = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(app, 0.2)
+            let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
+            guard let getID = Self.windowIDFunction, let candidates = axValue(app, kAXWindowsAttribute) as? [AXUIElement] else { return nil }
+            for candidate in candidates {
+                guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: cancellation.isCancelled) else { break }
+                AXUIElementSetMessagingTimeout(candidate, 0.1)
+                var candidateID: UInt32 = 0
+                if getID(candidate, &candidateID) == 0 && candidateID == id {
+                    return Self.inspectAccessibilityWindow(candidate, messagingTimeout: 0.1)
+                }
+            }
+            return nil
+        }
+        guard trusted, !Task.isCancelled, let snapshot, snapshot.id == id, snapshot.pid == pid,
+              Self.windowServerFrame(id: id, pid: pid) != nil else { return nil }
+        return LiveWindow(id: id, target: .accessibility(snapshot.element), pid: pid, bundleID: snapshot.bundle,
+                          appName: snapshot.appName, title: "", frame: originalFrame, spaceIDs: spaces(for: id), minimized: false)
+    }
+    func currentFrame(_ capture: WindowCapture) -> CGRect? {
+        switch capture {
+        case .local(let window): return currentFrame(window)
+        case .external(let id, let pid, _): return Self.windowServerFrame(id: id, pid: pid)
+        }
     }
     func liveWindow(_ element: AXUIElement, messagingTimeout:Float=0.1, onFailure: (String) -> Void = { _ in }) -> LiveWindow? {
         guard let value=Self.inspectAccessibilityWindow(element,messagingTimeout:messagingTimeout,onFailure:onFailure) else{return nil}
@@ -255,6 +405,7 @@ final class NativeWindows {
             guard let symbol=dlsym(dlopen(nil,RTLD_NOW),"_AXUIElementGetWindow") else{return nil}
             let getID=unsafeBitCast(symbol,to:GetID.self)
             let fresh=(axValue(app,kAXWindowsAttribute) as? [AXUIElement])?.first {candidate in
+                AXUIElementSetMessagingTimeout(candidate,0.1)
                 var id:UInt32=0;var pid:pid_t=0
                 return AXUIElementGetPid(candidate,&pid) == .success && pid==window.pid && getID(candidate,&id)==0 && id==window.id
             }
@@ -265,6 +416,7 @@ final class NativeWindows {
         }
     }
     @MainActor func refreshedForOperation(_ window:LiveWindow) async -> LiveWindow? {
+        guard trusted else { return nil }
         guard case .accessibility(let element)=window.target else{return refreshed(window)}
         guard !Task.isCancelled else{return nil}
         let request=AccessibilityReadRequest(element:element,id:window.id,pid:window.pid,bundle:window.bundleID)
@@ -287,7 +439,10 @@ final class NativeWindows {
                     continuation.resume(returning:AccessibilityReadResult(snapshot:nil,cachedFailure:failure,freshFound:false));return
                 }
                 let getID=unsafeBitCast(symbol,to:GetID.self)
+                let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
                 let fresh=(axValue(app,kAXWindowsAttribute) as? [AXUIElement])?.first {candidate in
+                    guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: false) else { return false }
+                    AXUIElementSetMessagingTimeout(candidate,0.1)
                     var id:UInt32=0;var pid:pid_t=0
                     return AXUIElementGetPid(candidate,&pid) == .success && pid==request.pid && getID(candidate,&id)==0 && id==request.id
                 }
@@ -295,7 +450,7 @@ final class NativeWindows {
                 continuation.resume(returning:AccessibilityReadResult(snapshot:value,cachedFailure:failure,freshFound:fresh != nil))
             }
         }
-        guard !Task.isCancelled else{return nil}
+        guard !Task.isCancelled, trusted else{return nil}
         if !result.cachedFailure.isEmpty || result.snapshot==nil {
             recordWindowDiagnostic("window-refresh-result.json",["executor":"serial-worker","windowID":window.id,"pid":window.pid,
                 "bundle":window.bundleID,"cachedFailure":result.cachedFailure,"freshIdentityFound":result.freshFound,"eligibilityConfirmed":result.snapshot != nil])
@@ -333,7 +488,9 @@ final class NativeWindows {
                 guard let getID = Self.windowIDFunction else {
                     continuation.resume(returning: .notImplemented); return
                 }
+                let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
                 func matches(_ element: AXUIElement) -> Bool {
+                    guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: request.isCancelled) else { return false }
                     AXUIElementSetMessagingTimeout(element, 0.5)
                     var id: UInt32 = 0; var pid: pid_t = 0
                     return AXUIElementGetPid(element, &pid) == .success && pid == request.pid &&
@@ -405,22 +562,79 @@ final class NativeWindows {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try? data.write(to: directory.appendingPathComponent(name), options: .atomic)
     }
-    @MainActor func windows()->[LiveWindow] {
-        guard trusted else{knownWindows=[:];return []}
-        typealias GetID = @convention(c)(AXUIElement,UnsafeMutablePointer<UInt32>)->Int32
-        guard let fn=dlsym(dlopen(nil,RTLD_NOW),"_AXUIElementGetWindow") else{return []}
-        let getID=unsafeBitCast(fn,to:GetID.self)
-        var result:[LiveWindow]=[]
-        for app in NSWorkspace.shared.runningApplications where includeExternal && app.activationPolicy == .regular && app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-            guard let bundle=app.bundleIdentifier else{continue}
-            let ae=AXUIElementCreateApplication(app.processIdentifier);AXUIElementSetMessagingTimeout(ae,0.3)
-            guard let windows=axValue(ae,kAXWindowsAttribute) as? [AXUIElement] else{continue}
-            for w in windows {
-                guard (axValue(w,kAXSubroleAttribute) as? String)==kAXStandardWindowSubrole,
-                      (axValue(w,"AXFullScreen") as? Bool) != true,let r=axRect(w),r.width>80,r.height>50 else{continue}
-                var id:UInt32=0;guard getID(w,&id)==0,id>0 else{continue}
-                result.append(LiveWindow(id:id,target:.accessibility(w),pid:app.processIdentifier,bundleID:bundle,appName:app.localizedName ?? bundle,title:axValue(w,kAXTitleAttribute) as? String ?? "",frame:r,spaceIDs:spaces(for:id),minimized:axValue(w,kAXMinimizedAttribute) as? Bool ?? false))
+    @MainActor private func accessibilityApplications() -> [AccessibilityApplication] {
+        NSWorkspace.shared.runningApplications.compactMap { app in
+            guard includeExternal, app.activationPolicy == .regular, app.processIdentifier != getpid(),
+                  let bundle = app.bundleIdentifier else { return nil }
+            return AccessibilityApplication(pid: app.processIdentifier, bundle: bundle, name: app.localizedName ?? bundle)
+        }
+    }
+    private static func listWindows(_ apps: [AccessibilityApplication], cancellation: AccessibilityReadCancellation = AccessibilityReadCancellation()) -> AccessibilityWindowCensus {
+        guard let getID = windowIDFunction else { return AccessibilityWindowCensus(complete: false) }
+        var result = AccessibilityWindowCensus()
+        var status = AccessibilityCensusStatus()
+        func value(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
+            var value: CFTypeRef?
+            let error = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
+            status.observe(error)
+            return error == .success ? value : nil
+        }
+        for app in apps {
+            guard !cancellation.isCancelled else { result.complete = false; break }
+            let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
+            let element = AXUIElementCreateApplication(app.pid)
+            AXUIElementSetMessagingTimeout(element, 0.2)
+            guard let windows = value(element, kAXWindowsAttribute) as? [AXUIElement] else { continue }
+            for window in windows {
+                guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: cancellation.isCancelled) else { result.complete = false; break }
+                // An application's timeout does not apply to the window objects it returns.
+                AXUIElementSetMessagingTimeout(window, 0.1)
+                guard value(window, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole,
+                      value(window, "AXFullScreen") as? Bool != true else { continue }
+                var id: UInt32 = 0
+                let identityError = AXError(rawValue: getID(window, &id)) ?? .failure
+                status.observe(identityError)
+                guard identityError == .success, id > 0,
+                      let frame = windowServerFrame(id: id, pid: app.pid), frame.width > 80, frame.height > 50 else { continue }
+                result.windows.append(AccessibilityListedWindow(element: window, id: id, app: app, frame: frame,
+                    title: value(window, kAXTitleAttribute) as? String ?? "",
+                    minimized: value(window, kAXMinimizedAttribute) as? Bool ?? false))
             }
+        }
+        result.complete = result.complete && status.complete
+        return result
+    }
+    @MainActor func windowsForOperation() async -> [LiveWindow] {
+        await windowCensus().windows
+    }
+    @MainActor func windowsForLayout() async throws -> [LiveWindow] {
+        let census = await windowCensus()
+        try Task.checkCancellation()
+        guard trusted else { throw WindowIssue("Enable Accessibility before arranging windows.") }
+        return try census.forLayout()
+    }
+    @MainActor private func windowCensus() async -> WindowDiscovery {
+        guard trusted, !Task.isCancelled else { return WindowDiscovery(windows: [], complete: false) }
+        let apps = accessibilityApplications()
+        let cancellation = AccessibilityReadCancellation()
+        let census: AccessibilityWindowCensus = await withTaskCancellationHandler(operation: {
+            await AccessibilityWorker.read(on: Self.accessibilityDiscovery) { Self.listWindows(apps, cancellation: cancellation) }
+        }, onCancel: { cancellation.cancel() })
+        guard trusted, !Task.isCancelled else { return WindowDiscovery(windows: [], complete: false) }
+        return WindowDiscovery(windows: mergeWindows(census.windows), complete: census.complete)
+    }
+    @MainActor func windows() -> [LiveWindow] {
+        guard trusted else { knownWindows = [:]; return [] }
+        let census = Self.listWindows(accessibilityApplications())
+        return mergeWindows(census.windows)
+    }
+    @MainActor private func mergeWindows(_ snapshots: [AccessibilityListedWindow]) -> [LiveWindow] {
+        var result = snapshots.compactMap { value -> LiveWindow? in
+            guard NSRunningApplication(processIdentifier: value.app.pid)?.bundleIdentifier == value.app.bundle,
+                  let frame = Self.windowServerFrame(id: value.id, pid: value.app.pid) else { return nil }
+            return LiveWindow(id: value.id, target: .accessibility(value.element), pid: value.app.pid,
+                bundleID: value.app.bundle, appName: value.app.name, title: value.title, frame: frame,
+                spaceIDs: spaces(for: value.id), minimized: value.minimized)
         }
         result.append(contentsOf:NSApp.windows.compactMap {localSnapshot($0)})
         // AXWindows can omit windows on inactive Spaces. Retain windows already seen,
@@ -439,6 +653,7 @@ final class NativeWindows {
         return current.values.sorted { ($0.bundleID,$0.id)<($1.bundleID,$1.id) }
     }
     @MainActor func trackedPaneWindows() -> [LiveWindow] {
+        guard trusted else { knownWindows = [:]; return [] }
         var current = knownWindows
         for window in NSApp.windows.compactMap({ localSnapshot($0) }) { current[window.id] = window }
         return current.values.compactMap { window in
@@ -573,6 +788,12 @@ final class NativeWindows {
 
 @MainActor final class LayoutController:ObservableObject {
     private enum Interaction { case idle, userDrag, writing }
+    private struct Operation {
+        let interruptible: Bool
+        let refreshWindows: Bool
+        let completion: ((String) -> Void)?
+        let body: @MainActor () async throws -> String
+    }
     @Published private var interaction = Interaction.idle
     @Published var layouts:[String:DesktopLayout]=[:]
     @Published var windows:[LiveWindow]=[]
@@ -595,6 +816,7 @@ final class NativeWindows {
     let routing: RoutingSettings
     var births=WindowBirthTracker()
     var lastBirthScan:Double=0
+    var routingScanTask: Task<Void, Never>?
     var previewPanes: ((String) -> Void)?
     let store:Store
     let file:URL
@@ -602,10 +824,12 @@ final class NativeWindows {
     var pending:Task<Void,Never>?
     @Published var pinnedWindows:[UInt32:LiveWindow]=[:]
     var pinTracking=PinTracking()
-    private var queuedDesktop: Desktop?
+    private var queuedDesktop: (desktop: Desktop, completion: ((String) -> Void)?)?
     var operationTask:Task<Void,Never>?
+    private var refreshTask: Task<Void, Never>?
+    var shortcutResult: ((String) -> Void)?
     private var interactivePlacement = false
-    private var queuedPlacement: (@MainActor () async throws -> String)?
+    private var queuedPlacement: Operation?
     var canRetargetPlacement: Bool { interactivePlacement && interaction == .writing }
     var showSwitcher:(()->Void)?
     var onSwitch: (() -> Void)?
@@ -624,7 +848,19 @@ final class NativeWindows {
     @discardableResult func persist()->Bool {
         do {try FileManager.default.createDirectory(at:file.deletingLastPathComponent(),withIntermediateDirectories:true);try JSONEncoder().encode(layouts).write(to:file,options:.atomic);return true} catch {message="Could not save layouts: \(error.localizedDescription)";return false}
     }
-    func refresh() {setTrusted();windows=native.windows();if !windows.contains(where:{$0.id==selectedWindow}) {selectedWindow=windows.first?.id ?? 0}}
+    func refresh() {
+        setTrusted()
+        guard refreshTask == nil else { return }
+        refreshTask = Task {
+            defer { refreshTask = nil }
+            let live = await native.windowsForOperation()
+            setTrusted()
+            guard !Task.isCancelled else { return }
+            guard trusted else { windows = []; selectedWindow = 0; return }
+            windows = live
+            if !windows.contains(where: { $0.id == selectedWindow }) { selectedWindow = windows.first?.id ?? 0 }
+        }
+    }
     func option(_ key:WritableKeyPath<DesktopLayout,Bool>,_ value:Bool,layoutID:String?=nil) {guard let id=layoutID ?? selectedDesktop?.id,var l=layouts[id] else{return};let old=l;l[keyPath:key]=value;layouts[id]=l;if !persist(){layouts[id]=old}}
     static func match(_ saved:SavedWindow,in candidates:[LiveWindow],used:Set<UInt32>)->LiveWindow? {
         let pool=candidates.filter{$0.bundleID==saved.bundleID && !used.contains($0.id)}
@@ -658,34 +894,51 @@ final class NativeWindows {
         }
         return result
     }
-    func run(interruptible: Bool = false, refreshWindows: Bool = true, _ operation: @escaping @MainActor () async throws -> String) {
+    func run(interruptible: Bool = false, refreshWindows: Bool = true, completion: ((String) -> Void)? = nil,
+             _ operation: @escaping @MainActor () async throws -> String) {
+        let shortcut = shortcutResult
+        run(Operation(interruptible: interruptible, refreshWindows: refreshWindows,
+                      completion: { text in completion?(text); shortcut?(text) }, body: operation))
+    }
+    private func run(_ operation: Operation) {
         if busy {
-            if interruptible && canRetargetPlacement {
+            if operation.interruptible && canRetargetPlacement {
+                queuedPlacement?.completion?("Placement replaced by a newer request.")
                 queuedPlacement = operation
                 operationTask?.cancel()
-            } else { message = "A window operation is in progress. Try again when it finishes." }
+            } else { message = "A window operation is in progress. Try again when it finishes."; operation.completion?(message) }
             return
         }
-        interaction = .writing; interactivePlacement = interruptible; pending?.cancel()
+        interaction = .writing; interactivePlacement = operation.interruptible; pending?.cancel()
+        message = "Working…"
         operationTask = Task {
-            do { message = try await operation() }
-            catch is CancellationError { if queuedPlacement == nil { message = "Operation cancelled." } }
-            catch { message = error.localizedDescription }
-            interaction = .idle; interactivePlacement = false
-            if let next = queuedPlacement {
-                queuedPlacement = nil
-                run(interruptible: true, next)
-                return
+            var result = "Operation cancelled."
+            defer {
+                interaction = .idle; interactivePlacement = false; operationTask = nil
+                message = result
+                operation.completion?(result)
+                if let next = queuedPlacement {
+                    queuedPlacement = nil
+                    run(next)
+                } else {
+                    store.refresh(); lastActive = Set(store.desktops.filter(\.isCurrent).map(\.id))
+                    if operation.interruptible || !operation.refreshWindows {
+                        setTrusted(); windows = native.trackedPaneWindows()
+                        if !windows.contains(where: { $0.id == selectedWindow }) { selectedWindow = windows.first?.id ?? 0 }
+                    } else { refresh() }
+                    births.reset(); drainDesktopRequest()
+                }
             }
-            store.refresh(); lastActive = Set(store.desktops.filter(\.isCurrent).map(\.id))
-            if interruptible || !refreshWindows {
-                setTrusted(); windows = native.trackedPaneWindows()
-                if !windows.contains(where: { $0.id == selectedWindow }) { selectedWindow = windows.first?.id ?? 0 }
-            } else { refresh() }
-            births.reset(); drainDesktopRequest()
+            do { try Task.checkCancellation(); result = try await operation.body(); try Task.checkCancellation() }
+            catch is CancellationError { result = "Operation cancelled." }
+            catch { result = error.localizedDescription }
         }
     }
-    func cancel() { queuedPlacement = nil; queuedDesktop = nil; operationTask?.cancel(); pending?.cancel(); endUserWindowDrag() }
+    func cancel() {
+        queuedPlacement?.completion?("Operation cancelled."); queuedPlacement = nil
+        queuedDesktop?.completion?("Operation cancelled."); queuedDesktop = nil
+        operationTask?.cancel(); pending?.cancel(); routingScanTask?.cancel(); refreshTask?.cancel(); endUserWindowDrag()
+    }
     func beginUserWindowDrag() -> Bool {
         guard !busy, native.trusted else { return false }
         pending?.cancel()
@@ -697,39 +950,33 @@ final class NativeWindows {
                               completion: @escaping (String, Bool) -> Void) {
         guard hasUserWindowDrag else { completion("The window operation was cancelled.", false); return }
         interaction = .idle
-        run(interruptible: true) {
-            do {
-                try Task.checkCancellation()
-                let refreshed=await self.native.refreshedForOperation(window)
-                try Task.checkCancellation()
-                self.store.refresh()
-                guard !OverlayController.isMissionControlOpen(),
-                      let desktop = self.store.desktops.first(where: { $0.id == desktopID && $0.isCurrent && !$0.isFullScreen }),
-                      let screen = NSScreen.screens.first(where: { screenUUID($0) == displayID }),
-                      screenArea(screen).contains(frame),
-                      let current = refreshed, current.spaceIDs.contains(desktop.spaceID),
-                      abs(current.frame.width - window.frame.width) <= 2, abs(current.frame.height - window.frame.height) <= 2 else {
-                    completion("Window or desktop changed. Try dragging again.", false)
-                    return "Window or desktop changed. Nothing was snapped."
-                }
-                try await self.native.animateFrames([(current, frame)])
-                let matched = self.native.verifyFrame(frame, window: current)
-                if matched, let source=screenFor(originalFrame ?? window.frame) { self.frameHistory.remember(window,frame:originalFrame ?? window.frame,screen:source) }
-                let text = matched ? "Placed \(current.appName) in its pane." : "\(current.appName) needs a different window size."
-                completion(text, matched)
-                return text
-            } catch {
-                completion(error is CancellationError ? "Placement cancelled." : error.localizedDescription, false)
-                throw error
+        var matched = false
+        run(interruptible: true, completion: { completion($0, matched) }) {
+            try Task.checkCancellation()
+            let refreshed=await self.native.refreshedForOperation(window)
+            try Task.checkCancellation()
+            self.store.refresh()
+            guard !OverlayController.isMissionControlOpen(),
+                  let desktop = self.store.desktops.first(where: { $0.id == desktopID && $0.isCurrent && !$0.isFullScreen }),
+                  let screen = NSScreen.screens.first(where: { screenUUID($0) == displayID }),
+                  screenArea(screen).contains(frame),
+                  let current = refreshed, current.spaceIDs.contains(desktop.spaceID),
+                  abs(current.frame.width - window.frame.width) <= 2, abs(current.frame.height - window.frame.height) <= 2 else {
+                return "Window or desktop changed. Nothing was snapped."
             }
+            try await self.native.animateFrames([(current, frame)])
+            matched = self.native.verifyFrame(frame, window: current)
+            if matched, let source=screenFor(originalFrame ?? window.frame) { self.frameHistory.remember(window,frame:originalFrame ?? window.frame,screen:source) }
+            return matched ? "Placed \(current.appName) in its pane." : "\(current.appName) needs a different window size."
         }
     }
     func restore() {
-        guard let selected=selectedDesktop,let layout=restoreSelection else{return}
+        guard let selected=selectedDesktop,let layout=restoreSelection else{message="Save a layout for this desktop before restoring windows.";return}
         let desktop=store.desktops.first(where:{$0.id==layout.id}) ?? selected
         run {try await self.restoreLayout(desktop,automatic:false,layoutID:layout.id)}
     }
     func restoreLayout(_ desktop:Desktop,automatic:Bool,layoutID:String?=nil) async throws->String {
+        try Task.checkCancellation()
         guard native.trusted else{throw WindowIssue("Enable Accessibility before restoring windows.")}
         guard let layout=layouts[layoutID ?? desktop.id] else{throw WindowIssue("Save a layout for this desktop first.")}
         if automatic && !store.reader.read().contains(where:{$0.id==desktop.id && $0.isCurrent}) {return "Automatic restore cancelled because you changed desktops."}
@@ -739,6 +986,7 @@ final class NativeWindows {
             let mapping=DisplayMatching.assignment(saved:savedDisplays,ids:screens.map(\.id),profiles:screens.map(\.profile))
             let targets=layout.windows.compactMap{$0.destination(layoutDesktop:desktop,desktops:all,screens:screens,displayMap:mapping)?.0}
             for screen in screens {
+                try Task.checkCancellation()
                 let candidates=targets.filter{$0.display==screen.id}
                 guard Set(candidates.map(\.id)).count==1,let target=candidates.first else{continue}
                 try await native.switchSpace(target,reader:store.reader)
@@ -748,18 +996,24 @@ final class NativeWindows {
         if layout.launchMissing {
             var launched=Set<String>()
             for bundle in Set(layout.windows.map(\.bundleID)) where NSRunningApplication.runningApplications(withBundleIdentifier:bundle).isEmpty {
+                try Task.checkCancellation()
                 guard let url=NSWorkspace.shared.urlForApplication(withBundleIdentifier:bundle) else{continue}
-                let cfg=NSWorkspace.OpenConfiguration();cfg.activates=false
-                if (try? await NSWorkspace.shared.openApplication(at:url,configuration:cfg)) != nil {launched.insert(bundle)}
+                do { try await launchLayoutApplication(at: url); launched.insert(bundle) }
+                catch is CancellationError { throw CancellationError() }
+                catch ApplicationLaunchIssue.timedOut { throw ApplicationLaunchIssue.timedOut }
+                catch { continue }
             }
             // Wait only for apps launched just now, so a running app with no open window
             // (or an uninstalled one) does not add a 3-second delay to every restore.
             for _ in 0..<(launched.isEmpty ? 0:10) {
-                if Set(native.windows().map(\.bundleID)).isSuperset(of:launched) {break}
+                try Task.checkCancellation()
+                if Set(await native.windowsForOperation().map(\.bundleID)).isSuperset(of:launched) {break}
                 await NativeWindows.pause(0.3)
             }
         }
-        var available=native.windows()
+        try Task.checkCancellation()
+        var available=try await native.windowsForLayout()
+        try Task.checkCancellation()
         if layout.gatherWindows && !automatic {
             // After a DeskNames restart, discover surviving saved windows on other
             // Spaces before falling back to title matching on the destination.
@@ -771,11 +1025,12 @@ final class NativeWindows {
                 }
             }
             for source in store.reader.read() where sourceIDs.contains(source.spaceID) && source.id != desktop.id && !source.isFullScreen {
+                try Task.checkCancellation()
                 try await native.switchSpace(source,reader:store.reader)
-                available=native.windows()
+                available=try await native.windowsForLayout()
             }
             try await activateSavedDesktops()
-            available=native.windows()
+            available=try await native.windowsForLayout()
         }
         var restored=0;var skipped=0;var limited=0;var adapted=0;var unavailable=0
         var ordered:[(Int,LiveWindow)]=[]
@@ -789,7 +1044,7 @@ final class NativeWindows {
             guard let w=match else{skipped+=1;continue}
             if !native.spaces(for:w.id).contains(destination.spaceID) {
                 guard layout.gatherWindows && !automatic else{skipped+=1;continue}
-                do {try await native.move(w,to:destination,reader:store.reader)} catch {skipped+=1;continue}
+                do {try await native.move(w,to:destination,reader:store.reader)} catch is CancellationError {throw CancellationError()} catch {skipped+=1;continue}
             }
             guard native.identityExists(w),ConnectedDisplay.all().contains(where:{$0.id==screen.id && $0.area==screen.area}),store.reader.read().contains(where:{$0.id==destination.id && $0.display==screen.id}) else {unavailable+=1;continue}
             let (frame,exact)=saved.restoredFrame(in:screen.area,bounds:screen.bounds)
@@ -798,13 +1053,14 @@ final class NativeWindows {
                 if native.verifyFrame(frame,window:w) {
                     restored+=1;if !exact || screen.id != saved.displayID {adapted+=1}
                 } else {limited+=1}
-            } catch {limited+=1}
+            } catch is CancellationError {throw CancellationError()} catch {limited+=1}
             // An app's minimum size can prevent exact geometry without preventing
             // overlap restoration. Keep every surviving window on its destination.
             if let rank=saved.stackingIndex,native.identityExists(w),native.spaces(for:w.id)==[destination.spaceID],
                topology.contains(where:{$0.id==destination.id && $0.isCurrent}) {ordered.append((rank,w))}
         }
         var orderMessage=""
+        try Task.checkCancellation()
         if !automatic,!ordered.isEmpty {
             let success=await native.restoreOrder(ordered.sorted{$0.0<$1.0}.map(\.1),reader:store.reader)
             try Task.checkCancellation()
@@ -824,31 +1080,41 @@ final class NativeWindows {
         let entered=active.subtracting(lastActive);lastActive=active
         guard !busy else{return};pending?.cancel()
         pending=Task {await NativeWindows.pause(0.7);guard !Task.isCancelled,!self.busy else{return}
-            for id in entered where self.layouts[id]?.autoRestore==true {
-                guard let d=self.store.desktops.first(where:{$0.id==id && $0.isCurrent}) else{continue}
-                self.interaction = .writing
-                do {self.message=try await self.restoreLayout(d,automatic:true)} catch is CancellationError {self.message="Operation cancelled."} catch {self.message=error.localizedDescription}
-                self.interaction = .idle
-                self.births.reset()
-                self.lastActive=Set(self.store.desktops.filter(\.isCurrent).map(\.id))
-            }
-            self.drainDesktopRequest()
+            self.pending = nil
+            let desktops = self.store.desktops.filter { entered.contains($0.id) && $0.isCurrent && self.layouts[$0.id]?.autoRestore == true }
+            guard !desktops.isEmpty else { return }
+            self.runAutomaticRestores(desktops) { try await self.restoreLayout($0, automatic: true) }
         }
+    }
+    func runAutomaticRestores(_ desktops: [Desktop], restoring: @escaping @MainActor (Desktop) async throws -> String) {
+        run(Operation(interruptible: false, refreshWindows: false, completion: nil) {
+            var result = "No saved desktop needed restoring."
+            for desktop in desktops {
+                try Task.checkCancellation()
+                do { result = try await restoring(desktop) }
+                catch is CancellationError { throw CancellationError() }
+                catch ApplicationLaunchIssue.timedOut { throw ApplicationLaunchIssue.timedOut }
+                catch { result = error.localizedDescription }
+            }
+            return result
+        })
     }
     func switchTo(_ d:Desktop) {
         onSwitch?()
-        queuedDesktop=d
+        queuedDesktop?.completion?("Desktop jump replaced by a newer request.")
+        queuedDesktop=(d, shortcutResult)
         if busy { message="Desktop jump queued until the current window operation finishes." }
         drainDesktopRequest()
     }
     private func drainDesktopRequest() {
-        guard !busy,let d=queuedDesktop else{return}
+        guard !busy,let request=queuedDesktop else{return}
         queuedDesktop=nil
-        run {
+        let d = request.desktop
+        run(Operation(interruptible: false, refreshWindows: true, completion: request.completion) {
             try await self.native.switchSpace(d,reader:self.store.reader)
             if self.layouts[d.id]?.autoRestore == true {return try await self.restoreLayout(d,automatic:true)}
             return "Switched to \(self.store.name(d))."
-        }
+        })
     }
     func moveSelected() {guard let w=windows.first(where:{$0.id==selectedWindow}),let d=selectedDesktop else{return};run {try await self.native.move(w,to:d,reader:self.store.reader);return "Moved \(w.appName) to \(self.store.name(d))."}}
     static func grid(_ area:CGRect,columns:Int,rows:Int,gap:Double)->[CGRect] {
@@ -861,15 +1127,17 @@ final class NativeWindows {
         run {let frames=Self.grid(screenArea(screen),columns:columns,rows:rows,gap:self.gap);guard frames.indices.contains(cell) else{throw WindowIssue("Select a valid grid cell.")};try await self.native.animateFrames([(w, frames[cell])]);if self.native.verifyFrame(frames[cell],window:w) {self.frameHistory.remember(w,frame:w.frame,screen:screen)};return self.native.verifyFrame(frames[cell],window:w) ? "Placed \(w.appName)." : "\(w.appName) kept a different size or position."}
     }
     func tile() {
-        refresh();guard let d=selectedDesktop,d.isCurrent else{message="Switch to the selected desktop before arranging its windows.";return}
+        guard let d=selectedDesktop,d.isCurrent else{message="Switch to the selected desktop before arranging its windows.";return}
         run {
+            self.windows=await self.native.windowsForOperation()
+            try Task.checkCancellation()
             let live=self.windows.filter{$0.spaceIDs.contains(d.spaceID) && !$0.minimized};var moved=0;var failed=0;var limited=0
             for screen in NSScreen.screens {
                 let id=screenUUID(screen);let list=live.filter{screenFor($0.frame).map(screenUUID)==id}
                 let frames=Self.grid(screenArea(screen),columns:self.columns,rows:self.rows,gap:self.gap)
                 for (w,r) in zip(list,frames) {
                     try Task.checkCancellation()
-                    do {try await self.native.setFrame(r,window:w);if self.native.verifyFrame(r,window:w){moved+=1}else{limited+=1}}catch{failed+=1}
+                    do {try await self.native.setFrame(r,window:w);if self.native.verifyFrame(r,window:w){moved+=1}else{limited+=1}}catch is CancellationError {throw CancellationError()}catch{failed+=1}
                 }
                 failed+=max(0,list.count-frames.count)
             }

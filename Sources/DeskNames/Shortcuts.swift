@@ -27,8 +27,54 @@ struct ShortcutAction: Identifiable {
     let id: UInt32
     let name: String
     let suggested: ShortcutBinding
+    var requiresAccessibility: Bool {
+        id < 100 || (101...103).contains(id) || (320...323).contains(id) || WindowAction.allCases.contains { $0.id == id }
+    }
+    func refusal(trusted: Bool, busy: Bool, hasWindow: Bool? = nil, hasDesktop: Bool? = nil, hasLayout: Bool? = nil) -> ShortcutRefusal? {
+        if requiresAccessibility && !trusted { return .accessibility }
+        if (101...103).contains(id) && busy { return .busy }
+        if id == Self.pin.id && hasWindow == false { return .noWindow }
+        if (101...102).contains(id) && hasDesktop == false { return .noDesktop }
+        if id == 102 && hasLayout == false { return .noLayout }
+        return nil
+    }
     static let pin = ShortcutAction(id: 103, name: "Pin or unpin focused window", suggested: ShortcutBinding(key: 35, modifiers: UInt32(controlKey | optionKey)))
     static let all: [ShortcutAction] = [ShortcutAction(id:100,name:"DeskNames control panel",suggested:ShortcutBinding(key:49,modifiers:UInt32(controlKey|cmdKey|optionKey)))] + zip(1...9,[18,19,20,21,23,22,26,28,25]).map { ShortcutAction(id:UInt32($0.0),name:"Go to desktop \($0.0)",suggested:ShortcutBinding(key:UInt32($0.1),modifiers:UInt32(controlKey|optionKey))) } + [ShortcutAction(id:101,name:"Save active layout",suggested:ShortcutBinding(key:1,modifiers:UInt32(controlKey|optionKey))),ShortcutAction(id:102,name:"Restore active layout",suggested:ShortcutBinding(key:15,modifiers:UInt32(controlKey|optionKey))),ShortcutAction.pin] + WindowAction.allCases.map { ShortcutAction(id:$0.id,name:$0.name,suggested:$0.suggestion) } + PaneShortcut.all
+}
+
+struct ShortcutDelivery: Equatable {
+    private(set) var sequence: UInt64 = 0
+    private(set) var actionID: UInt32 = 0
+    private(set) var action = ""
+    private(set) var result = ""
+
+    mutating func receive(_ id: UInt32) -> UInt64 {
+        sequence &+= 1
+        actionID = id
+        action = ShortcutAction.all.first { $0.id == id }?.name ?? "Unknown action"
+        result = "Received."
+        return sequence
+    }
+
+    @discardableResult mutating func complete(_ request: UInt64, result: String) -> Bool {
+        guard request == sequence else { return false }
+        self.result = result
+        return true
+    }
+}
+
+enum ShortcutRefusal: Equatable {
+    case accessibility, busy, noWindow, noDesktop, noLayout
+
+    var message: String {
+        switch self {
+        case .accessibility: return "Enable Accessibility for DeskNames before using this shortcut."
+        case .busy: return "A window operation is in progress. Try this shortcut again when it finishes."
+        case .noWindow: return "Focus an ordinary window before using this shortcut."
+        case .noDesktop: return "No ordinary desktop is available for this shortcut."
+        case .noLayout: return "Save a layout for this desktop before restoring it."
+        }
+    }
 }
 
 struct ShortcutKey: Identifiable {
@@ -47,6 +93,7 @@ final class ShortcutSettings: ObservableObject {
     @Published private(set) var recordingAction: UInt32?
     @Published var unavailable = Set<UInt32>()
     @Published var lastAction = ""
+    @Published private(set) var delivery = ShortcutDelivery()
     var onChange: ((Bool,[UInt32:ShortcutBinding])->String)?
     init(defaults: UserDefaults = .standard) {
         self.defaults=defaults
@@ -99,6 +146,16 @@ final class ShortcutSettings: ObservableObject {
         apply()
     }
     func apply() {message=onChange?(enabled && recordingAction == nil,bindings) ?? ""}
+
+    func receive(_ id: UInt32) -> UInt64 {
+        let request = delivery.receive(id)
+        lastAction = delivery.action
+        return request
+    }
+
+    @discardableResult func complete(_ request: UInt64, result: String) -> Bool {
+        delivery.complete(request, result: result)
+    }
 
     func beginRecording(_ id: UInt32) {
         guard ShortcutAction.all.contains(where: { $0.id == id }) else { return }
@@ -208,7 +265,7 @@ struct ShortcutSettingsView: View {
             }
             if !settings.lastAction.isEmpty {
                 Text("Last shortcut: " + settings.lastAction).font(.caption).foregroundStyle(.secondary)
-                if !workspace.message.isEmpty { Text(workspace.message).font(.caption).foregroundStyle(.secondary) }
+                Text(settings.delivery.result).font(.caption).foregroundStyle(.secondary)
             }
             ScrollView {
                 VStack(spacing: 10) {

@@ -116,18 +116,24 @@ extension LayoutController {
             message = panes.linkedResizing ? "Linked pane resizing on. Drag a handle between snapped windows." : "Linked pane resizing off."
             return
         }
-        store.refresh()
-        guard let desktop = native.activeDesktop(reader: store.reader), !desktop.id.isEmpty else {
-            message = "No ordinary desktop is available for pane layouts."; return
-        }
-        let config = paneConfiguration(for: desktop.id)
-        if (320...323).contains(id) {
-            guard let candidate = native.focusedWindow(), let screen = screenFor(candidate.frame),
-                  screenUUID(screen) == desktop.display else { message = "Focus a window on this desktop first."; return }
-            let geometry = PaneGeometry(area: screenArea(screen), configuration: config, pixelScale: screen.backingScaleFactor)
-            let index = Int(id - 320)
-            guard geometry.cells.indices.contains(index) else { message = "This layout has only \(geometry.cells.count) panes."; return }
-            run(interruptible: true) {
+        let placement = (320...323).contains(id)
+        if placement && !native.trusted { message = "Enable Accessibility before using window shortcuts."; return }
+        run(interruptible: placement, refreshWindows: false) {
+            let candidate = await self.native.focusedWindowForOperation()
+            try Task.checkCancellation()
+            self.store.refresh()
+            guard let desktop = self.native.activeDesktop(reader: self.store.reader, focusedWindow: candidate), !desktop.id.isEmpty else {
+                throw WindowIssue("No ordinary desktop is available for pane layouts.")
+            }
+            let config = self.paneConfiguration(for: desktop.id)
+            if placement {
+                guard self.native.trusted else { throw WindowIssue("Enable Accessibility before using window shortcuts.") }
+                guard let candidate, let screen = screenFor(candidate.frame), screenUUID(screen) == desktop.display else {
+                    throw WindowIssue("No focused ordinary window is available on this desktop. The app may be unresponsive.")
+                }
+                let geometry = PaneGeometry(area: screenArea(screen), configuration: config, pixelScale: screen.backingScaleFactor)
+                let index = Int(id - 320)
+                guard geometry.cells.indices.contains(index) else { throw WindowIssue("This layout has only \(geometry.cells.count) panes.") }
                 guard let window = await self.native.refreshedForOperation(candidate), window.spaceIDs == [desktop.spaceID],
                       self.paneConfiguration(for: desktop.id) == config,
                       self.store.reader.read().contains(where: { $0.id == desktop.id && $0.isCurrent }) else {
@@ -139,12 +145,11 @@ extension LayoutController {
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
                 return "Moved \(window.appName) to pane \(index + 1)."
             }
-            return
+            guard let preset = PaneShortcut.preset(for: id, current: config.preset) else { return "This pane shortcut is unavailable." }
+            self.setPaneConfiguration(PaneConfiguration(preset: preset, gap: config.gap), for: desktop)
+            self.previewPanes?(desktop.id)
+            return "Pane layout: \(preset.name)."
         }
-        guard let preset = PaneShortcut.preset(for: id, current: config.preset) else { return }
-        setPaneConfiguration(PaneConfiguration(preset: preset, gap: config.gap), for: desktop)
-        message = "Pane layout: \(preset.name)."
-        previewPanes?(desktop.id)
     }
 }
 

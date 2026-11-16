@@ -349,6 +349,7 @@ final class LabelPanel: NSPanel {
     let updater = AppUpdater()
     var switcher:NSPanel?
     private var switcherPreviousApp: NSRunningApplication?
+    private var switcherTask: Task<Void, Never>?
     func applicationDidFinishLaunching(_ notification:Notification) {
         NSApp.setActivationPolicy(.accessory)
         let menu=NSMenu(); let appMenuItem=NSMenuItem(); let appMenu=NSMenu()
@@ -392,26 +393,88 @@ final class LabelPanel: NSPanel {
         }
     }
     func shortcut(_ id:UInt32) {
-        shortcuts.lastAction=ShortcutAction.all.first(where:{$0.id==id})?.name ?? "Unknown action"
-        if !workspace.busy {workspace.message=""}
-        if let action=WindowAction.allCases.first(where:{$0.id==id}) { workspace.performWindowAction(action,focused:true);return }
-        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id); return }
-        if id==100 {showSwitcher();return}
-        if id==ShortcutAction.pin.id {workspace.togglePin(workspace.native.focusedWindow());return}
+        let request = shortcuts.receive(id)
+        let report: (String) -> Void = { [weak self] result in
+            guard let self, self.shortcuts.complete(request, result: result) else { return }
+            self.workspace.shortcutStatus = self.shortcuts.delivery.action + ": " + result
+            self.workspace.native.recordWindowDiagnostic("shortcut-result.json", [
+                "actionID": id, "action": self.shortcuts.delivery.action, "result": result,
+                "updatedAt": ISO8601DateFormatter().string(from: Date())
+            ])
+        }
+        guard let action = ShortcutAction.all.first(where: { $0.id == id }) else { report("Unknown shortcut action."); return }
+        if let refusal = action.refusal(trusted: workspace.native.trusted, busy: workspace.busy) { report(refusal.message); return }
+        if id == 100 { presentSwitcher(result: report); return }
+        workspace.shortcutResult = report
+        defer { workspace.shortcutResult = nil }
+        if !workspace.busy { workspace.message = "Received." }
+        if let windowAction=WindowAction.allCases.first(where:{$0.id==id}) {
+            workspace.performWindowAction(windowAction,focused:true); report(workspace.message); return
+        }
+        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id); report(workspace.message); return }
         store.refresh()
         if id<100 {
-            guard let d=store.desktops.first(where:{$0.number==Int(id)}) else {workspace.message="Desktop \(id) does not exist. Create it in Mission Control first.";return}
+            guard let d=store.desktops.first(where:{$0.number==Int(id)}) else {report("Desktop \(id) does not exist. Create it in Mission Control first.");return}
             workspace.switchTo(d)
+            report(workspace.message)
+            return
         }
-        else if let d=workspace.native.activeDesktop(reader:store.reader) { workspace.targetDesktop=d.id; if id==101 {workspace.save(d)};if id==102 {workspace.selectedLayoutID="";workspace.restore()} }
+        report("Finding the focused window…")
+        let focusedPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let candidate = await self.workspace.native.focusedWindowForOperation()
+            guard self.shortcuts.delivery.sequence == request else { return }
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == focusedPID else {
+                report("The focused app changed. Try this shortcut again."); return
+            }
+            let desktop = self.workspace.native.activeDesktop(reader: self.store.reader, focusedWindow: candidate)
+            if let refusal = action.refusal(trusted: self.workspace.native.trusted, busy: self.workspace.busy,
+                                            hasWindow: candidate != nil, hasDesktop: desktop != nil,
+                                            hasLayout: desktop.map { self.workspace.layouts[$0.id] != nil }) {
+                report(refusal.message); return
+            }
+            self.workspace.shortcutResult = report
+            defer { self.workspace.shortcutResult = nil }
+            if id == ShortcutAction.pin.id {
+                self.workspace.togglePin(candidate)
+            } else if let desktop {
+                self.workspace.targetDesktop = desktop.id
+                if id == 101 { self.workspace.save(desktop) }
+                if id == 102 { self.workspace.selectedLayoutID = ""; self.workspace.restore() }
+            }
+            report(self.workspace.message)
+        }
     }
     @objc func showSwitcher() {
-        if switcher?.isVisible==true {closeSwitcher();return}
+        presentSwitcher()
+    }
+    private func presentSwitcher(result: ((String) -> Void)? = nil) {
+        if let switcherTask {
+            switcherTask.cancel(); self.switcherTask = nil
+            result?("Control panel opening cancelled."); return
+        }
+        if switcher?.isVisible==true {closeSwitcher();result?("Control panel closed.");return}
+        let previous = NSWorkspace.shared.frontmostApplication
+        result?("Opening control panel…")
+        switcherTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let candidate = await self.workspace.native.focusedWindowForOperation()
+            guard !Task.isCancelled else { return }
+            self.switcherTask = nil
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == previous?.processIdentifier else {
+                result?("Focus changed before the control panel opened. Try again."); return
+            }
+            self.openSwitcher(previous: previous, candidate: candidate)
+            result?("Control panel opened.")
+        }
+    }
+    private func openSwitcher(previous: NSRunningApplication?, candidate: LiveWindow?) {
         store.refresh()
-        let desktop = workspace.native.activeDesktop(reader: store.reader)
-        switcherPreviousApp = NSWorkspace.shared.frontmostApplication
+        let desktop = workspace.native.activeDesktop(reader: store.reader, focusedWindow: candidate)
+        switcherPreviousApp = previous
         // Read before DeskNames activates, so this is the window the user was working in.
-        let pinCandidate = switcherPreviousApp?.processIdentifier == getpid() ? nil : workspace.native.focusedWindow()
+        let pinCandidate = previous?.processIdentifier == getpid() ? nil : candidate
         window?.orderOut(nil)
         let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:690),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
         panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
@@ -448,7 +511,7 @@ final class LabelPanel: NSPanel {
         NSApp.activate(ignoringOtherApps:true)
         window.makeKeyAndOrderFront(nil)
     }
-    func applicationWillTerminate(_ notification:Notification) { smartPanes?.stop();linkedPanes?.stop();timer?.invalidate();if let spaceObserver {NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)} }
+    func applicationWillTerminate(_ notification:Notification) { switcherTask?.cancel();smartPanes?.stop();linkedPanes?.stop();timer?.invalidate();if let spaceObserver {NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)} }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
         if switcher?.isVisible != true { showSwitcher() }
         return false
@@ -457,29 +520,40 @@ final class LabelPanel: NSPanel {
 
 try MainActor.assumeIsolated {
 if CommandLine.arguments.contains("--self-test") {
-    try runWorkspaceTests()
-    runDesktopNavigationTests()
-    try runScreenLayoutTests()
-    runWindowRoutingTests()
-    runShortcutTests()
-    runGeometryTests()
-    runPaneTests()
-    runWindowActionTests()
-    try runPaneInteractionTests()
-    runMovementTests()
-    let testDomain="local.desknames.test.\(UUID().uuidString)"
-    let d=UserDefaults(suiteName:testDomain)!
-    defer {d.removePersistentDomain(forName:testDomain)}
-    let s=Store(defaults:d)
-    let a=Desktop(id:"stable-id",spaceID:1,display:"test",position:0,number:1,isCurrent:true,isFullScreen:false)
-    s.update(a,name:"Research",color:2)
-    let moved=Desktop(id:"stable-id",spaceID:99,display:"test2",position:3,number:4,isCurrent:false,isFullScreen:false)
-    let restored=Store(defaults:d)
-    precondition(restored.name(moved)=="Research" && restored.style(moved).color==2)
-    restored.update(moved,name:"   "); precondition(restored.name(moved)=="Desktop 4")
-    restored.update(moved,name:String(repeating:"x",count:80),color:999)
-    precondition(restored.style(moved).name.count==40 && restored.style(moved).color==4)
-    print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
+    NSApplication.shared.setActivationPolicy(.prohibited)
+    Task { @MainActor in
+        do {
+            try runWorkspaceTests()
+            runDesktopNavigationTests()
+            try runScreenLayoutTests()
+            runWindowRoutingTests()
+            runShortcutTests()
+            runShortcutDeliveryTests()
+            runGeometryTests()
+            runPaneTests()
+            runWindowActionTests()
+            try runPaneInteractionTests()
+            runMovementTests()
+            try await runOperationRecoveryTests()
+            await runAccessibilityRecoveryTests()
+            try await runApplicationLaunchTests()
+            let testDomain="local.desknames.test.\(UUID().uuidString)"
+            let d=UserDefaults(suiteName:testDomain)!
+            defer {d.removePersistentDomain(forName:testDomain)}
+            let s=Store(defaults:d)
+            let a=Desktop(id:"stable-id",spaceID:1,display:"test",position:0,number:1,isCurrent:true,isFullScreen:false)
+            s.update(a,name:"Research",color:2)
+            let moved=Desktop(id:"stable-id",spaceID:99,display:"test2",position:3,number:4,isCurrent:false,isFullScreen:false)
+            let restored=Store(defaults:d)
+            precondition(restored.name(moved)=="Research" && restored.style(moved).color==2)
+            restored.update(moved,name:"   "); precondition(restored.name(moved)=="Desktop 4")
+            restored.update(moved,name:String(repeating:"x",count:80),color:999)
+            precondition(restored.style(moved).name.count==40 && restored.style(moved).color==4)
+            print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
+        } catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
+        exit(0)
+    }
+    NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--movement-session-test") {
     NSApplication.shared.setActivationPolicy(.accessory)
     Task { @MainActor in

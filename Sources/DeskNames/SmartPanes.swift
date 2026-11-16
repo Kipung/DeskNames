@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+struct PaneCaptureRequest {
+    let desktops: [Desktop]
+    func accepts(desktops current: [Desktop], mouseDown: Bool, cancelled: Bool) -> Bool {
+        !cancelled && mouseDown && desktops == current
+    }
+}
+
 private struct PaneScreen: Equatable {
     let id: String
     let panelFrame: CGRect
@@ -37,6 +44,10 @@ private struct PaneOverlayHost: View {
 }
 
 @MainActor final class SmartPaneController {
+    private struct Capture {
+        let window: WindowCapture
+        var evidence: PaneMoveEvidence
+    }
     private struct Session {
         let window: LiveWindow
         let screens: [PaneScreen]
@@ -49,6 +60,8 @@ private struct PaneOverlayHost: View {
     private let workspace: LayoutController
     private var session: Session?
     private var deferredPointerWindow: LiveWindow?
+    private var captureTask: Task<Void, Never>?
+    private var pendingCapture: Capture?
     private var monitor: Any?
     private var localMonitor: Any?
     private var timer: Timer?
@@ -125,6 +138,8 @@ private struct PaneOverlayHost: View {
     }
 
     private func cancel() {
+        captureTask?.cancel(); captureTask = nil
+        pendingCapture = nil
         if session != nil { trace("cancel") }
         session = nil
         deferredPointerWindow = nil
@@ -161,18 +176,38 @@ private struct PaneOverlayHost: View {
             guard workspace.panes.enabled || workspace.panes.edgeSnapping, workspace.native.trusted,
                   !workspace.store.missionControl, !OverlayController.isMissionControlOpen() else { return }
             let location = point(for: event)
-            guard let window = workspace.native.window(at: location, localWindow: event.window, onFailure: { trace("no-window", ["reason": $0]) }) else { return }
-            trace("captured", ["windowID": window.id, "pid": window.pid, "frame": rectDictionary(window.frame),
-                                "spaces": window.spaceIDs, "currentSpaces": workspace.store.desktops.filter(\.isCurrent).map(\.spaceID)])
-            if workspace.busy {
-                if workspace.canRetargetPlacement { deferredPointerWindow = window }
-                return
+            guard let capture = workspace.native.captureWindow(at: location, localWindow: event.window) else { return }
+            let capturedAt = ProcessInfo.processInfo.systemUptime
+            pendingCapture = Capture(window: capture, evidence: PaneMoveEvidence(initialFrame: capture.frame, initialPointer: location, time: capturedAt))
+            let request = PaneCaptureRequest(desktops: workspace.store.desktops)
+            let screens = PaneScreen.current
+            captureTask = Task { [weak self] in
+                guard let self else { return }
+                let candidate = await workspace.native.windowForOperation(capture)
+                guard !Task.isCancelled else { return }
+                captureTask = nil
+                let evidence = pendingCapture?.evidence
+                pendingCapture = nil
+                guard request.accepts(desktops: workspace.store.desktops, mouseDown: NSEvent.pressedMouseButtons & 1 != 0, cancelled: Task.isCancelled),
+                      screens == PaneScreen.current, workspace.native.trusted, !workspace.store.missionControl,
+                      workspace.panes.enabled || workspace.panes.edgeSnapping, let window = candidate else { return }
+                trace("captured", ["windowID": window.id, "pid": window.pid, "frame": rectDictionary(window.frame),
+                                    "spaces": window.spaceIDs, "currentSpaces": workspace.store.desktops.filter(\.isCurrent).map(\.spaceID)])
+                if workspace.busy {
+                    if workspace.canRetargetPlacement { deferredPointerWindow = window }
+                    return
+                }
+                admit(window, at: location, time: capturedAt, evidence: evidence)
+                sample()
             }
-            admit(window, at: location, time: event.timestamp)
             return
         }
-        if event.type == .leftMouseUp { deferredPointerWindow = nil; release(at: point(for: event), command: event.modifierFlags.contains(.command)); return }
+        if event.type == .leftMouseUp { captureTask?.cancel(); captureTask = nil; pendingCapture = nil; deferredPointerWindow = nil; release(at: point(for: event), command: event.modifierFlags.contains(.command)); return }
         if event.type == .leftMouseDragged || (event.type == .flagsChanged && event.modifierFlags.contains(.command)) {
+            if var capture = pendingCapture, let frame = workspace.native.currentFrame(capture.window) {
+                capture.evidence.observe(frame: frame, pointer: point(for: event), time: ProcessInfo.processInfo.systemUptime)
+                pendingCapture = capture
+            }
             if event.type == .leftMouseDragged, !workspace.busy, let candidate = deferredPointerWindow {
                 deferredPointerWindow = nil
                 if let frame = workspace.native.currentFrame(candidate) {
@@ -191,12 +226,12 @@ private struct PaneOverlayHost: View {
         }
     }
 
-    private func admit(_ window: LiveWindow, at location: CGPoint, time: TimeInterval) {
+    private func admit(_ window: LiveWindow, at location: CGPoint, time: TimeInterval, evidence: PaneMoveEvidence? = nil) {
         guard workspace.store.desktops.contains(where: { $0.isCurrent && !$0.isFullScreen && window.spaceIDs.contains($0.spaceID) }),
               workspace.beginUserWindowDrag() else { trace("admission-refused"); return }
         let screens = PaneScreen.current
         session = Session(window: window, screens: screens, desktops: workspace.store.desktops,
-                          evidence: PaneMoveEvidence(initialFrame: window.frame, initialPointer: location, time: time))
+                          evidence: evidence ?? PaneMoveEvidence(initialFrame: window.frame, initialPointer: location, time: time))
         let timer = Timer(timeInterval: screens.first(where: { $0.area.contains(location) })?.frameInterval ?? 1.0/60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.sample() }
         }
