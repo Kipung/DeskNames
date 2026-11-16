@@ -4,7 +4,7 @@ struct WindowEligibilityMetadata {
     enum Use { case census, operation }
     var role: String?
     var subrole: String?
-    var subroleReadFailure: String?
+    var readFailure: String?
     var modal = false
     var fullScreen = false
     var minimized = false
@@ -12,7 +12,7 @@ struct WindowEligibilityMetadata {
     var hasSheets = false
 
     func refusal(for use: Use) -> String? {
-        if let subroleReadFailure { return subroleReadFailure }
+        if let readFailure { return readFailure }
         guard role == kAXWindowRole else { return "window-role \(role ?? "missing")" }
         if modal { return "modal-window" }
         if hasSheets { return "window-has-sheet" }

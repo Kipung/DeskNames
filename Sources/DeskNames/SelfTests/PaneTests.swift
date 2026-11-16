@@ -128,8 +128,8 @@ import AppKit
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("DeskNames-pane-tests-\(UUID().uuidString).json")
     defer { defaults.removePersistentDomain(forName: domain); try? FileManager.default.removeItem(at: file) }
     let store = Store(defaults: defaults)
-    let workspace = LayoutController(store: store, file: file, native: NativeWindows(trustCheck: { true }))
-    let denied = LayoutController(store: store, file: file, native: NativeWindows(trustCheck: { false }))
+    let workspace = LayoutController(store: store, file: file, native: NativeWindows(trustCheck: { true }, includeExternal: false))
+    let denied = LayoutController(store: store, file: file, native: NativeWindows(trustCheck: { false }, includeExternal: false))
     precondition(!denied.beginUserWindowDrag() && !denied.busy)
     workspace.pending = Task { await NativeWindows.pause(10) }
     precondition(workspace.beginUserWindowDrag() && workspace.busy && workspace.hasUserWindowDrag)

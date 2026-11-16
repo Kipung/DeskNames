@@ -108,7 +108,7 @@ import AppKit
     try await SmartPaneController(workspace: workspace).verifyUnrelatedClickForTesting()
     try await SmartPaneController(workspace: workspace).verifyOverlayGeometryForTesting()
     try await SmartPaneController(workspace: workspace).verifyLatestDropTargetForTesting(window: wa)
-    workspace.refresh(); workspace.selectedWindow = wa.id
+    workspace.windows = await native.windowsForOperation(); workspace.selectedWindow = wa.id
     workspace.performWindowAction(.right)
     await NativeWindows.pause(0.04)
     let firstMove = workspace.operationTask
@@ -121,7 +121,11 @@ import AppKit
     workspace.panes.setLinkedResizing(true)
     let linked = LinkedPaneController(workspace: workspace)
     defer { linked.stop() }
-    linked.tick()
+    for _ in 0..<30 {
+        linked.tick()
+        if !linked.handleWindowNumbersForTesting.isEmpty { break }
+        await NativeWindows.pause(0.05)
+    }
     let handles = linked.handleWindowNumbersForTesting
     precondition(!handles.isEmpty, "Shortcut halves must have a shared handle even with Three columns selected")
     await NativeWindows.pause(1.05); linked.tick()

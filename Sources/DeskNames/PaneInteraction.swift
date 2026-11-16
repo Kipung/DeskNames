@@ -120,8 +120,12 @@ extension LayoutController {
         let placement = (320...323).contains(id)
         if placement && !native.trusted { paneRangeChord.reset(); message = "Enable Accessibility before using window shortcuts."; return }
         let request = placement ? paneRangeChord.request(Int(id - 320), modifiers: modifiers,
-                                                         pid: NSWorkspace.shared.frontmostApplication?.processIdentifier) : nil
-        run(interruptible: placement, refreshWindows: false) {
+                                                         pid: NSWorkspace.shared.frontmostApplication?.processIdentifier,
+                                                         windowID: native.frontmostWindowIdentity()?.id) : nil
+        var placed = false
+        run(interruptible: placement, refreshWindows: false, completion: { [weak self] _ in
+            if let request { self?.paneRangeChord.finish(request, succeeded: placed) }
+        }) {
             let candidate = await self.native.focusedWindowForOperation()
             try Task.checkCancellation()
             self.store.refresh()
@@ -150,6 +154,7 @@ extension LayoutController {
                 try await self.native.animateFrames([(window, frame)])
                 guard self.native.verifyFrame(frame, window: window) else { return "The window needs a larger pane." }
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
+                placed = true
                 let destination = range.count == 1 ? "pane \(index + 1)" : "panes \(range.lowerBound + 1)–\(range.upperBound + 1)"
                 return "Moved \(window.appName) to \(destination)."
             }

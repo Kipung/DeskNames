@@ -237,6 +237,10 @@ final class NativeWindows {
         self.trustCheck=trustCheck;self.includeExternal=includeExternal;self.diagnosticsDirectory=diagnosticsDirectory
     }
     var trusted:Bool {trustCheck()}
+    @MainActor func frontmostWindowIdentity() -> WindowIdentity? {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+        return WindowDiscovery.foremost(for: pid, in: Self.onScreenWindows())?.identity
+    }
     @MainActor func focusedWindowForOperation(onFailure: (String) -> Void = { _ in }) async -> LiveWindow? {
         func refuse(_ reason: String) -> LiveWindow? {
             recordWindowDiagnostic("focused-window-result.json", ["refusal": reason])
@@ -272,7 +276,7 @@ final class NativeWindows {
                     }, inspect: { element in
                         guard permitted() else { throw WindowDiscoveryFailure("discovery-timeout") }
                         var reason = "focused-window-ineligible"
-                        guard let snapshot = Self.inspectAccessibilityWindow(element, messagingTimeout: 0.1, onFailure: { reason = $0 }) else {
+                        guard let snapshot = Self.inspectAccessibilityWindow(element, messagingTimeout: 0.1, budget: budget, cancelled: { cancellation.isCancelled }, onFailure: { reason = $0 }) else {
                             throw WindowDiscoveryFailure(reason)
                         }
                         return snapshot
@@ -350,28 +354,54 @@ final class NativeWindows {
               getID(element, &id) == 0, id > 0 else { return nil }
         return WindowIdentity(id: id, pid: pid)
     }
-    private static func eligibilityMetadata(_ element: AXUIElement) -> WindowEligibilityMetadata {
-        var subroleValue: CFTypeRef?
-        let subroleError = AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleValue)
-        let subrole = subroleValue as? String
-        let subroleFailure = WindowDiscovery.attributeFailure(subroleError, name: kAXSubroleAttribute) ??
-            (subroleError == .success && subroleValue != nil && subrole == nil ? "AXSubrole-invalid-type" : nil)
-        var settable = DarwinBoolean(false)
-        var positionSettable: Bool?
-        if subrole == nil || subrole == "" || subrole == "AXUnknown" {
-            if AXUIElementIsAttributeSettable(element, kAXPositionAttribute as CFString, &settable) == .success {
-                positionSettable = settable.boolValue
+    static func eligibilityMetadata(_ element: AXUIElement,
+                                            budget: AccessibilityReadBudget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime),
+                                            cancelled: () -> Bool = { false }, observeError: (AXError) -> Void = { _ in },
+                                            readAttribute: (AXUIElement, String) -> (AXError, CFTypeRef?) = { element, name in
+                                                var value: CFTypeRef?
+                                                let error = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+                                                return (error, value)
+                                            }) -> WindowEligibilityMetadata {
+        var failure: String?
+        func permitted() -> Bool {
+            guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: cancelled()) else {
+                failure = "discovery-timeout"
+                observeError(.cannotComplete)
+                return false
             }
+            return true
         }
-        return WindowEligibilityMetadata(role: axValue(element, kAXRoleAttribute) as? String,
-            subrole: subrole, subroleReadFailure: subroleFailure,
-            modal: axValue(element, kAXModalAttribute) as? Bool ?? false,
-            fullScreen: axValue(element, "AXFullScreen") as? Bool ?? false,
-            minimized: axValue(element, kAXMinimizedAttribute) as? Bool ?? false,
-            positionSettable: positionSettable,
-            hasSheets: (axValue(element, kAXChildrenAttribute) as? [AXUIElement] ?? []).contains {
-                axValue($0, kAXRoleAttribute) as? String == kAXSheetRole
-            })
+        func read(_ target: AXUIElement, _ name: String) -> CFTypeRef? {
+            guard permitted() else { return nil }
+            AXUIElementSetMessagingTimeout(target, 0.1)
+            let (error, value) = readAttribute(target, name)
+            observeError(error)
+            if let reason = WindowDiscovery.attributeFailure(error, name: name) { failure = reason; observeError(.failure) }
+            return error == .success ? value : nil
+        }
+        let role = read(element, kAXRoleAttribute) as? String
+        let subroleValue = read(element, kAXSubroleAttribute)
+        let subrole = subroleValue as? String
+        if subroleValue != nil && subrole == nil { failure = "AXSubrole-invalid-type"; observeError(.failure) }
+        var positionSettable: Bool?
+        if (subrole == nil || subrole == "" || subrole == "AXUnknown"), permitted() {
+            var settable = DarwinBoolean(false)
+            let error = AXUIElementIsAttributeSettable(element, kAXPositionAttribute as CFString, &settable)
+            observeError(error)
+            if error == .success { positionSettable = settable.boolValue }
+            else if let reason = WindowDiscovery.attributeFailure(error, name: kAXPositionAttribute) { failure = reason; observeError(.failure) }
+        }
+        let modal = read(element, kAXModalAttribute) as? Bool ?? false
+        let fullScreen = read(element, "AXFullScreen") as? Bool ?? false
+        let minimized = read(element, kAXMinimizedAttribute) as? Bool ?? false
+        let children = read(element, kAXChildrenAttribute) as? [AXUIElement] ?? []
+        var hasSheets = false
+        for child in children {
+            guard permitted() else { break }
+            if read(child, kAXRoleAttribute) as? String == kAXSheetRole { hasSheets = true; break }
+        }
+        return WindowEligibilityMetadata(role: role, subrole: subrole, readFailure: failure,
+            modal: modal, fullScreen: fullScreen, minimized: minimized, positionSettable: positionSettable, hasSheets: hasSheets)
     }
     private static func onScreenWindows() -> [WindowServerCandidate] {
         let infos = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
@@ -446,7 +476,7 @@ final class NativeWindows {
                 AXUIElementSetMessagingTimeout(candidate, 0.1)
                 var candidateID: UInt32 = 0
                 if getID(candidate, &candidateID) == 0 && candidateID == id {
-                    return Self.inspectAccessibilityWindow(candidate, messagingTimeout: 0.1)
+                    return Self.inspectAccessibilityWindow(candidate, messagingTimeout: 0.1, budget: budget, cancelled: { cancellation.isCancelled })
                 }
             }
             return nil
@@ -467,14 +497,16 @@ final class NativeWindows {
         return LiveWindow(id:value.id,target:.accessibility(value.element),pid:value.pid,bundleID:value.bundle,appName:value.appName,
                           title:"",frame:value.frame,spaceIDs:spaces(for:value.id),minimized:false)
     }
-    private static func inspectAccessibilityWindow(_ element:AXUIElement,messagingTimeout:Float,onFailure:(String)->Void={_ in}) -> AccessibilitySnapshot? {
+    private static func inspectAccessibilityWindow(_ element:AXUIElement,messagingTimeout:Float,
+                                                   budget: AccessibilityReadBudget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime),
+                                                   cancelled: () -> Bool = { false }, onFailure:(String)->Void={_ in}) -> AccessibilitySnapshot? {
         AXUIElementSetMessagingTimeout(element, messagingTimeout)
         var pid: pid_t = 0
         guard AXUIElementGetPid(element, &pid) == .success else { onFailure("window-owner-unavailable"); return nil }
         guard pid != getpid() else { onFailure("desknames-window"); return nil }
         guard let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated,
               app.activationPolicy == .regular, let bundle = app.bundleIdentifier else { onFailure("ineligible-app pid=\(pid)"); return nil }
-        if let refusal = eligibilityMetadata(element).refusal(for: .operation) { onFailure("\(refusal) pid=\(pid) app=\(bundle)"); return nil }
+        if let refusal = eligibilityMetadata(element, budget: budget, cancelled: cancelled).refusal(for: .operation) { onFailure("\(refusal) pid=\(pid) app=\(bundle)"); return nil }
         typealias GetID = @convention(c)(AXUIElement, UnsafeMutablePointer<UInt32>) -> Int32
         guard let fn = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else { onFailure("window-identity-api-unavailable"); return nil }
         var id: UInt32 = 0
@@ -532,35 +564,41 @@ final class NativeWindows {
         guard case .accessibility(let element)=window.target else{return refreshed(window)}
         guard !Task.isCancelled else{return nil}
         let request=AccessibilityReadRequest(element:element,id:window.id,pid:window.pid,bundle:window.bundleID)
-        let result:AccessibilityReadResult=await withCheckedContinuation { continuation in
-            Self.accessibilityWrites.async {
-                func verified(_ value:AccessibilitySnapshot?) -> AccessibilitySnapshot? {
-                    guard let value,value.id==request.id,value.pid==request.pid,value.bundle==request.bundle else{return nil}
-                    return value
-                }
-                var failure=""
-                if let value=verified(Self.inspectAccessibilityWindow(request.element,messagingTimeout:0.3,onFailure:{failure=$0})) {
-                    continuation.resume(returning:AccessibilityReadResult(snapshot:value,cachedFailure:"",freshFound:false));return
-                }
-                guard Self.windowServerFrame(id:request.id,pid:request.pid) != nil else {
-                    continuation.resume(returning:AccessibilityReadResult(snapshot:nil,cachedFailure:failure,freshFound:false));return
-                }
-                let app=AXUIElementCreateApplication(request.pid);AXUIElementSetMessagingTimeout(app,0.3)
-                typealias GetID = @convention(c)(AXUIElement,UnsafeMutablePointer<UInt32>) -> Int32
-                guard let symbol=dlsym(dlopen(nil,RTLD_NOW),"_AXUIElementGetWindow") else {
-                    continuation.resume(returning:AccessibilityReadResult(snapshot:nil,cachedFailure:failure,freshFound:false));return
-                }
-                let getID=unsafeBitCast(symbol,to:GetID.self)
-                let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
-                let fresh=(axValue(app,kAXWindowsAttribute) as? [AXUIElement])?.first {candidate in
-                    guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: false) else { return false }
-                    AXUIElementSetMessagingTimeout(candidate,0.1)
-                    var id:UInt32=0;var pid:pid_t=0
-                    return AXUIElementGetPid(candidate,&pid) == .success && pid==request.pid && getID(candidate,&id)==0 && id==request.id
-                }
-                let value=fresh.flatMap{verified(Self.inspectAccessibilityWindow($0,messagingTimeout:0.3))}
-                continuation.resume(returning:AccessibilityReadResult(snapshot:value,cachedFailure:failure,freshFound:fresh != nil))
+        let result: AccessibilityReadResult = await AccessibilityWorker.cancellableRead(on: Self.accessibilityQueue(for: window.pid),
+            cancelledValue: AccessibilityReadResult(snapshot: nil, cachedFailure: "cancelled", freshFound: false)) { cancellation in
+            let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
+            func permitted() -> Bool {
+                budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: cancellation.isCancelled)
             }
+            func verified(_ value: AccessibilitySnapshot?) -> AccessibilitySnapshot? {
+                guard let value, value.id == request.id, value.pid == request.pid, value.bundle == request.bundle else { return nil }
+                return value
+            }
+            var failure = ""
+            if let value = verified(Self.inspectAccessibilityWindow(request.element, messagingTimeout: 0.1, budget: budget,
+                cancelled: { cancellation.isCancelled }, onFailure: { failure = $0 })) {
+                return AccessibilityReadResult(snapshot: value, cachedFailure: "", freshFound: false)
+            }
+            guard permitted(), Self.windowServerFrame(id: request.id, pid: request.pid) != nil else {
+                return AccessibilityReadResult(snapshot: nil, cachedFailure: failure, freshFound: false)
+            }
+            let app = AXUIElementCreateApplication(request.pid)
+            AXUIElementSetMessagingTimeout(app, 0.2)
+            guard let getID = Self.windowIDFunction else {
+                return AccessibilityReadResult(snapshot: nil, cachedFailure: failure, freshFound: false)
+            }
+            var fresh: AXUIElement?
+            for candidate in axValue(app, kAXWindowsAttribute) as? [AXUIElement] ?? [] {
+                guard permitted() else { break }
+                AXUIElementSetMessagingTimeout(candidate, 0.1)
+                var id: UInt32 = 0; var pid: pid_t = 0
+                if AXUIElementGetPid(candidate, &pid) == .success && pid == request.pid && getID(candidate, &id) == 0 && id == request.id {
+                    fresh = candidate; break
+                }
+            }
+            let value = fresh.flatMap { verified(Self.inspectAccessibilityWindow($0, messagingTimeout: 0.1, budget: budget,
+                                                                                cancelled: { cancellation.isCancelled })) }
+            return AccessibilityReadResult(snapshot: value, cachedFailure: failure, freshFound: fresh != nil)
         }
         guard !Task.isCancelled, trusted else{return nil}
         if !result.cachedFailure.isEmpty || result.snapshot==nil {
@@ -707,7 +745,7 @@ final class NativeWindows {
                 guard identityError == .success, id > 0,
                       accessibilityIdentity(window)?.pid == app.pid else { continue }
                 result.observed.insert(WindowIdentity(id: id, pid: app.pid))
-                guard eligibilityMetadata(window).refusal(for: .census) == nil,
+                guard eligibilityMetadata(window, budget: budget, cancelled: { cancellation.isCancelled }, observeError: { status.observe($0) }).refusal(for: .census) == nil,
                       let frame = windowServerFrame(id: id, pid: app.pid), frame.width > 80, frame.height > 50 else { continue }
                 result.windows.append(AccessibilityListedWindow(element: window, id: id, app: app, frame: frame,
                     title: value(window, kAXTitleAttribute) as? String ?? "",
@@ -1050,6 +1088,7 @@ final class NativeWindows {
         }
     }
     func cancel() {
+        paneRangeChord.reset()
         queuedPlacement?.completion?("Operation cancelled."); queuedPlacement = nil
         queuedDesktop?.completion?("Operation cancelled."); queuedDesktop = nil
         operationTask?.cancel(); pending?.cancel(); routingScanTask?.cancel(); refreshTask?.cancel(); endUserWindowDrag()

@@ -203,14 +203,17 @@ final class HotKeys {
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var activationObserver: NSObjectProtocol?
+    private var monitorTrust: Bool?
+    private let monitorChange: ((Bool) -> Void)?
     var modifiersChanged: ((UInt32) -> Void)?
     var chordInterrupted: (() -> Void)?
     private(set) var unavailable = Set<UInt32>()
     private let action:(UInt32)->Void
     private let registerKey:(UInt32,ShortcutBinding)->Bool
     private let unregisterKeys:()->Void
-    init(action:@escaping(UInt32)->Void,register:((UInt32,ShortcutBinding)->Bool)?=nil,unregister:(()->Void)?=nil) {
+    init(action:@escaping(UInt32)->Void,register:((UInt32,ShortcutBinding)->Bool)?=nil,unregister:(()->Void)?=nil, monitorChange: ((Bool) -> Void)? = nil) {
         self.action=action
+        self.monitorChange = monitorChange
         self.registerKey=register ?? {_,_ in false}
         self.unregisterKeys=unregister ?? {}
         usesCarbon=register==nil
@@ -246,8 +249,23 @@ final class HotKeys {
             } else {success=registerKey(entry.id,binding)}
             if success {active.insert(entry.id);activeBindings[entry.id]=binding} else {unavailable.insert(entry.id);failed.append(entry.name)}
         }
-        if usesCarbon { observeChordInput() }
+        refreshChordMonitors(trusted: AXIsProcessTrusted())
         return failed.isEmpty ? "" : "Unavailable shortcuts: "+failed.joined(separator:", ")+". Choose another combination."
+    }
+    func refreshChordMonitors(trusted: Bool) {
+        guard !activeBindings.isEmpty, monitorTrust != trusted else { return }
+        removeChordMonitors()
+        chordInterrupted?()
+        monitorTrust = trusted
+        if let monitorChange { monitorChange(true) }
+        else if usesCarbon { observeChordInput() }
+    }
+    private func removeChordMonitors() {
+        if monitorTrust != nil { monitorChange?(false) }
+        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
+        globalMonitor = nil; localMonitor = nil; activationObserver = nil; monitorTrust = nil
     }
     private func observeChordInput() {
         let events: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
@@ -275,10 +293,7 @@ final class HotKeys {
     }
     private func clear() {
         chordInterrupted?()
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
-        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
-        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
-        globalMonitor = nil; localMonitor = nil; activationObserver = nil
+        removeChordMonitors()
         activeBindings.removeAll()
         active.removeAll()
         for ref in refs.values {UnregisterEventHotKey(ref)}

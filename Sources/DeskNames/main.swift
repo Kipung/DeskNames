@@ -384,7 +384,7 @@ final class LabelPanel: NSPanel {
         updater.start()
         store.onChange = { [weak self] in self?.updateStatus() }
         updateStatus()
-        timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.smartPanes.tick();self.linkedPanes.tick()} }
+        timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.hotkeys?.refreshChordMonitors(trusted:self.workspace.trusted);self.smartPanes.tick();self.linkedPanes.tick()} }
         timer?.tolerance=0.04
         RunLoop.main.add(timer!,forMode:.common)
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in

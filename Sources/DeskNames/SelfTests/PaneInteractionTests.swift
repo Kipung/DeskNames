@@ -110,5 +110,16 @@ import AppKit
     let constrained = await controller.resizeForTesting(dividerID: "x2", to: area.midX - min(80, area.width/20))
     precondition(!constrained && workspace.paneConfiguration(for: desktop.id) == previous && !workspace.busy)
     precondition(zip(windows, resized.cells).allSatisfy { native.verifyFrame($0.1, window: $0.0) }, "A constrained neighbor must roll back both windows")
+    fixtures[1].contentMinSize = NSSize(width: 100, height: 100)
+    workspace.panes.set(config, for: desktop.id)
+    fixtures[3].orderOut(nil)
+    let span = initial.frame(spanning: 2...3)!
+    try await native.animateFrames([(windows[0], initial.cells[0]), (windows[1], initial.cells[1]), (windows[2], span)])
+    let spanLinked = await controller.resizeForTesting(dividerID: "x2", to: area.midX + min(80, area.width/20))
+    precondition(spanLinked && !workspace.busy)
+    precondition(native.verifyFrame(resized.cells[1], window: windows[1]) &&
+                 native.verifyFrame(resized.frame(spanning: 2...3)!, window: windows[2]),
+                 "Linked resizing must update a spanning window once using its whole pane range")
+    print("PASS: native spanning-window linked resize preserves the whole span and releases admission")
     print("PASS: four native windows animate into columns; cancellation has no delayed writes; linked resizing persists geometry, releases admission, and rolls back constrained neighbors")
 }

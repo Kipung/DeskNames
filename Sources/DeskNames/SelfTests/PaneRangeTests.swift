@@ -67,6 +67,20 @@ import Carbon
     chord.reset()
     precondition(chord.resolve(cancelled, context: original) == 2...2 && chord.anchor == nil)
 
+    let superseded = chord.request(2, modifiers: modifiers, pid: 20, windowID: 10)
+    let newest = chord.request(3, modifiers: modifiers, pid: 20, windowID: 10)
+    _ = chord.resolve(superseded, context: original)
+    precondition(chord.anchor == nil, "Old discovery cannot publish context over newer input")
+    precondition(chord.resolve(newest, context: original) == 2...3)
+    chord.finish(superseded, succeeded: false)
+    precondition(chord.anchor?.pane == 2, "Old failure cleanup cannot clear newer input")
+    chord.finish(newest, succeeded: false)
+    precondition(chord.anchor == nil, "Failed current placement must clear its chord")
+    _ = chord.request(2, modifiers: modifiers, pid: 20, windowID: 10)
+    let switchedBeforeDiscovery = chord.request(3, modifiers: modifiers, pid: 20, windowID: 11)
+    precondition(chord.resolve(switchedBeforeDiscovery, context: context(id: 11)) == 3...3,
+                 "WindowServer identity changes during discovery start a fresh anchor")
+
     for preset in PanePreset.allCases {
         for gap in [0.0, 12.0, 32.0] {
             for scale in [1.0, 2.0] {
@@ -166,5 +180,19 @@ import Carbon
     let beforeDisable = interruptions
     _ = hotkeys.apply(enabled: false, bindings: settings.bindings)
     precondition(interruptions == beforeDisable + 1 && defaults.data(forKey: "keyboardShortcuts.v1") == saved, "Reconfiguration expires chords without rewriting bindings")
+    var monitors: [Bool] = []
+    let recovery = HotKeys(action: { _ in }, register: { _, _ in true }, monitorChange: { monitors.append($0) })
+    _ = recovery.apply(enabled: true, bindings: legacyBindings)
+    recovery.refreshChordMonitors(trusted: false)
+    monitors.removeAll()
+    recovery.refreshChordMonitors(trusted: false)
+    precondition(monitors.isEmpty, "Repeated trust polling must not duplicate event monitors")
+    recovery.refreshChordMonitors(trusted: true)
+    recovery.refreshChordMonitors(trusted: true)
+    precondition(monitors == [false, true], "Granting Accessibility replaces the event monitors exactly once")
+    _ = recovery.apply(enabled: false, bindings: legacyBindings)
+    recovery.refreshChordMonitors(trusted: true)
+    precondition(monitors == [false, true, false], "Disabled shortcuts do not reinstall monitors")
+
     print("PASS: pane range anchors, modifier/context expiry, all preset spans, gaps/scales/dividers, linked span participants, existing bindings")
 }

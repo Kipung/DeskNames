@@ -13,12 +13,12 @@ func runWindowDiscoveryTests() {
     }
     for error in [AXError.cannotComplete, .apiDisabled, .invalidUIElement, .failure] {
         var unreadable = metadata(nil, movable: true)
-        unreadable.subroleReadFailure = WindowDiscovery.attributeFailure(error, name: kAXSubroleAttribute)
+        unreadable.readFailure = WindowDiscovery.attributeFailure(error, name: kAXSubroleAttribute)
         precondition(unreadable.refusal(for: .operation) != nil, "An AX error must not admit an auxiliary window as an unknown subrole")
         precondition(unreadable.refusal(for: .census) != nil)
     }
     var malformed = metadata(nil, movable: true)
-    malformed.subroleReadFailure = "AXSubrole-invalid-type"
+    malformed.readFailure = "AXSubrole-invalid-type"
     precondition(malformed.refusal(for: .operation) != nil)
     for error in [AXError.success, .noValue, .attributeUnsupported] {
         precondition(WindowDiscovery.attributeFailure(error, name: kAXSubroleAttribute) == nil)

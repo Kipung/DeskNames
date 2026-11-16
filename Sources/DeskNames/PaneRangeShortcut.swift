@@ -22,6 +22,7 @@ struct PaneRangeChord {
         let firstPane: Int
         let modifiers: UInt32
         let pid: Int32?
+        let windowID: UInt32?
         let context: Context?
         let generation: UInt64
         let sequence: UInt64
@@ -33,12 +34,13 @@ struct PaneRangeChord {
 
     mutating func reset() { anchor = nil; pending = nil; generation &+= 1 }
 
-    mutating func request(_ pane: Int, modifiers: UInt32, pid: Int32?) -> Request {
+    mutating func request(_ pane: Int, modifiers: UInt32, pid: Int32?, windowID: UInt32? = nil) -> Request {
         modifiersChanged(modifiers)
         if let previousPID = pending?.pid ?? anchor?.context.window.pid, previousPID != pid { reset() }
+        if let oldID = pending?.windowID ?? anchor?.context.window.id, let windowID, oldID != windowID { reset() }
         sequence &+= 1
         let request = Request(pane: pane, firstPane: anchor?.pane ?? pending?.firstPane ?? pane,
-                              modifiers: modifiers, pid: pid, context: anchor?.context ?? pending?.context,
+                              modifiers: modifiers, pid: pid, windowID: windowID, context: anchor?.context ?? pending?.context,
                               generation: generation, sequence: sequence)
         pending = request
         return request
@@ -46,7 +48,8 @@ struct PaneRangeChord {
 
     mutating func resolve(_ request: Request, context: Context) -> ClosedRange<Int>? {
         var resolved = PaneRangeChord()
-        if request.pid == context.window.pid && (request.context == nil || request.context == context) {
+        if request.pid == context.window.pid && (request.windowID == nil || request.windowID == context.window.id) &&
+            (request.context == nil || request.context == context) {
             _ = resolved.press(request.firstPane, modifiers: request.modifiers, context: context)
         }
         let range = resolved.press(request.pane, modifiers: request.modifiers, context: context)
@@ -56,6 +59,10 @@ struct PaneRangeChord {
             pending = nil
         }
         return range
+    }
+
+    mutating func finish(_ request: Request, succeeded: Bool) {
+        if !succeeded && generation == request.generation && sequence == request.sequence { reset() }
     }
 
     mutating func focusedApplicationChanged(_ pid: Int32?) {
@@ -100,6 +107,8 @@ extension LayoutController {
         paneRangeChord.modifiersChanged(ShortcutBinding.carbonModifiers(NSEvent.modifierFlags))
         paneRangeChord.focusedApplicationChanged(NSWorkspace.shared.frontmostApplication?.processIdentifier)
         guard let anchor = paneRangeChord.anchor else { return }
+        guard let focused = native.frontmostWindowIdentity(), focused.id == anchor.context.window.id,
+              focused.pid == anchor.context.window.pid else { paneRangeChord.reset(); return }
         guard let desktop = store.desktops.first(where: { $0.id == anchor.context.desktopID && $0.isCurrent && !$0.isFullScreen }),
               let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop.display }),
               desktop.spaceID == anchor.context.spaceID,

@@ -111,6 +111,16 @@ import ServiceManagement
     precondition(defaults.data(forKey: panesKey) == Data(paneJSON.utf8), "A later choice of 12 survives even after other malformed data is repaired")
     precondition(defaults.data(forKey: monitorsKey) == Data(monitorJSON.utf8), "Repairing a store must not repeat the migration")
 
+    clear()
+    let onboardingBeforeMigration = state()
+    PreferenceMigrations.migratePaneSpacing(in: defaults)
+    let isolatedStore = Store(defaults: defaults)
+    let isolatedFile = FileManager.default.temporaryDirectory.appendingPathComponent("DeskNames-startup-\(UUID().uuidString).json")
+    let startupWorkspace = LayoutController(store: isolatedStore, file: isolatedFile, native: NativeWindows(trustCheck: { false }, includeExternal: false))
+    precondition(onboardingBeforeMigration.isPresented && state().isPresented,
+                 "Migration and model initialization must not suppress a fresh welcome session")
+    precondition(startupWorkspace.gap == 0 && startupWorkspace.panes.configuration(for: "fresh").gap == 0)
+
     var loginStatus = SMAppService.Status.notRegistered
     var registrations = 0
     let login = LoginItemController(readStatus: { loginStatus }, changeRegistration: { value in

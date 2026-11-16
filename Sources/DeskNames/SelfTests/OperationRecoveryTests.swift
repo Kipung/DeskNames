@@ -72,6 +72,32 @@ import AppKit
                  "Queued placements must preserve their own diagnostic completion")
     precondition(!workspace.busy && workspace.operationTask == nil)
 
+    let geometry = PaneGeometry(area: CGRect(x: 0, y: 0, width: 1600, height: 900), configuration: PaneConfiguration(preset: .fourColumns))
+    let context = PaneRangeChord.Context(window: .init(id: 10, pid: 20), desktopID: "fixture", spaceID: 1, displayID: "fixture", geometry: geometry)
+    let discovery = OperationRecoveryGate()
+    var destinations: [ClosedRange<Int>] = []
+    let firstPane = workspace.paneRangeChord.request(2, modifiers: 256, pid: 20)
+    workspace.run(interruptible: true, refreshWindows: false, completion: { _ in workspace.paneRangeChord.finish(firstPane, succeeded: false) }) {
+        await discovery.hold()
+        try Task.checkCancellation()
+        destinations.append(workspace.paneRangeChord.resolve(firstPane, context: context)!)
+        return "First pane"
+    }
+    await discovery.waitUntilStarted()
+    let discovering = workspace.operationTask
+    let endpoint = workspace.paneRangeChord.request(3, modifiers: 256, pid: 20)
+    workspace.run(interruptible: true, refreshWindows: false) {
+        destinations.append(workspace.paneRangeChord.resolve(endpoint, context: context)!)
+        return "Spanning panes 3-4"
+    }
+    discovery.release()
+    await discovering?.value
+    await workspace.operationTask?.value
+    precondition(destinations == [2...3] && !workspace.busy && workspace.paneRangeChord.anchor?.pane == 2,
+                 "A second pane during suspended discovery retargets the queued operation without losing its first pane")
+    workspace.paneRangeChord.reset()
+    print("PASS: range retarget during suspended discovery preserves first pane, drains cancelled work, and releases admission")
+
     let cancelGate = OperationRecoveryGate()
     workspace.run(interruptible: true, refreshWindows: false) { await cancelGate.hold(); return "Cancelled writer drained" }
     await cancelGate.waitUntilStarted()

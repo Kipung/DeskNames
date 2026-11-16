@@ -19,6 +19,51 @@ import AppKit
     precondition(!census.complete, "An app or window timeout must prevent a partial census from replacing a saved layout")
     do { _ = try WindowCensus(windows: [], complete: false).forLayout(); preconditionFailure("Partial discovery must refuse layout capture and matching") }
     catch is WindowIssue {} catch { preconditionFailure("Unexpected discovery error") }
+    let element = AXUIElementCreateApplication(getpid())
+    var metadataStatus = AccessibilityCensusStatus()
+    let failedMetadata = NativeWindows.eligibilityMetadata(element, observeError: { metadataStatus.observe($0) }, readAttribute: { _, name in
+        if name == kAXSubroleAttribute { return (.cannotComplete, nil) }
+        if name == kAXRoleAttribute { return (.success, kAXWindowRole as CFString) }
+        return (.noValue, nil)
+    })
+    precondition(failedMetadata.refusal(for: .census) != nil && !metadataStatus.complete,
+                 "Eligibility errors must refuse a window and mark its census incomplete")
+    for childError in [AXError.invalidUIElement, .notImplemented] {
+        var childStatus = AccessibilityCensusStatus()
+        var roleReads = 0
+        let parent = NativeWindows.eligibilityMetadata(element, observeError: { childStatus.observe($0) }, readAttribute: { _, name in
+            switch name {
+            case kAXSubroleAttribute: return (.success, kAXStandardWindowSubrole as CFString)
+            case kAXRoleAttribute:
+                roleReads += 1
+                return roleReads == 1 ? (.success, kAXWindowRole as CFString) : (childError, nil)
+            case kAXChildrenAttribute: return (.success, [element] as CFArray)
+            default: return (.noValue, nil)
+            }
+        })
+        precondition(parent.refusal(for: .census) != nil && !childStatus.complete,
+                     "An unreadable child cannot silently omit an existing parent from a complete layout census")
+    }
+    var childReads = 0
+    var cancelledMetadataStatus = AccessibilityCensusStatus()
+    let interruptedMetadata = NativeWindows.eligibilityMetadata(element,
+        cancelled: { childReads >= 2 }, observeError: { cancelledMetadataStatus.observe($0) }, readAttribute: { _, name in
+            switch name {
+            case kAXSubroleAttribute: return (.success, kAXStandardWindowSubrole as CFString)
+            case kAXRoleAttribute:
+                childReads += 1
+                return (.success, kAXWindowRole as CFString)
+            case kAXChildrenAttribute: return (.success, Array(repeating: element, count: 1000) as CFArray)
+            default: return (.noValue, nil)
+            }
+        })
+    precondition(childReads == 2 && interruptedMetadata.refusal(for: .operation) != nil && !cancelledMetadataStatus.complete,
+                 "Cancellation must stop a large child tree and cannot produce an eligible partial result")
+    let expiredMetadata = NativeWindows.eligibilityMetadata(element, budget: AccessibilityReadBudget(now: 0), readAttribute: { _, _ in
+        preconditionFailure("An expired metadata budget must not make another AX call")
+    })
+    precondition(expiredMetadata.refusal(for: .operation) != nil)
+    print("PASS: eligibility timeout marks census incomplete; metadata cancellation and deadlines stop child traversal")
     let stale = Desktop(id: "original", spaceID: 1, display: "test", position: 0, number: 1, isCurrent: true, isFullScreen: false)
     let current = Desktop(id: "new", spaceID: 2, display: "test", position: 1, number: 2, isCurrent: true, isFullScreen: false)
     precondition(LayoutController.captureDesktop(stale, in: [stale]) == stale)
