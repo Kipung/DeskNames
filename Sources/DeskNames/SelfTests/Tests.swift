@@ -52,10 +52,13 @@ import AppKit
     precondition(separate[0]?.id==7 && separate[1]==nil)
     let temp=FileManager.default.temporaryDirectory.appendingPathComponent("DeskNames-tests-\(UUID().uuidString)")
     defer {try? FileManager.default.removeItem(at:temp)}
-    let c=LayoutController(store:Store(),file:temp.appendingPathComponent("layouts.json"))
+    let domain = "local.desknames.workspace-test.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: domain)!
+    defer { defaults.removePersistentDomain(forName: domain) }
+    let c=LayoutController(store:Store(defaults:defaults),file:temp.appendingPathComponent("layouts.json"))
     c.layouts["stable-desktop"]=DesktopLayout(id:"stable-desktop",savedAt:Date(),windows:[saved],autoRestore:true,launchMissing:false,gatherWindows:true)
     c.persist()
-    let read=LayoutController(store:Store(),file:c.file)
+    let read=LayoutController(store:Store(defaults:defaults),file:c.file)
     precondition(read.layouts["stable-desktop"]?.windows.count==1)
     precondition(read.layouts["stable-desktop"]?.autoRestore==true && read.layouts["stable-desktop"]?.launchMissing==false && read.layouts["stable-desktop"]?.gatherWindows==true)
     print("PASS: grid bounds/non-overlap across 48 layouts; display coordinate round-trip; offscreen clamping; stable window matching; ambiguous match rejection; multi-window match ordering; duplicate-title ambiguity and exact-identity resolution; layout JSON and automation option persistence")

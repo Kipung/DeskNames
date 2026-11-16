@@ -30,7 +30,7 @@ DeskNames lives in the menu bar. Open its compact panel to pick a pane layout fo
 
 ### Keyboard shortcuts
 
-Shortcuts start **off**. Turn them on in **Settings → Keyboard shortcuts**, and use the **Add suggested** buttons for the window and pane shortcuts. Suggestions never replace bindings you already set.
+Shortcuts start **off**. On a new install, click **Enable suggested shortcuts** in the welcome panel to opt in with one click. You can also enable and customize them in **Settings → Keyboard shortcuts**. The **Add suggested** buttons fill missing bindings without replacing your choices.
 
 | Action | Suggested shortcut |
 | --- | --- |
@@ -56,7 +56,7 @@ Every binding can be changed. The [user guide](README.txt) lists them all.
 
 ## Install
 
-You need a Mac with Apple Silicon (M1 or later) running macOS 14 or later. Setup takes about two minutes.
+You need a Mac with Apple Silicon (M1 or later) running macOS 14 or later.
 
 ### Step 1: Get the app
 
@@ -73,28 +73,33 @@ brew install --cask kipung/desknames/desknames
 
 ### Step 2: Allow it to open (first time only)
 
-DeskNames is free and isn’t notarized by Apple, so macOS asks you to confirm it once. This is normal for apps outside the App Store that aren’t notarized. DeskNames doesn’t turn off any macOS protection to get around it.
+DeskNames is an **unnotarized preview**. Its maintainer does not have paid Apple Developer membership, so Apple has not checked this app through notarization. Homebrew installation and signed updates do not change that. Only approve opening it if you trust the project and its download. DeskNames does not remove quarantine or disable Gatekeeper.
 
-1. Open **DeskNames** from Applications. macOS says *“DeskNames” Not Opened*. Click **Done**.
+1. Open **DeskNames** from Applications. If macOS blocks it, dismiss the warning with **Done** or **OK**. Wording varies by macOS version.
 2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
 3. Next to *“DeskNames” was blocked to protect your Mac*, click **Open Anyway**, then confirm with your password or Touch ID.
-4. Click **Open Anyway** once more in the dialog that appears.
+4. Confirm **Open** or **Open Anyway** in the dialog that appears.
 
 On macOS 14 you can instead Control-click **DeskNames.app** in Applications and choose **Open**. Apple explains this in [Open a Mac app from an unknown developer](https://support.apple.com/en-us/102445).
 
 ### Step 3: Turn on window controls
 
-The DeskNames panel opens automatically the first time. After that, click the **DeskNames icon in the menu bar** (top right of your screen) to open it.
+The welcome panel opens on a brand-new install. After that, click the **DeskNames icon in the menu bar** (top right of your screen) to open the panel. Existing preferences skip the welcome flow.
 
-1. In the panel, choose **Settings**. On the **Layouts & windows** page, click **Open Accessibility settings**.
-2. Turn on **DeskNames** in the list. macOS may ask for your password.
+1. Click **Open Accessibility settings** and turn on **DeskNames** in the list. macOS may ask for your password. Return to the panel; it detects approval automatically without a relaunch.
+2. Click **Continue**, then **Enable suggested shortcuts** if you want keyboard window controls. This opts in to the suggested window, pane, and desktop shortcuts together.
+3. Continue to the pane step, choose a layout, and click **Use this layout**. Hold Command while dragging a window, then release the mouse before Command to fit it into a pane. Choosing a layout does not move existing windows.
 
-That’s it. To use keyboard shortcuts, turn them on in **Settings → Keyboard shortcuts**. They start off so DeskNames doesn’t take over shortcuts you already use.
+Every step is optional. **Set up later** dismisses setup; the same choices remain available in Settings or the control panel. **Launch DeskNames at login** is an optional toggle in the pane step and the regular control panel. Keep the app in Applications before enabling it. If macOS requires approval, use **Open Login Items**. Routing, edge snapping, linked resizing, automatic restore, and automatic update installation remain opt-in.
 
-### If something doesn’t work
+Pane spacing defaults to 0 pt. On the first launch of this update, saved desktop and monitor pane gaps of exactly 12 pt change once to 0. Other gaps and layout choices stay intact. You can choose 12 pt again in **Settings → Smart panes** and it will remain saved.
+
+### Troubleshooting
 
 - **No “Open Anyway” button:** open DeskNames once first (Step 2.1). The button only appears after macOS blocks an attempt, and it stays for about an hour.
-- **Window controls stay off after an update, even though DeskNames is turned on in Accessibility:** select DeskNames in the Accessibility list, remove it with the **–** button, then click **Open Accessibility settings** in DeskNames again and turn it back on. From 0.6.2 on, updates keep the approval.
+- **Window controls stay off after an update, even though DeskNames is turned on in Accessibility:** the approval may refer to an older app signature. Select DeskNames in the Accessibility list, remove it with the **–** button, then use **+** to add the current copy from Applications and turn it on. Return to the panel to check the live status. Releases signed with the same certificate are intended to retain approval, but a changed signing identity or local build can require it again. DeskNames does not reset approvals automatically.
+- **Shortcuts do not fire:** check that **Settings → Keyboard shortcuts** is enabled and Accessibility is allowed. Check that the action has a binding, and use **Add suggested** if it is missing. The page reports registration conflicts; change a conflicting shortcut there or in the other app. Finish or cancel any shortcut recording, which temporarily pauses shortcuts. Focus an ordinary, non-full-screen window for window commands. For F1–F4 bindings, your keyboard settings may require the **Fn** key. Try the same command from Settings to distinguish a key conflict from an app that refuses window movement.
+- **Launch at login stays pending:** use **Open Login Items** in the panel to approve DeskNames in System Settings. Registration errors appear beside the toggle. Moving or deleting the app can invalidate its registration.
 - **Can’t find the menu bar icon:** a crowded menu bar can hide it behind the notch. Open DeskNames from Applications again and the panel appears.
 - **Intel Mac:** not supported.
 

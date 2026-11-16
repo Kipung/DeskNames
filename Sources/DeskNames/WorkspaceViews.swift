@@ -86,6 +86,7 @@ struct SwitcherView: View {
     @ObservedObject var models: MonitorPresets
     let desktop: Desktop?
     var updater: AppUpdater? = nil
+    var loginItem: LoginItemController? = nil
     var pinCandidate: LiveWindow? = nil
     let choose: (Desktop) -> Void
     let close: () -> Void
@@ -131,7 +132,7 @@ struct SwitcherView: View {
                     Image(systemName: "hand.raised.fill").foregroundStyle(.orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Accessibility needed").font(.system(size: 13, weight: .semibold))
-                        Text("Window shortcuts, snapping and desktop jumps are off until you allow DeskNames.")
+                        Text("Enable DeskNames in Accessibility. Approval is detected automatically; no relaunch needed.")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
@@ -197,6 +198,7 @@ struct SwitcherView: View {
                 PinControls(workspace: workspace, candidate: pinCandidate)
             }
             if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.orange) }
+            if let loginItem { LoginItemControls(controller: loginItem) }
             if let updater { UpdateControls(updater: updater) }
             Divider()
             HStack {
