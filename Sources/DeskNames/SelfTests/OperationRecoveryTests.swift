@@ -56,8 +56,11 @@ import AppKit
     workspace.shortcutResult = nil
     await gate.waitUntilStarted()
     let original = workspace.operationTask
+    workspace.run(refreshWindows: false) { preconditionFailure("A competing noninterruptible operation must be refused") }
+    precondition(workspace.message.contains("in progress"))
     workspace.shortcutResult = { shortcutResults.append("replaced: " + $0) }
     workspace.run(interruptible: true, refreshWindows: false) { ran.append("replaced"); return "Unexpected" }
+    precondition(workspace.message == "Working…", "An accepted queued shortcut must not inherit another request's refusal")
     workspace.shortcutResult = { shortcutResults.append("latest: " + $0) }
     workspace.run(interruptible: true, refreshWindows: false) { ran.append("latest"); return "Latest placement" }
     workspace.shortcutResult = nil
@@ -71,6 +74,7 @@ import AppKit
     precondition(shortcutResults == ["replaced: Placement replaced by a newer request.", "old: Operation cancelled.", "latest: Latest placement"],
                  "Queued placements must preserve their own diagnostic completion")
     precondition(!workspace.busy && workspace.operationTask == nil)
+    print("PASS: queued shortcut publishes its own pending result after an unrelated refusal; completion remains request-owned")
 
     let geometry = PaneGeometry(area: CGRect(x: 0, y: 0, width: 1600, height: 900), configuration: PaneConfiguration(preset: .fourColumns))
     let context = PaneRangeChord.Context(window: .init(id: 10, pid: 20), desktopID: "fixture", spaceID: 1, displayID: "fixture", geometry: geometry)

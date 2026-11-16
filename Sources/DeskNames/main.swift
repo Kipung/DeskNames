@@ -421,12 +421,22 @@ final class LabelPanel: NSPanel {
         let report: (String) -> Void = { [weak self] result in
             guard let self, self.shortcuts.complete(request, result: result) else { return }
             self.workspace.shortcutStatus = self.shortcuts.delivery.action + ": " + result
-            self.workspace.native.recordWindowDiagnostic("shortcut-result.json", [
+            let detail: [String: Any] = [
                 "actionID": id, "action": self.shortcuts.delivery.action, "result": result,
                 "sequence": request, "receivedUptime": receivedUptime,
                 "updatedUptime": ProcessInfo.processInfo.systemUptime, "busy": self.workspace.busy,
                 "updatedAt": ISO8601DateFormatter().string(from: Date())
-            ])
+            ]
+            self.workspace.native.recordWindowDiagnostic("shortcut-result.json", detail)
+            if RuntimeStorage.current.isIsolated, let data = try? JSONSerialization.data(withJSONObject: detail, options: [.sortedKeys]) {
+                let file = RuntimeStorage.current.supportDirectory.appendingPathComponent("hotkey-events.jsonl")
+                if !FileManager.default.fileExists(atPath: file.path) { FileManager.default.createFile(atPath: file.path, contents: nil) }
+                if let handle = try? FileHandle(forWritingTo: file) {
+                    defer { try? handle.close() }
+                    try? handle.seekToEnd()
+                    try? handle.write(contentsOf: data + Data([0x0A]))
+                }
+            }
         }
         report("Received.")
         guard let action = ShortcutAction.all.first(where: { $0.id == id }) else { report("Unknown shortcut action."); return }

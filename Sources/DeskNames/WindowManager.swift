@@ -1074,6 +1074,7 @@ final class NativeWindows {
                 queuedPlacement?.completion?("Placement replaced by a newer request.")
                 queuedPlacement = operation
                 operationTask?.cancel()
+                message = "Working…"
             } else { message = "A window operation is in progress. Try again when it finishes."; operation.completion?(message) }
             return
         }
