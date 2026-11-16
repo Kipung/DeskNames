@@ -1,0 +1,91 @@
+{
+  "executableSHA256": "95a2d8146b331bbf1e0ef3f7afed3cc7df44ca63bcc97ad06b4aeef042d3e00e",
+  "installedExecutableSHA256": "f8a40249e37e22c64e8b3337c4f9d8df6445aaebb37fa84be023e8898b419c06",
+  "build": "31",
+  "sourceSHA256": {
+    "Sources/DeskNames/AlignmentDiagnostics.swift": "f4a1fe238d5debffb9be93b3e1a428b647b765e5977234851b550b88bbdcea4a",
+    "Sources/DeskNames/AppUpdater.swift": "3d4e3d91c48a634a7bedd8f7e64d3146422a7f3084da5f53801fa8639df3fa73",
+    "Sources/DeskNames/ApplicationLaunch.swift": "12a73eefb80a47dd6746138ed54c5a906d2937042161ceea56f2ef2624f96da4",
+    "Sources/DeskNames/DesktopNavigation.swift": "0a548e4496703236731f8389e07e5e4bbfd950f38a383fd95a81bf4dba2f8baa",
+    "Sources/DeskNames/DisplayProfiles.swift": "497e4a734420240a46d418ffe7e18fb2131bb18dc182c6670afbe4c54b3c8f51",
+    "Sources/DeskNames/FirstRunPanel.swift": "7c7633f7976f5d810b9e414092d52ebdc0b2bf5d5d5ce86128677b26f7619d5c",
+    "Sources/DeskNames/FirstRunPreferences.swift": "c4fe1c90f53fb60b388a9cfd6512a6cbfbd7c71dbd24c9ff79d6d235e1e98098",
+    "Sources/DeskNames/LayoutSnapshots.swift": "f3e355a96773f569357d878e802ce94a9a478a26403df3bc03cc620afa70dc85",
+    "Sources/DeskNames/LinkedPanes.swift": "426a16314a873c104d57be5163a550d79903113972365b13df0f754187b4b370",
+    "Sources/DeskNames/LoginItemController.swift": "a0c8a9cbdc54ed6c4a5449f7f44f381708af70be96fe5032a4194b37bbd1e897",
+    "Sources/DeskNames/MarketingPreview.swift": "3d8e49013ca1566d256a2b959d5ea0b74618c6f33005e34d3c2adc6a366671f8",
+    "Sources/DeskNames/MissionControlGeometry.swift": "afef8e047f9bdf169c43ea781faf6ee21185c4d962623f33b209911c45879bcb",
+    "Sources/DeskNames/NativeSpaceMove.m": "df9a3ff0540dd77e7fc033abced0d26f801a5ee5a3075ddcb4592d70b7b1947d",
+    "Sources/DeskNames/PaneInteraction.swift": "d5b223767208fe911c8f00c93f62674c8eb272bce7b4cc32f29c0a3f849cdb1c",
+    "Sources/DeskNames/PaneModel.swift": "080c330b611980c630493222eef436a812a7c35e3becfabf654f305180b3aa84",
+    "Sources/DeskNames/PaneRangeShortcut.swift": "d9118509e8036ffdf7dadc206cc7a269f6d72f56250056f8aadc09cf919210e8",
+    "Sources/DeskNames/PaneViews.swift": "75b0680c98b963ddea266e4e3d31324ce122ac0ac362b0f72129208084c2a589",
+    "Sources/DeskNames/PinnedWindows.swift": "9ca76a0e3a94bc8a9e19a72a32521bfdac96a9a5be08f228bf0b2c61a56c102c",
+    "Sources/DeskNames/RuntimeStorage.swift": "dedd4ef516e793db55f857442069d5f3ede000fcb66d525472b57c79ea6ebd37",
+    "Sources/DeskNames/ScreenAwareWindows.swift": "7b47bb31e48988bc49af210d0d04bc99081f9b343bdbe1dc49fb12109e9c0083",
+    "Sources/DeskNames/SelfTests/AccessibilityRecoveryTests.swift": "8466e96f34bd029aaf373b99c5612766a3fa3ea135789f98586e53c261a15f3f",
+    "Sources/DeskNames/SelfTests/ApplicationLaunchTests.swift": "ac1ed5e4366643f153e5f849d04e63fdbd2a14d5bb5f32c3626cc6fad8969906",
+    "Sources/DeskNames/SelfTests/ExternalPlacementTests.swift": "f7804820a9e07e633de3e82142cf6721586cb8ba8c1c791f8fb2c7938b50e743",
+    "Sources/DeskNames/SelfTests/FirstRunTests.swift": "91e9f0ccae939ee0fc1031bda8f6ed765b12577e612312ba63216dfcad435f16",
+    "Sources/DeskNames/SelfTests/GeometryTests.swift": "d893aae1f4f2c115eb8dfe004f35996862238ed7cc0d831dfd497b81f888b815",
+    "Sources/DeskNames/SelfTests/HotkeySoakTests.swift": "5205783744e7bc8bad3575eddf92915bb13eabc7ed5c0da3b23e1a3ce488fd35",
+    "Sources/DeskNames/SelfTests/MovementTests.swift": "cb5863c5710c19cdc5b1e27fd9ebfd7870cb976f2853a40ba3e65799ca819c1b",
+    "Sources/DeskNames/SelfTests/OperationRecoveryTests.swift": "6bddfd6c7319b63ddd1434745e6da7edf302d8553b4c0c34182e1fef58af5885",
+    "Sources/DeskNames/SelfTests/PaneHandleVisibilityTests.swift": "2aebdc9cfe47317702e1123f4af62bb3b88c5ce7d08f3c8bbf9dd0ec98009ae6",
+    "Sources/DeskNames/SelfTests/PaneInteractionTests.swift": "2d7987cb0a0be4c18d868789c8e73d93b9169306b3106b2dc03c0d390cddd43e",
+    "Sources/DeskNames/SelfTests/PaneRangeTests.swift": "6fec860fb8516ee5bdfb635b28c9b3662f90b60e87f7a28ca5dfa0539b55e0c9",
+    "Sources/DeskNames/SelfTests/PaneTests.swift": "362deb9cd3551d09b28b2a1de03d084726e066f06b49814f699bdfc4341fd397",
+    "Sources/DeskNames/SelfTests/ScreenLayoutTests.swift": "a218e31a1abee556b52718b8c88d820a61ca2077065e4508f759a38484bb20b6",
+    "Sources/DeskNames/SelfTests/ShortcutAvailabilityTests.swift": "6e90c0f499c79fa01ba79a3d618cd43680e7eb611e0934c66e87e49d97de5e17",
+    "Sources/DeskNames/SelfTests/ShortcutDeliveryTests.swift": "6f4a56d9fb40a17a5c9d8f4d12f110c6732389366b471b1a097843ee82e641b7",
+    "Sources/DeskNames/SelfTests/StorageTests.swift": "b817eac40d56073b4afbed87e087f6e0387d4d8fa3daeaebef6a8b6f995f11cd",
+    "Sources/DeskNames/SelfTests/Tests.swift": "4cbbe78020d344e20eda4d876427fb4cdbf14fde97af9ac9c59bedfb1901e95d",
+    "Sources/DeskNames/SelfTests/WindowActionTests.swift": "e9333258aa48473ef59f33df0be95cab17b9d8486e788b009366ac34549eb5a3",
+    "Sources/DeskNames/SelfTests/WindowDiscoveryTests.swift": "c767d2d8c9bb0ea4c882dcb82498db138ffe8b3548bd54cc38e13905b0f79338",
+    "Sources/DeskNames/Shortcuts.swift": "443ce4f69b72af001dad803e6b78973e9e1a16d58c53531ea7747f48ad57e663",
+    "Sources/DeskNames/SmartPanes.swift": "9c274344ca07fed481c88c274f3488e60fffb24e9d6b28b068d40c73169c4600",
+    "Sources/DeskNames/WindowActions.swift": "43abd9ad97d7bbebb81f4ce06436c2bf6e3c793203327f14641309a6b6ffd5e5",
+    "Sources/DeskNames/WindowDiscovery.swift": "8347d42bda25e00459773b0ead4ee42c39b89edcaad326af2155f2e1a54886f9",
+    "Sources/DeskNames/WindowManager.swift": "dcde8d6c3375e0314c0993a06888264b9b27a3aabe0110acd87d1c3feb3a5539",
+    "Sources/DeskNames/WindowRouting.swift": "7d6f0d189b023edd95c397fcf8f384d3e661a735e96101221235b991017a5d5f",
+    "Sources/DeskNames/WindowRoutingView.swift": "f74cd385f75f008ea0d266d448a3e15d56a37fc99e413c617d361e9470815d66",
+    "Sources/DeskNames/WorkspaceViews.swift": "38b6daf9cd87714a76619554d6ab237b14be28b36f4f09905023063288b74820",
+    "Sources/DeskNames/main.swift": "d0989aff142f2dfcc0e34d1e88e24c4b705b7c468bdf657517f7afdf16f4cb8e"
+  },
+  "host": {
+    "macOS": "26.6.2 (25G83)",
+    "screens": [
+      {
+        "frame": [
+          0,
+          0,
+          5120,
+          1440
+        ],
+        "workArea": [
+          0,
+          0,
+          5120,
+          1409
+        ],
+        "scale": 1
+      },
+      {
+        "frame": [
+          1984,
+          -956,
+          1470,
+          956
+        ],
+        "workArea": [
+          1984,
+          -956,
+          1470,
+          924
+        ],
+        "scale": 2
+      }
+    ],
+    "note": "AppKit screen coordinates. Placement coverage uses fixture display; no cross-display or desktop switching claim."
+  }
+}

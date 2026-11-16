@@ -38,3 +38,7 @@ Actually run on the final source:
 Native keyboard delivery, secure input, sleep/wake, physical monitors, real hung target apps, launch prompts and drag sessions require a separate authorized session. Simulated geometry and injected timeouts do not validate those native behaviors.
 
 Integration touches shared action entry points in WindowManager, main, SmartPanes, LinkedPanes, routing and layout capture. Preserve the operation completion ownership and capture-before-await ordering when resolving sibling-worktree conflicts. Routine discovery now completes asynchronously; slow apps may cause a conservative incomplete-discovery refusal. Save/restore must retain that refusal to protect existing layouts and window matching.
+
+## Real-key follow-up
+
+The November 15 trusted helper run, subsequent panel and released-drag fixes, and bounded native coverage are recorded in [hotkey-soak.md](hotkey-soak.md). Those results supersede the unverified-input limitation above for the tested environment. They do not establish indefinite reliability, physical keyboard delivery, sleep/wake, or multiple-monitor behavior.

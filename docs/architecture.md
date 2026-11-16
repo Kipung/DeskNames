@@ -100,3 +100,5 @@ normal application domain and persist beneath the supplied directory;
 `CFFIXED_USER_HOME` alone did not redirect preference-daemon writes on this Mac.
 The supported mode changes DeskNames storage, not macOS Accessibility permission
 or system services such as launch-at-login registration.
+
+The real-key integration harness and recovery wrapper are described in [hotkey-soak.md](hotkey-soak.md). `SelfTests/HotkeySoakTests.swift` owns input generation, fixture ownership, WindowServer assertions, and recovery. `scripts/test-hotkey-soak.py` owns the independent timeout and installed-app relaunch.

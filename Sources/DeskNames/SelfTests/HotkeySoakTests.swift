@@ -268,12 +268,15 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
         guard let value = axValue(element, kAXFocusedWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         return windowID(unsafeBitCast(value, to: AXUIElement.self))
     }
-    func click(_ point: CGPoint) async {
+    func click(_ point: CGPoint) async throws {
         for type: CGEventType in [.leftMouseDown, .leftMouseUp] {
             let event = CGEvent(mouseEventSource: CGEventSource(stateID: .privateState), mouseType: type, mouseCursorPosition: point, mouseButton: .left)
             event?.flags = []
             event?.post(tap: .cghidEventTap)
             await NativeWindows.pause(0.01)
+        }
+        guard await wait(0.25, until: { !CGEventSource.buttonState(.combinedSessionState, button: .left) }) else {
+            throw WindowIssue("Posted mouse-up was not acknowledged; no further keys sent.")
         }
     }
     func activate(_ app: NSRunningApplication) async throws {
@@ -552,17 +555,20 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
             for id: UInt32 in [320,321,322,323,200,201,202,203,211,213] {
                 _ = try await probe("placement", id: id, fixture: fixture)
             }
-            for _ in 0..<(CommandLine.arguments.contains("--chord-stress") ? 20 : 1) {
+            for repetition in 0..<(CommandLine.arguments.contains("--chord-stress") ? 20 : 1) {
+                let stress = CommandLine.arguments.contains("--chord-stress")
+                let interval = stress ? Double(20 + repetition * 37 % 81)/1000 : 0.04
+                if stress { await NativeWindows.pause(Double(repetition * 53 % 191)/1000) }
                 let cells = PaneGeometry(area: screenArea(screenFor(fixture.original)!), configuration: PaneConfiguration(preset: .fourColumns, gap: 0)).cells
                 _ = try await probe("chord-3-4", id: 323, fixture: fixture, target: cells[2].union(cells[3])) {
                     try await self.pressFixture(322, fixture: fixture, release: false)
-                    await NativeWindows.pause(0.04)
+                    await NativeWindows.pause(interval)
                     try await self.pressFixture(323, fixture: fixture, hold: false)
                 }
                 _ = try await probe("chord-release-2", id: 321, fixture: fixture)
                 _ = try await probe("chord-4-2", id: 321, fixture: fixture, target: cells[1].union(cells[2]).union(cells[3])) {
                     try await self.pressFixture(323, fixture: fixture, release: false)
-                    await NativeWindows.pause(0.04)
+                    await NativeWindows.pause(interval)
                     try await self.pressFixture(321, fixture: fixture, hold: false)
                 }
             }
@@ -660,7 +666,7 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
                 try requireAppInput(app.processIdentifier)
                 let frame = native.currentFrame(fixture.window)!
                 let point = CGPoint(x: frame.midX, y: frame.minY+12)
-                await click(point)
+                try await click(point)
             }
             let focused = await wait(1) { NSWorkspace.shared.frontmostApplication?.processIdentifier == fixture.app.processIdentifier }
             let hidden = !ExternalPlacementTest.serverWindows().contains { $0.pid == app.processIdentifier && $0.frame.width > 300 && $0.frame.height > 300 }
@@ -747,7 +753,7 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
             stride(from: area.minX+10, to: area.maxX-10, by: 100).map { CGPoint(x: $0, y: y) }
         }
         if let point = points.first(where: { point in !covers.contains { $0.frame.contains(point) } }) {
-            await click(point)
+            try await click(point)
             await NativeWindows.pause(0.3)
             let desktopFocus = axValue(AXUIElementCreateApplication(finder.app.processIdentifier), kAXFocusedWindowAttribute)
             let focusedID = self.focusedID(finder.app)

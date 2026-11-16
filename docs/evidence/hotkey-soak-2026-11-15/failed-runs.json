@@ -1,0 +1,1288 @@
+[
+  {
+    "cleanup": [
+      "Restore md.obsidian: true",
+      "Restore com.apple.finder: true",
+      "Restore com.apple.TextEdit: true",
+      "Installed DeskNames running: true"
+    ],
+    "injectedPresses": 56,
+    "operatingSystem": "Version 26.6.2 (Build 25G83)",
+    "seed": 232392629817621,
+    "soakPresses": 0,
+    "storage": "/var/folders/l4/d106764j37xdrsq9w8k5z9_m0000gn/T/desknames-hotkey-1F519776-A896-446A-8568-30B568F27B19",
+    "trusted": true,
+    "sourceReport": "/tmp/desknames-hotkey-quick3.json",
+    "observations": [
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-escape"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-escape-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.4846005000290461,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-escape-recovery",
+        "sequence": 47,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-toggle"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-toggle-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.3703669166425243,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-toggle-recovery",
+        "sequence": 50,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-other-app"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-other-app-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.17405829165363684,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-other-app-recovery",
+        "sequence": 52,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "[\"busy\": 0, \"sequence\": 53, \"actionID\": 100, \"result\": Control panel closed., \"receivedUptime\": 393897.802688375, \"updatedUptime\": 393897.810310625, \"updatedAt\": 2026-11-16T02:56:40Z, \"action\": DeskNames control panel]; [\"busy\": 0, \"cause\": ready, \"panelKey\": 0, \"status\": Global shortcuts are ready., \"enabled\": 1, \"uptime\": 393899.745710125, \"secureInput\": 0, \"recordingAction\": <null>, \"lastSequence\": 53, \"registeredCount\": 49, \"panelVisible\": 0]",
+        "result": "FAIL",
+        "scenario": "settings-panel-open"
+      },
+      {
+        "reason": "Missing Settings; available buttons []",
+        "result": "FAIL",
+        "scenario": "button-discovery"
+      },
+      {
+        "reason": "AX press on actual Settings button",
+        "result": "FAIL",
+        "scenario": "settings-open"
+      },
+      {
+        "reason": "AX press on actual Settings button",
+        "result": "FAIL",
+        "scenario": "recorder-settings-open"
+      },
+      {
+        "reason": "tab=false button=false entered=false",
+        "result": "FAIL",
+        "scenario": "recorder-begin"
+      },
+      {
+        "reason": "Escape restores every registration",
+        "result": "FAIL",
+        "scenario": "recorder-cancel"
+      },
+      {
+        "reason": "Settings window absent from WindowServer",
+        "result": "PASS",
+        "scenario": "recorder-settings-closed"
+      },
+      {
+        "actionID": 321,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.2929039166774601,
+        "reason": "Moved TextEdit to pane 2.",
+        "result": "PASS",
+        "scenario": "recorder-recovery",
+        "sequence": 56,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Cannot establish an on-screen activation window for local.desknames.app; AXWindows error -25204.",
+        "result": "FAIL",
+        "scenario": "precondition-or-run"
+      },
+      {
+        "reason": "Tested instance stopped before installed app relaunch",
+        "result": "PASS",
+        "scenario": "cleanup-tested-app"
+      },
+      {
+        "reason": "md.obsidian",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "com.apple.finder",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 38936",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "com.apple.TextEdit",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 38929",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "Only the launched disposable fixture process",
+        "result": "PASS",
+        "scenario": "cleanup-hang-fixture"
+      },
+      {
+        "reason": "Relaunched unchanged /Applications/DeskNames.app",
+        "result": "PASS",
+        "scenario": "cleanup-installed-app"
+      }
+    ]
+  },
+  {
+    "cleanup": [
+      "Restore com.apple.finder: true",
+      "Restore local.desknames.app: true",
+      "Restore md.obsidian: true",
+      "Restore com.apple.finder: true",
+      "Restore com.apple.TextEdit: true",
+      "Installed DeskNames running: true"
+    ],
+    "injectedPresses": 377,
+    "operatingSystem": "Version 26.6.2 (Build 25G83)",
+    "seed": 232392629817621,
+    "soakPresses": 300,
+    "storage": "/var/folders/l4/d106764j37xdrsq9w8k5z9_m0000gn/T/desknames-hotkey-121791E0-3518-43DA-8EC1-7B1A4C6A0285",
+    "trusted": true,
+    "sourceReport": "/tmp/desknames-hotkey-final.json",
+    "observations": [
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-escape"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-escape-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.35875804169336334,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-escape-recovery",
+        "sequence": 359,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-toggle"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-toggle-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.18401191662997007,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-toggle-recovery",
+        "sequence": 362,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-other-app"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-other-app-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 1.5088944583549164,
+        "reason": "Finish the window operation before changing pane layouts.",
+        "result": "FAIL",
+        "scenario": "panel-other-app-recovery",
+        "sequence": 364,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "AX press on actual Settings button",
+        "result": "PASS",
+        "scenario": "recorder-settings-open"
+      },
+      {
+        "reason": "tab=true button=true entered=true",
+        "result": "PASS",
+        "scenario": "recorder-begin"
+      },
+      {
+        "reason": "Escape restores every registration",
+        "result": "PASS",
+        "scenario": "recorder-cancel"
+      },
+      {
+        "reason": "Remaining target windows []",
+        "result": "PASS",
+        "scenario": "recorder-settings-closed"
+      },
+      {
+        "actionID": 321,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.45224966667592525,
+        "reason": "Moved TextEdit to pane 2.",
+        "result": "PASS",
+        "scenario": "recorder-recovery",
+        "sequence": 368,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Finder AXFocusedWindow is absent after clicking uncovered desktop",
+        "result": "FAIL",
+        "scenario": "finder-desktop-precondition"
+      },
+      {
+        "reason": "Tested instance stopped before installed app relaunch",
+        "result": "PASS",
+        "scenario": "cleanup-tested-app"
+      },
+      {
+        "reason": "com.apple.finder",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "local.desknames.app",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 39210",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "md.obsidian",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "com.apple.finder",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 39168",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "com.apple.TextEdit",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 39161",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "Only the launched disposable fixture process",
+        "result": "PASS",
+        "scenario": "cleanup-hang-fixture"
+      },
+      {
+        "reason": "Relaunched unchanged /Applications/DeskNames.app",
+        "result": "PASS",
+        "scenario": "cleanup-installed-app"
+      }
+    ]
+  },
+  {
+    "cleanup": [
+      "Restore com.apple.finder: true",
+      "Restore local.desknames.app: true",
+      "Restore md.obsidian: true",
+      "Restore com.apple.finder: true",
+      "Restore com.apple.TextEdit: true",
+      "Installed DeskNames running: true"
+    ],
+    "injectedPresses": 377,
+    "operatingSystem": "Version 26.6.2 (Build 25G83)",
+    "seed": 232392629817621,
+    "soakPresses": 300,
+    "storage": "/var/folders/l4/d106764j37xdrsq9w8k5z9_m0000gn/T/desknames-hotkey-872F8FFB-535F-4CD5-A1A5-CC56A6C0B0B6",
+    "trusted": true,
+    "sourceReport": "/tmp/desknames-hotkey-verified.json",
+    "observations": [
+      {
+        "actionID": 203,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 2560,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.2546494583366439,
+        "reason": "Bottom half: Arc.",
+        "result": "FAIL",
+        "scenario": "soak-press",
+        "sequence": 300,
+        "target": {
+          "height": 704,
+          "width": 5120,
+          "x": 0,
+          "y": 736
+        }
+      },
+      {
+        "actionID": 321,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 2560,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 1.5027144583291374,
+        "reason": "Working\u2026",
+        "result": "FAIL",
+        "scenario": "soak-probe-250",
+        "sequence": 305,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        }
+      },
+      {
+        "actionID": 202,
+        "actual": {
+          "height": 1409,
+          "width": 5120,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.finder",
+        "reason": "The focused app did not answer Accessibility. Try the shortcut again.",
+        "result": "FAIL",
+        "scenario": "soak-press",
+        "sequence": 312,
+        "target": {
+          "height": 705,
+          "width": 5120,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "actionID": 200,
+        "actual": {
+          "height": 1409,
+          "width": 5120,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.finder",
+        "latency": 0.24617712496547028,
+        "reason": "Left half: Arc.",
+        "result": "FAIL",
+        "scenario": "soak-press",
+        "sequence": 316,
+        "target": {
+          "height": 1409,
+          "width": 2560,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "actionID": 202,
+        "actual": {
+          "height": 1409,
+          "width": 5120,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.finder",
+        "latency": 0.288748916646,
+        "reason": "Top half: Arc.",
+        "result": "FAIL",
+        "scenario": "soak-press",
+        "sequence": 324,
+        "target": {
+          "height": 705,
+          "width": 5120,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "actionID": 200,
+        "actual": {
+          "height": 1409,
+          "width": 5120,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.finder",
+        "latency": 0.2830850832979195,
+        "reason": "Left half: Arc.",
+        "result": "FAIL",
+        "scenario": "soak-press",
+        "sequence": 325,
+        "target": {
+          "height": 1409,
+          "width": 2560,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-escape"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-escape-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.3985257916501723,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-escape-recovery",
+        "sequence": 359,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-toggle"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-toggle-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.35747195832664147,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-toggle-recovery",
+        "sequence": 362,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Carbon panel shortcut and focused panel",
+        "result": "PASS",
+        "scenario": "panel-open-other-app"
+      },
+      {
+        "reason": "Panel hidden and fixture focused before recovery press",
+        "result": "PASS",
+        "scenario": "panel-other-app-closed"
+      },
+      {
+        "actionID": 320,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 0.3557483749464154,
+        "reason": "Moved TextEdit to pane 1.",
+        "result": "PASS",
+        "scenario": "panel-other-app-recovery",
+        "sequence": 364,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        }
+      },
+      {
+        "reason": "AX press on actual Settings button",
+        "result": "PASS",
+        "scenario": "recorder-settings-open"
+      },
+      {
+        "reason": "tab=true button=true entered=true",
+        "result": "PASS",
+        "scenario": "recorder-begin"
+      },
+      {
+        "reason": "Escape restores every registration",
+        "result": "PASS",
+        "scenario": "recorder-cancel"
+      },
+      {
+        "reason": "Remaining target windows []",
+        "result": "PASS",
+        "scenario": "recorder-settings-closed"
+      },
+      {
+        "actionID": 321,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        },
+        "bundle": "com.apple.TextEdit",
+        "latency": 1.5053255000384524,
+        "reason": "Finish the window operation before changing pane layouts.",
+        "result": "FAIL",
+        "scenario": "recorder-recovery",
+        "sequence": 368,
+        "target": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        }
+      },
+      {
+        "reason": "Tested instance stopped before installed app relaunch",
+        "result": "PASS",
+        "scenario": "cleanup-tested-app"
+      },
+      {
+        "reason": "com.apple.finder",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "local.desknames.app",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 39383",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "md.obsidian",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "com.apple.finder",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 39309",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "com.apple.TextEdit",
+        "result": "PASS",
+        "scenario": "cleanup-restore"
+      },
+      {
+        "reason": "Fixture 39302",
+        "result": "PASS",
+        "scenario": "cleanup-close"
+      },
+      {
+        "reason": "Only the launched disposable fixture process",
+        "result": "PASS",
+        "scenario": "cleanup-hang-fixture"
+      },
+      {
+        "reason": "Relaunched unchanged /Applications/DeskNames.app",
+        "result": "PASS",
+        "scenario": "cleanup-installed-app"
+      }
+    ],
+    "unintendedArcCompletions": [
+      {
+        "action": "Bottom half",
+        "actionID": 203,
+        "busy": false,
+        "receivedUptime": 394956.96943633334,
+        "result": "Bottom half: Arc.",
+        "sequence": 300,
+        "updatedAt": "2026-11-16T03:14:19Z",
+        "updatedUptime": 394957.2082629167
+      },
+      {
+        "action": "Left half",
+        "actionID": 200,
+        "busy": false,
+        "receivedUptime": 394962.698752375,
+        "result": "Left half: Arc.",
+        "sequence": 316,
+        "updatedAt": "2026-11-16T03:14:25Z",
+        "updatedUptime": 394962.9320885
+      },
+      {
+        "action": "Left half",
+        "actionID": 200,
+        "busy": false,
+        "receivedUptime": 394963.8095867084,
+        "result": "Left half: Arc.",
+        "sequence": 321,
+        "updatedAt": "2026-11-16T03:14:26Z",
+        "updatedUptime": 394964.0760756667
+      },
+      {
+        "action": "Top half",
+        "actionID": 202,
+        "busy": false,
+        "receivedUptime": 394964.3374177917,
+        "result": "Top half: Arc.",
+        "sequence": 324,
+        "updatedAt": "2026-11-16T03:14:26Z",
+        "updatedUptime": 394964.6106757917
+      },
+      {
+        "action": "Left half",
+        "actionID": 200,
+        "busy": false,
+        "receivedUptime": 394964.64992758335,
+        "result": "Left half: Arc.",
+        "sequence": 325,
+        "updatedAt": "2026-11-16T03:14:27Z",
+        "updatedUptime": 394964.92130245833
+      }
+    ],
+    "pointerEvents": [
+      {
+        "event": "monitor",
+        "global": true,
+        "local": true,
+        "time": 394874.21216520836,
+        "trusted": true
+      },
+      {
+        "busy": true,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394936.996697,
+        "trusted": true,
+        "x": 2731.82421875,
+        "y": 39.8828125
+      },
+      {
+        "currentSpaces": [
+          3,
+          699
+        ],
+        "event": "captured",
+        "frame": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1723,
+          "y": 31
+        },
+        "pid": 46868,
+        "spaces": [
+          3
+        ],
+        "time": 394937.01475883333,
+        "windowID": 39302
+      },
+      {
+        "busy": true,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394954.25142395834,
+        "trusted": true,
+        "x": 2748.2421875,
+        "y": 40.078125
+      },
+      {
+        "currentSpaces": [
+          3,
+          699
+        ],
+        "event": "captured",
+        "frame": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1856,
+          "y": 31
+        },
+        "pid": 9339,
+        "spaces": [
+          3
+        ],
+        "time": 394954.3986087917,
+        "windowID": 37431
+      },
+      {
+        "command": false,
+        "event": "up",
+        "hasPreview": false,
+        "hovered": -1,
+        "moved": false,
+        "time": 394957.25085862505
+      },
+      {
+        "busy": false,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394961.41662541666,
+        "trusted": true,
+        "x": 2624.99609375,
+        "y": 1481.9296875
+      },
+      {
+        "busy": false,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394961.5487725,
+        "trusted": true,
+        "x": 2624.99609375,
+        "y": 1481.9296875
+      },
+      {
+        "currentSpaces": [
+          3,
+          699
+        ],
+        "event": "captured",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2351,
+          "y": 1474
+        },
+        "pid": 9339,
+        "spaces": [
+          699
+        ],
+        "time": 394961.5576109167,
+        "windowID": 37431
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2351,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394961.55827475,
+        "x": 2624.99609375,
+        "y": 1481.9296875
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2351,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394961.5762750417,
+        "x": 2624.99609375,
+        "y": 1481.9296875
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2351,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394961.5925649167,
+        "x": 2624.99609375,
+        "y": 1481.9296875
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2351,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394961.6094034167,
+        "x": 2624.99609375,
+        "y": 1481.9296875
+      },
+      {
+        "command": false,
+        "event": "up",
+        "hasPreview": false,
+        "hovered": -1,
+        "moved": false,
+        "time": 394961.62211558333
+      },
+      {
+        "busy": true,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394965.3738069584,
+        "trusted": true,
+        "x": 3549.13671875,
+        "y": 939.19140625
+      },
+      {
+        "busy": false,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394977.5011054167,
+        "trusted": true,
+        "x": 640,
+        "y": 43
+      },
+      {
+        "currentSpaces": [
+          3,
+          699
+        ],
+        "event": "captured",
+        "frame": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "pid": 46868,
+        "spaces": [
+          3
+        ],
+        "time": 394977.5246122917,
+        "windowID": 39302
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 1409,
+          "width": 1280,
+          "x": 0,
+          "y": 31
+        },
+        "rejected": false,
+        "time": 394977.52764345834,
+        "x": 640,
+        "y": 43
+      },
+      {
+        "event": "cancel",
+        "time": 394977.5406860417
+      },
+      {
+        "busy": false,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394982.480635125,
+        "trusted": true,
+        "x": 2721.36328125,
+        "y": 2003.62890625
+      },
+      {
+        "currentSpaces": [
+          3,
+          699
+        ],
+        "event": "captured",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "pid": 9339,
+        "spaces": [
+          699
+        ],
+        "time": 394982.4945905,
+        "windowID": 37431
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.495648625,
+        "x": 2721.36328125,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.5600469167,
+        "x": 2721.36328125,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.5627387917,
+        "x": 2721.36328125,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.58001508337,
+        "x": 2716.1328125,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.5987875,
+        "x": 2716.1328125,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.61346670834,
+        "x": 2716.1328125,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.63425212505,
+        "x": 2640.515625,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "confirmations": 0,
+        "event": "sample",
+        "frame": {
+          "height": 922,
+          "width": 470,
+          "x": 2719,
+          "y": 1474
+        },
+        "rejected": false,
+        "time": 394982.645850375,
+        "x": 2585.27734375,
+        "y": 2003.62890625
+      },
+      {
+        "command": false,
+        "event": "up",
+        "hasPreview": false,
+        "hovered": -1,
+        "moved": false,
+        "time": 394982.8648140417
+      },
+      {
+        "busy": false,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394983.99529575004,
+        "trusted": true,
+        "x": 3446.390625,
+        "y": 841.3828125
+      },
+      {
+        "busy": false,
+        "command": false,
+        "enabled": true,
+        "event": "down",
+        "missionControl": false,
+        "nativeMissionControl": false,
+        "time": 394991.9099697917,
+        "trusted": true,
+        "x": 10,
+        "y": 41
+      }
+    ],
+    "interpretation": "Invalidated by outside-helper pointer/focus interference. Original Arc bounds were not journaled and cannot safely be reconstructed. Later pointer movement also changed Arc. Do not count as passing soak."
+  },
+  {
+    "cleanup": [
+      "Restore com.apple.finder: true",
+      "Restore local.desknames.app: true",
+      "Restore md.obsidian: true",
+      "Restore com.apple.finder: true",
+      "Restore com.apple.TextEdit: true",
+      "Installed DeskNames running: true"
+    ],
+    "injectedPresses": 377,
+    "operatingSystem": "Version 26.6.2 (Build 25G83)",
+    "seed": 232392629817621,
+    "soakPresses": 300,
+    "storage": "/var/folders/l4/d106764j37xdrsq9w8k5z9_m0000gn/T/desknames-hotkey-C6961346-672D-4330-88C1-ADA506CC22DA",
+    "trusted": true,
+    "sourceReport": "/tmp/desknames-hotkey-guarded.json",
+    "observations": [
+      {
+        "actionID": 321,
+        "actual": {
+          "height": 1409,
+          "width": 1280,
+          "x": 1280,
+          "y": 31
+        },
+        "bundle": "com.apple.finder",
+        "latency": 1.50461841665674,
+        "reason": "Moved Finder to pane 2.",
+        "result": "FAIL",
+        "scenario": "chord-4-2",
+        "sequence": 30,
+        "target": {
+          "height": 1409,
+          "width": 3840,
+          "x": 1280,
+          "y": 31
+        }
+      }
+    ],
+    "interpretation": "Only Finder reverse chord failed; all other scenarios passed. This is still not an overall passing run."
+  }
+]
