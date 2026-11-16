@@ -366,6 +366,10 @@ final class LabelPanel: NSPanel {
         workspace.showSwitcher = { [weak self] in self?.showSwitcher() }
         workspace.onSwitch = { [weak self] in self?.switcher?.orderOut(nil) }
         hotkeys=HotKeys { [weak self] id in MainActor.assumeIsolated {self?.shortcut(id)} }
+        hotkeys?.modifiersChanged = { [weak self] modifiers in
+            MainActor.assumeIsolated { self?.workspace.paneRangeChord.modifiersChanged(modifiers) }
+        }
+        hotkeys?.chordInterrupted = { [weak self] in MainActor.assumeIsolated { self?.workspace.paneRangeChord.reset() } }
         shortcuts.onChange = { [weak self] enabled,bindings in
             guard let self else{return ""}
             let result=self.hotkeys?.apply(enabled:enabled,bindings:bindings) ?? ""
@@ -380,7 +384,7 @@ final class LabelPanel: NSPanel {
         timer?.tolerance=0.04
         RunLoop.main.add(timer!,forMode:.common)
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.store.refresh();self?.workspace.tick() }
+            MainActor.assumeIsolated { self?.workspace.paneRangeChord.reset();self?.store.refresh();self?.workspace.tick() }
         }
         // DeskNames has no Dock icon or window, so a first launch looks like nothing happened.
         // Show the panel once for new installs; existing users with names or layouts skip it.
@@ -392,10 +396,11 @@ final class LabelPanel: NSPanel {
         }
     }
     func shortcut(_ id:UInt32) {
+        if !(320...323).contains(id) { workspace.paneRangeChord.reset() }
         shortcuts.lastAction=ShortcutAction.all.first(where:{$0.id==id})?.name ?? "Unknown action"
         if !workspace.busy {workspace.message=""}
         if let action=WindowAction.allCases.first(where:{$0.id==id}) { workspace.performWindowAction(action,focused:true);return }
-        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id); return }
+        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id, modifiers: shortcuts.bindings[id]?.modifiers ?? 0); return }
         if id==100 {showSwitcher();return}
         if id==ShortcutAction.pin.id {workspace.togglePin(workspace.native.focusedWindow());return}
         store.refresh()

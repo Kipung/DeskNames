@@ -109,8 +109,9 @@ extension LayoutController {
             monitorPresets.set(display.profile, enabled: true, configuration: config)
         } else { panes.set(config, for: desktop.id) }
     }
-    func performPaneShortcut(_ id: UInt32) {
-        guard !busy || ((320...323).contains(id) && canRetargetPlacement) else { message = "Finish the window operation before changing pane layouts."; return }
+    func performPaneShortcut(_ id: UInt32, modifiers: UInt32 = 0) {
+        if !(320...323).contains(id) { paneRangeChord.reset() }
+        guard !busy || ((320...323).contains(id) && canRetargetPlacement) else { paneRangeChord.reset(); message = "Finish the window operation before changing pane layouts."; return }
         if id == PaneShortcut.toggleLinked {
             panes.setLinkedResizing(!panes.linkedResizing)
             message = panes.linkedResizing ? "Linked pane resizing on. Drag a handle between snapped windows." : "Linked pane resizing off."
@@ -118,15 +119,18 @@ extension LayoutController {
         }
         store.refresh()
         guard let desktop = native.activeDesktop(reader: store.reader), !desktop.id.isEmpty else {
+            paneRangeChord.reset()
             message = "No ordinary desktop is available for pane layouts."; return
         }
         let config = paneConfiguration(for: desktop.id)
         if (320...323).contains(id) {
             guard let candidate = native.focusedWindow(), let screen = screenFor(candidate.frame),
-                  screenUUID(screen) == desktop.display else { message = "Focus a window on this desktop first."; return }
-            let geometry = PaneGeometry(area: screenArea(screen), configuration: config, pixelScale: screen.backingScaleFactor)
+                  screenUUID(screen) == desktop.display else { paneRangeChord.reset(); message = "Focus a window on this desktop first."; return }
+            let context = paneRangeContext(window: candidate, desktop: desktop, screen: screen)
+            let geometry = context.geometry
             let index = Int(id - 320)
-            guard geometry.cells.indices.contains(index) else { message = "This layout has only \(geometry.cells.count) panes."; return }
+            guard let range = paneRangeChord.press(index, modifiers: modifiers, context: context),
+                  let frame = geometry.frame(spanning: range) else { message = "This layout has only \(geometry.cells.count) panes."; return }
             run(interruptible: true) {
                 guard let window = await self.native.refreshedForOperation(candidate), window.spaceIDs == [desktop.spaceID],
                       self.paneConfiguration(for: desktop.id) == config,
@@ -134,10 +138,11 @@ extension LayoutController {
                     throw WindowIssue("The window or desktop changed. Try again.")
                 }
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
-                try await self.native.animateFrames([(window, geometry.cells[index])])
-                guard self.native.verifyFrame(geometry.cells[index], window: window) else { return "The window needs a larger pane." }
+                try await self.native.animateFrames([(window, frame)])
+                guard self.native.verifyFrame(frame, window: window) else { return "The window needs a larger pane." }
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
-                return "Moved \(window.appName) to pane \(index + 1)."
+                let destination = range.count == 1 ? "pane \(index + 1)" : "panes \(range.lowerBound + 1)–\(range.upperBound + 1)"
+                return "Moved \(window.appName) to \(destination)."
             }
             return
         }

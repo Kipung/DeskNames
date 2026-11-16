@@ -136,6 +136,12 @@ final class HotKeys {
     private var refs:[UInt32:EventHotKeyRef]=[:]
     private var handler:EventHandlerRef?
     private var active=Set<UInt32>()
+    private var activeBindings: [UInt32: ShortcutBinding] = [:]
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
+    private var activationObserver: NSObjectProtocol?
+    var modifiersChanged: ((UInt32) -> Void)?
+    var chordInterrupted: (() -> Void)?
     private(set) var unavailable = Set<UInt32>()
     private let action:(UInt32)->Void
     private let registerKey:(UInt32,ShortcutBinding)->Bool
@@ -175,11 +181,42 @@ final class HotKeys {
                 success=status==noErr && ref != nil
                 if success {refs[entry.id]=ref}
             } else {success=registerKey(entry.id,binding)}
-            if success {active.insert(entry.id)} else {unavailable.insert(entry.id);failed.append(entry.name)}
+            if success {active.insert(entry.id);activeBindings[entry.id]=binding} else {unavailable.insert(entry.id);failed.append(entry.name)}
         }
+        if usesCarbon { observeChordInput() }
         return failed.isEmpty ? "" : "Unavailable shortcuts: "+failed.joined(separator:", ")+". Choose another combination."
     }
+    private func observeChordInput() {
+        let events: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: events) { [weak self] in self?.observeChordEvent($0) }
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { [weak self] event in
+            self?.observeChordEvent(event)
+            return event
+        }
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
+                                                                               object: nil, queue: .main) { [weak self] _ in
+            self?.chordInterrupted?()
+        }
+    }
+    private func observeChordEvent(_ event: NSEvent) {
+        observeChordInput(event.type, key: event.type == .keyDown ? UInt32(event.keyCode) : 0,
+                          modifiers: ShortcutBinding.carbonModifiers(event.modifierFlags))
+    }
+    func observeChordInput(_ type: NSEvent.EventType, key: UInt32, modifiers: UInt32) {
+        modifiersChanged?(modifiers)
+        if type == .flagsChanged { return }
+        if type == .keyDown, activeBindings.contains(where: {
+            (320...323).contains($0.key) && $0.value == ShortcutBinding(key: key, modifiers: modifiers)
+        }) { return }
+        chordInterrupted?()
+    }
     private func clear() {
+        chordInterrupted?()
+        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
+        globalMonitor = nil; localMonitor = nil; activationObserver = nil
+        activeBindings.removeAll()
         active.removeAll()
         for ref in refs.values {UnregisterEventHotKey(ref)}
         refs.removeAll()

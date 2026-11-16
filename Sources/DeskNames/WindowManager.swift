@@ -590,6 +590,7 @@ final class NativeWindows {
     @Published var shortcutStatus=""
     let native:NativeWindows
     let frameHistory = WindowFrameHistory()
+    var paneRangeChord = PaneRangeChord()
     let panes: PanePreferences
     let monitorPresets: MonitorPresets
     let routing: RoutingSettings
@@ -816,6 +817,7 @@ final class NativeWindows {
     // otherwise the 0.2 s timer redraws the whole editor five times a second.
     func setTrusted() {let t=native.trusted;if trusted != t {trusted=t}}
     func tick() {
+        updatePaneRangeChord()
         setTrusted()
         scanNewWindows()
         followPinnedWindows()

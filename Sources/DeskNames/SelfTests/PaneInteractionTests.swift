@@ -1,6 +1,7 @@
 import AppKit
 
 @MainActor func runPaneInteractionTests() throws {
+    try runPaneRangeTests()
     // Divider handles hide behind windows that cover them, but not behind their own panes or windows further back.
     let handle = CGRect(x: 954, y: 500, width: 12, height: 80)
     let left = (id: UInt32(1), frame: CGRect(x: 0, y: 40, width: 960, height: 1040))
