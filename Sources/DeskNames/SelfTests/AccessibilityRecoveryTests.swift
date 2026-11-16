@@ -17,7 +17,7 @@ import AppKit
     census.observe(.cannotComplete)
     census.observe(.success)
     precondition(!census.complete, "An app or window timeout must prevent a partial census from replacing a saved layout")
-    do { _ = try WindowDiscovery(windows: [], complete: false).forLayout(); preconditionFailure("Partial discovery must refuse layout capture and matching") }
+    do { _ = try WindowCensus(windows: [], complete: false).forLayout(); preconditionFailure("Partial discovery must refuse layout capture and matching") }
     catch is WindowIssue {} catch { preconditionFailure("Unexpected discovery error") }
     let stale = Desktop(id: "original", spaceID: 1, display: "test", position: 0, number: 1, isCurrent: true, isFullScreen: false)
     let current = Desktop(id: "new", spaceID: 2, display: "test", position: 1, number: 2, isCurrent: true, isFullScreen: false)

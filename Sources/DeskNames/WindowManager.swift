@@ -169,7 +169,7 @@ struct AccessibilityCensusStatus {
     }
 }
 
-struct WindowDiscovery {
+struct WindowCensus {
     let windows: [LiveWindow]
     let complete: Bool
     func forLayout() throws -> [LiveWindow] {
@@ -205,6 +205,7 @@ private struct AccessibilityListedWindow: @unchecked Sendable {
 }
 private struct AccessibilityWindowCensus: Sendable {
     var windows: [AccessibilityListedWindow] = []
+    var observed: Set<WindowIdentity> = []
     var complete = true
 }
 
@@ -236,23 +237,55 @@ final class NativeWindows {
         self.trustCheck=trustCheck;self.includeExternal=includeExternal;self.diagnosticsDirectory=diagnosticsDirectory
     }
     var trusted:Bool {trustCheck()}
-    @MainActor func focusedWindowForOperation() async -> LiveWindow? {
-        guard trusted, !Task.isCancelled, let frontmost = NSWorkspace.shared.frontmostApplication else { return nil }
+    @MainActor func focusedWindowForOperation(onFailure: (String) -> Void = { _ in }) async -> LiveWindow? {
+        func refuse(_ reason: String) -> LiveWindow? {
+            recordWindowDiagnostic("focused-window-result.json", ["refusal": reason])
+            onFailure(reason)
+            return nil
+        }
+        guard trusted else { return refuse("accessibility-off") }
+        guard !Task.isCancelled, let frontmost = NSWorkspace.shared.frontmostApplication else { return nil }
         let pid = frontmost.processIdentifier
         let request = FocusedWindowRequest(pid: pid)
         if pid == getpid() { return NSApp.keyWindow.flatMap(localSnapshot) }
         guard includeExternal else { return nil }
-        let snapshot: AccessibilitySnapshot? = await AccessibilityWorker.cancellableRead(on: Self.accessibilityQueue(for: pid), cancelledValue: nil) { cancellation in
-                let app = AXUIElementCreateApplication(pid)
-                AXUIElementSetMessagingTimeout(app, 0.2)
-                guard let value = axValue(app, kAXFocusedWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() else {
-                    return nil
-                }
-                guard !cancellation.isCancelled else { return nil }
-                return Self.inspectAccessibilityWindow(value as! AXUIElement, messagingTimeout: 0.1)
+        let result: (AccessibilitySnapshot?, String) = await AccessibilityWorker.cancellableRead(
+            on: Self.accessibilityQueue(for: pid), cancelledValue: (nil, "cancelled")) { cancellation in
+            let app = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(app, 0.2)
+            let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
+            func permitted() -> Bool {
+                budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: cancellation.isCancelled)
+            }
+            do {
+                let snapshot = try WindowDiscovery.focused(pid: pid, focused: Self.windowAttribute(app, kAXFocusedWindowAttribute),
+                    front: { permitted() ? WindowDiscovery.foremost(for: pid, in: Self.onScreenWindows()) : nil },
+                    main: {
+                        guard permitted(), case .value(let value) = Self.windowAttribute(app, kAXMainWindowAttribute) else { return nil }
+                        return value
+                    },
+                    windows: { permitted() ? axValue(app, kAXWindowsAttribute) as? [AXUIElement] ?? [] : [] },
+                    identity: { element in
+                        guard permitted() else { return nil }
+                        AXUIElementSetMessagingTimeout(element, 0.1)
+                        return Self.accessibilityIdentity(element)
+                    }, inspect: { element in
+                        guard permitted() else { throw WindowDiscoveryFailure("discovery-timeout") }
+                        var reason = "focused-window-ineligible"
+                        guard let snapshot = Self.inspectAccessibilityWindow(element, messagingTimeout: 0.1, onFailure: { reason = $0 }) else {
+                            throw WindowDiscoveryFailure(reason)
+                        }
+                        return snapshot
+                    }, currentPID: { pid })
+                return (snapshot, "")
+            } catch let failure as WindowDiscoveryFailure { return (nil, failure.reason) }
+            catch { return (nil, "window-discovery-failed") }
         }
-        guard request.accepts(currentPID: NSWorkspace.shared.frontmostApplication?.processIdentifier, trusted: trusted, cancelled: Task.isCancelled),
-              let snapshot, snapshot.pid == pid, let frame = Self.windowServerFrame(id: snapshot.id, pid: pid) else { return nil }
+        guard request.accepts(currentPID: NSWorkspace.shared.frontmostApplication?.processIdentifier, trusted: trusted, cancelled: Task.isCancelled) else {
+            return refuse("frontmost-app-changed")
+        }
+        guard let snapshot = result.0 else { return refuse(result.1) }
+        guard snapshot.pid == pid, let frame = Self.windowServerFrame(id: snapshot.id, pid: pid) else { return refuse("front-window-unavailable") }
         return LiveWindow(id: snapshot.id, target: .accessibility(snapshot.element), pid: pid, bundleID: snapshot.bundle,
                           appName: snapshot.appName, title: "", frame: frame, spaceIDs: spaces(for: snapshot.id), minimized: false)
     }
@@ -285,35 +318,117 @@ final class NativeWindows {
             guard let window = localSnapshot(localWindow), window.frame.contains(point) else { onFailure("ineligible-local-window"); return nil }
             return window
         }
+        guard includeExternal else { onFailure("external-windows-disabled"); return nil }
         let system = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(system, 0.1)
         var hit: AXUIElement?
         let result = AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit)
-        guard result == .success, let hit else { onFailure("hit-test-error \(result.rawValue)"); return nil }
+        var owner: pid_t?
+        if result == .success, let hit {
+            var pid: pid_t = 0
+            if AXUIElementGetPid(hit, &pid) == .success, pid > 0 { owner = pid }
+            if axValue(hit, kAXRoleAttribute) as? String == kAXWindowRole { return liveWindow(hit, onFailure: onFailure) }
+            if let value = axValue(hit, kAXWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() {
+                let element = value as! AXUIElement
+                if axValue(element, kAXRoleAttribute) as? String == kAXWindowRole { return liveWindow(element, onFailure: onFailure) }
+            }
+        }
+        guard let front = WindowDiscovery.foremost(at: point, in: Self.onScreenWindows()) else { onFailure("front-window-unavailable"); return nil }
+        let app = AXUIElementCreateApplication(front.identity.pid)
+        AXUIElementSetMessagingTimeout(app, 0.1)
+        do {
+            let element = try WindowDiscovery.exactWindow(for: front, owner: owner,
+                windows: { axValue(app, kAXWindowsAttribute) as? [AXUIElement] ?? [] }, identity: Self.accessibilityIdentity)
+            return liveWindow(element, onFailure: onFailure)
+        } catch let failure as WindowDiscoveryFailure { onFailure(failure.reason); return nil }
+        catch { onFailure("window-discovery-failed"); return nil }
+    }
+    private static func accessibilityIdentity(_ element: AXUIElement) -> WindowIdentity? {
         var pid: pid_t = 0
-        AXUIElementGetPid(hit, &pid)
-        let role = axValue(hit, kAXRoleAttribute) as? String ?? "missing-role"
-        let element: AXUIElement
-        if role == kAXWindowRole { element = hit }
-        else if let value = axValue(hit, kAXWindowAttribute), CFGetTypeID(value) == AXUIElementGetTypeID() { element = value as! AXUIElement }
-        else { onFailure("no-containing-window pid=\(pid) role=\(role)"); return nil }
-        return liveWindow(element, onFailure: onFailure)
+        var id: UInt32 = 0
+        guard AXUIElementGetPid(element, &pid) == .success, let getID = windowIDFunction,
+              getID(element, &id) == 0, id > 0 else { return nil }
+        return WindowIdentity(id: id, pid: pid)
+    }
+    private static func eligibilityMetadata(_ element: AXUIElement) -> WindowEligibilityMetadata {
+        var subroleValue: CFTypeRef?
+        let subroleError = AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleValue)
+        let subrole = subroleValue as? String
+        let subroleFailure = WindowDiscovery.attributeFailure(subroleError, name: kAXSubroleAttribute) ??
+            (subroleError == .success && subroleValue != nil && subrole == nil ? "AXSubrole-invalid-type" : nil)
+        var settable = DarwinBoolean(false)
+        var positionSettable: Bool?
+        if subrole == nil || subrole == "" || subrole == "AXUnknown" {
+            if AXUIElementIsAttributeSettable(element, kAXPositionAttribute as CFString, &settable) == .success {
+                positionSettable = settable.boolValue
+            }
+        }
+        return WindowEligibilityMetadata(role: axValue(element, kAXRoleAttribute) as? String,
+            subrole: subrole, subroleReadFailure: subroleFailure,
+            modal: axValue(element, kAXModalAttribute) as? Bool ?? false,
+            fullScreen: axValue(element, "AXFullScreen") as? Bool ?? false,
+            minimized: axValue(element, kAXMinimizedAttribute) as? Bool ?? false,
+            positionSettable: positionSettable,
+            hasSheets: (axValue(element, kAXChildrenAttribute) as? [AXUIElement] ?? []).contains {
+                axValue($0, kAXRoleAttribute) as? String == kAXSheetRole
+            })
+    }
+    private static func onScreenWindows() -> [WindowServerCandidate] {
+        let infos = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        return infos.compactMap { info in
+            guard let id = info[kCGWindowNumber as String] as? UInt32,
+                  let pid = info[kCGWindowOwnerPID as String] as? Int32,
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  let bounds = info[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return nil }
+            return WindowServerCandidate(identity: WindowIdentity(id: id, pid: pid), layer: layer, bounds: frame,
+                onScreen: info[kCGWindowIsOnscreen as String] as? Bool ?? false,
+                alpha: info[kCGWindowAlpha as String] as? Double ?? 1)
+        }
+    }
+    private static func windowAttribute(_ app: AXUIElement, _ name: String) -> WindowAttributeRead<AXUIElement> {
+        var value: CFTypeRef?
+        let error = AXUIElementCopyAttributeValue(app, name as CFString, &value)
+        if error == .noValue || error == .attributeUnsupported { return .absent }
+        guard error == .success else { return .failure("\(name)-error \(error.rawValue)") }
+        guard let value else { return .absent }
+        guard CFGetTypeID(value) == AXUIElementGetTypeID() else { return .failure("\(name)-invalid-type") }
+        return .value(value as! AXUIElement)
+    }
+    @MainActor func focusedWindow(onFailure: (String) -> Void = { _ in }) -> LiveWindow? {
+        func refuse(_ reason: String) -> LiveWindow? {
+            recordWindowDiagnostic("focused-window-result.json", ["refusal": reason])
+            onFailure(reason)
+            return nil
+        }
+        guard trusted else { return refuse("accessibility-off") }
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return refuse("frontmost-app-unavailable") }
+        if pid == getpid() {
+            guard let window = NSApp.keyWindow, let snapshot = localSnapshot(window) else { return refuse("ineligible-local-window") }
+            return snapshot
+        }
+        guard includeExternal else { return refuse("external-windows-disabled") }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.2)
+        do {
+            return try WindowDiscovery.focused(pid: pid, focused: Self.windowAttribute(app, kAXFocusedWindowAttribute),
+                front: { WindowDiscovery.foremost(for: pid, in: Self.onScreenWindows()) },
+                main: { if case .value(let value) = Self.windowAttribute(app, kAXMainWindowAttribute) { return value }; return nil },
+                windows: { axValue(app, kAXWindowsAttribute) as? [AXUIElement] ?? [] }, identity: Self.accessibilityIdentity,
+                inspect: { element in
+                    var reason = "focused-window-ineligible"
+                    guard let window = self.liveWindow(element, onFailure: { reason = $0 }) else { throw WindowDiscoveryFailure(reason) }
+                    return window
+                }, currentPID: { NSWorkspace.shared.frontmostApplication?.processIdentifier })
+        } catch let failure as WindowDiscoveryFailure { return refuse(failure.reason) }
+        catch { return refuse("window-discovery-failed") }
     }
     @MainActor func captureWindow(at point: CGPoint, localWindow: NSWindow? = nil) -> WindowCapture? {
         guard trusted else { return nil }
         if let localWindow { return window(at: point, localWindow: localWindow).map(WindowCapture.local) }
-        guard includeExternal,
-              let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
-              let hit = infos.first(where: { info in
-                  guard info[kCGWindowLayer as String] as? Int == 0,
-                        let bounds = info[kCGWindowBounds as String] as? [String: Any],
-                        let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return false }
-                  return frame.contains(point)
-              }), let id = hit[kCGWindowNumber as String] as? UInt32,
-              let pid = hit[kCGWindowOwnerPID as String] as? pid_t, pid != getpid(),
-              let bounds = hit[kCGWindowBounds as String] as? [String: Any],
-              let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return nil }
-        return .external(id: id, pid: pid, frame: frame)
+        guard includeExternal, let front = WindowDiscovery.foremost(at: point, in: Self.onScreenWindows()),
+              front.layer == 0, front.identity.pid != getpid() else { return nil }
+        return .external(id: front.identity.id, pid: front.identity.pid, frame: front.bounds)
     }
     @MainActor func windowForOperation(_ capture: WindowCapture) async -> LiveWindow? {
         guard trusted, !Task.isCancelled else { return nil }
@@ -359,10 +474,7 @@ final class NativeWindows {
         guard pid != getpid() else { onFailure("desknames-window"); return nil }
         guard let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated,
               app.activationPolicy == .regular, let bundle = app.bundleIdentifier else { onFailure("ineligible-app pid=\(pid)"); return nil }
-        let subrole = axValue(element, kAXSubroleAttribute) as? String
-        guard subrole == kAXStandardWindowSubrole else { onFailure("window-subrole pid=\(pid) app=\(bundle) subrole=\(subrole ?? "missing")"); return nil }
-        guard axValue(element, "AXFullScreen") as? Bool != true else { onFailure("fullscreen-window app=\(bundle)"); return nil }
-        guard axValue(element, kAXMinimizedAttribute) as? Bool != true else { onFailure("minimized-window app=\(bundle)"); return nil }
+        if let refusal = eligibilityMetadata(element).refusal(for: .operation) { onFailure("\(refusal) pid=\(pid) app=\(bundle)"); return nil }
         typealias GetID = @convention(c)(AXUIElement, UnsafeMutablePointer<UInt32>) -> Int32
         guard let fn = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else { onFailure("window-identity-api-unavailable"); return nil }
         var id: UInt32 = 0
@@ -589,12 +701,13 @@ final class NativeWindows {
                 guard budget.permitsRead(now: ProcessInfo.processInfo.systemUptime, cancelled: cancellation.isCancelled) else { result.complete = false; break }
                 // An application's timeout does not apply to the window objects it returns.
                 AXUIElementSetMessagingTimeout(window, 0.1)
-                guard value(window, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole,
-                      value(window, "AXFullScreen") as? Bool != true else { continue }
                 var id: UInt32 = 0
                 let identityError = AXError(rawValue: getID(window, &id)) ?? .failure
                 status.observe(identityError)
                 guard identityError == .success, id > 0,
+                      accessibilityIdentity(window)?.pid == app.pid else { continue }
+                result.observed.insert(WindowIdentity(id: id, pid: app.pid))
+                guard eligibilityMetadata(window).refusal(for: .census) == nil,
                       let frame = windowServerFrame(id: id, pid: app.pid), frame.width > 80, frame.height > 50 else { continue }
                 result.windows.append(AccessibilityListedWindow(element: window, id: id, app: app, frame: frame,
                     title: value(window, kAXTitleAttribute) as? String ?? "",
@@ -613,22 +726,22 @@ final class NativeWindows {
         guard trusted else { throw WindowIssue("Enable Accessibility before arranging windows.") }
         return try census.forLayout()
     }
-    @MainActor private func windowCensus() async -> WindowDiscovery {
-        guard trusted, !Task.isCancelled else { return WindowDiscovery(windows: [], complete: false) }
+    @MainActor private func windowCensus() async -> WindowCensus {
+        guard trusted, !Task.isCancelled else { return WindowCensus(windows: [], complete: false) }
         let apps = accessibilityApplications()
         let cancellation = AccessibilityReadCancellation()
         let census: AccessibilityWindowCensus = await withTaskCancellationHandler(operation: {
             await AccessibilityWorker.read(on: Self.accessibilityDiscovery) { Self.listWindows(apps, cancellation: cancellation) }
         }, onCancel: { cancellation.cancel() })
-        guard trusted, !Task.isCancelled else { return WindowDiscovery(windows: [], complete: false) }
-        return WindowDiscovery(windows: mergeWindows(census.windows), complete: census.complete)
+        guard trusted, !Task.isCancelled else { return WindowCensus(windows: [], complete: false) }
+        return WindowCensus(windows: mergeWindows(census.windows, observed: census.observed), complete: census.complete)
     }
     @MainActor func windows() -> [LiveWindow] {
         guard trusted else { knownWindows = [:]; return [] }
         let census = Self.listWindows(accessibilityApplications())
-        return mergeWindows(census.windows)
+        return mergeWindows(census.windows, observed: census.observed)
     }
-    @MainActor private func mergeWindows(_ snapshots: [AccessibilityListedWindow]) -> [LiveWindow] {
+    @MainActor private func mergeWindows(_ snapshots: [AccessibilityListedWindow], observed: Set<WindowIdentity>) -> [LiveWindow] {
         var result = snapshots.compactMap { value -> LiveWindow? in
             guard NSRunningApplication(processIdentifier: value.app.pid)?.bundleIdentifier == value.app.bundle,
                   let frame = Self.windowServerFrame(id: value.id, pid: value.app.pid) else { return nil }
@@ -639,7 +752,8 @@ final class NativeWindows {
         result.append(contentsOf:NSApp.windows.compactMap {localSnapshot($0)})
         // AXWindows can omit windows on inactive Spaces. Retain windows already seen,
         // but validate their owner and geometry against WindowServer on every refresh.
-        for w in result {knownWindows[w.id]=w}
+        knownWindows=WindowDiscovery.reconcile(cached:knownWindows,observed:observed,accepted:result,
+            identity:{WindowIdentity(id:$0.id,pid:$0.pid)})
         let infos=CGWindowListCopyWindowInfo(.optionAll,kCGNullWindowID) as? [[String:Any]] ?? []
         var current:[UInt32:LiveWindow]=[:]
         for info in infos {
