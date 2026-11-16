@@ -85,24 +85,31 @@ enum AccessibilityWindowWrite: Sendable {
         if target.size != movingSize { steps.append(.size(target.size)) }
         return steps
     }
-    func apply(to element: AXUIElement, currentFrame: CGRect? = nil) -> AXError {
-        switch self {
-        case .position(var point):
-            guard let value=AXValueCreate(.cgPoint,&point) else{return .illegalArgument}
-            return AXUIElementSetAttributeValue(element,kAXPositionAttribute as CFString,value)
-        case .size(var size):
-            guard let value=AXValueCreate(.cgSize,&size) else{return .illegalArgument}
-            return AXUIElementSetAttributeValue(element,kAXSizeAttribute as CFString,value)
-        case .frame(let rect):
+    func apply(to element: AXUIElement, currentFrame: CGRect? = nil,
+               observe: (AccessibilityWindowWrite, AXError) -> Void = { _, _ in }) -> AXError {
+        if case .frame(let rect) = self {
             var result = AXError.success
             for step in Self.frameSteps(to: rect, from: currentFrame) {
-                let error = step.apply(to: element)
+                let error = step.apply(to: element, observe: observe)
                 if result == .success { result = error }
             }
             return result
-        case .minimized(let value):return AXUIElementSetAttributeValue(element,kAXMinimizedAttribute as CFString,value ? kCFBooleanTrue:kCFBooleanFalse)
-        case .raise:return AXUIElementPerformAction(element,kAXRaiseAction as CFString)
         }
+        let result: AXError
+        switch self {
+        case .position(var point):
+            guard let value = AXValueCreate(.cgPoint, &point) else { return .illegalArgument }
+            result = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, value)
+        case .size(var size):
+            guard let value = AXValueCreate(.cgSize, &size) else { return .illegalArgument }
+            result = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, value)
+        case .minimized(let value):
+            result = AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, value ? kCFBooleanTrue : kCFBooleanFalse)
+        case .raise: result = AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+        case .frame: preconditionFailure("Frame writes are expanded above")
+        }
+        observe(self, result)
+        return result
     }
 }
 
@@ -237,9 +244,10 @@ final class NativeWindows {
         self.trustCheck=trustCheck;self.includeExternal=includeExternal;self.diagnosticsDirectory=diagnosticsDirectory
     }
     var trusted:Bool {trustCheck()}
+    @MainActor var observeWrite: ((UInt32, String, Int32) -> Void)?
     @MainActor func frontmostWindowIdentity() -> WindowIdentity? {
         guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
-        return WindowDiscovery.foremost(for: pid, in: Self.onScreenWindows())?.identity
+        return WindowDiscovery.shortcutIdentity(for: pid, in: Self.onScreenWindows())
     }
     @MainActor func focusedWindowForOperation(onFailure: (String) -> Void = { _ in }) async -> LiveWindow? {
         func refuse(_ reason: String) -> LiveWindow? {
@@ -511,7 +519,7 @@ final class NativeWindows {
         guard let fn = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementGetWindow") else { onFailure("window-identity-api-unavailable"); return nil }
         var id: UInt32 = 0
         guard unsafeBitCast(fn, to: GetID.self)(element, &id) == 0, id > 0 else { onFailure("window-identity-unavailable app=\(bundle)"); return nil }
-        guard let frame = Self.windowServerFrame(id: id, pid: pid), frame.width > 80, frame.height > 50 else { onFailure("window-bounds-unavailable app=\(bundle) id=\(id)"); return nil }
+        guard let frame = Self.windowServerFrame(id: id, pid: pid), WindowDiscovery.operationBounds(frame) else { onFailure("window-bounds-unavailable app=\(bundle) id=\(id)"); return nil }
         return AccessibilitySnapshot(element:element,id:id,pid:pid,bundle:bundle,appName:app.localizedName ?? bundle,frame:frame)
     }
     @MainActor static func isLocalTitlebarPoint(_ point: CGPoint, in window: NSWindow) -> Bool {
@@ -627,16 +635,17 @@ final class NativeWindows {
     @MainActor func accessibilityWrite(_ window: LiveWindow, _ operation: AccessibilityWindowWrite, reuseValidatedElement: Bool = false) async -> AXError {
         guard case .accessibility(let fallback) = window.target else { return .illegalArgument }
         let request=AccessibilityWriteRequest(id:window.id,pid:window.pid,fallback:fallback,operation:operation)
-        return await withTaskCancellationHandler(operation: { await withCheckedContinuation { continuation in
+        let tracing = observeWrite != nil
+        let result: (error: AXError, writes: [(String, Int32)]) = await withTaskCancellationHandler(operation: { await withCheckedContinuation { continuation in
             Self.accessibilityQueue(for: window.pid).async {
-                guard !request.isCancelled else {continuation.resume(returning:.failure);return}
+                guard !request.isCancelled else {continuation.resume(returning: (.failure, []));return}
                 guard let currentFrame = Self.windowServerFrame(id: request.id, pid: request.pid) else {
-                    continuation.resume(returning: .invalidUIElement); return
+                    continuation.resume(returning: (.invalidUIElement, [])); return
                 }
                 let app = AXUIElementCreateApplication(request.pid)
                 AXUIElementSetMessagingTimeout(app, 0.5)
                 guard let getID = Self.windowIDFunction else {
-                    continuation.resume(returning: .notImplemented); return
+                    continuation.resume(returning: (.notImplemented, [])); return
                 }
                 let budget = AccessibilityReadBudget(now: ProcessInfo.processInfo.systemUptime)
                 func matches(_ element: AXUIElement) -> Bool {
@@ -651,15 +660,21 @@ final class NativeWindows {
                 // AXWindows can omit inactive-Space windows. A retained reference
                 // is usable only while both AX and WindowServer identities agree.
                 guard let element = fresh ?? (matches(request.fallback) ? request.fallback : nil) else {
-                    continuation.resume(returning: .invalidUIElement); return
+                    continuation.resume(returning: (.invalidUIElement, [])); return
                 }
-                guard !request.isCancelled else {continuation.resume(returning:.failure);return}
+                guard !request.isCancelled else {continuation.resume(returning: (.failure, []));return}
                 AXUIElementSetMessagingTimeout(element, 0.5)
-                let result = request.operation.apply(to:element, currentFrame: currentFrame)
+                var writes: [(String, Int32)] = []
+                let result = request.operation.apply(to:element, currentFrame: currentFrame) { operation, error in
+                    if tracing { writes.append((String(describing: operation), error.rawValue)) }
+                }
                 AXUIElementSetMessagingTimeout(element, 0.1)
-                continuation.resume(returning: result)
+                continuation.resume(returning: (result, writes))
             }
         } }, onCancel: {request.cancel()})
+        if result.writes.isEmpty { observeWrite?(window.id, String(describing: operation), result.error.rawValue) }
+        for (operation, error) in result.writes { observeWrite?(window.id, operation, error) }
+        return result.error
     }
     @MainActor func withImmediateFrames<T>(_ windows: [LiveWindow], operation: @MainActor () async throws -> T) async rethrows -> T {
         let started = ProcessInfo.processInfo.systemUptime

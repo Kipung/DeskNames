@@ -1,0 +1,2942 @@
+{
+  "applications": [
+    {
+      "bundleID": "md.obsidian",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility": "false",
+        "AXManualAccessibility.error": "0",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38128:layer=0:(1825.0, 274.0, 1470.0, 922.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38128"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility": "false",
+        "AXManualAccessibility.error": "0",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38128:layer=0:(1825.0, 274.0, 1470.0, 922.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38128"
+      },
+      "original": {
+        "height": 922,
+        "width": 1470,
+        "x": 1825,
+        "y": 274
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "elapsedSeconds": 0.03946395835373551,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.22915766667574644,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved Obsidian to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3724374166922644,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved Obsidian to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3793382500298321,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved Obsidian to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3708690833300352,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved Obsidian to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.33676879171980545,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved Obsidian to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3910747499903664,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved Obsidian to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.6000642916769721,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved Obsidian to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.5132055416470394,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved Obsidian to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.30793954170076177,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: Obsidian.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.39088895835448056,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: Obsidian.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.42225416662404314,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: Obsidian.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.005050291656516492,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "elapsedSeconds": 0.4444287916412577,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 38128
+    },
+    {
+      "bundleID": "com.microsoft.VSCode",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility": "false",
+        "AXManualAccessibility.error": "0",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38157:layer=0:(270.0, 156.0, 1200.0, 800.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38157"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility": "false",
+        "AXManualAccessibility.error": "0",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38157:layer=0:(270.0, 156.0, 1200.0, 800.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38157"
+      },
+      "original": {
+        "height": 800,
+        "width": 1200,
+        "x": 270,
+        "y": 156
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 800,
+            "width": 1200,
+            "x": 270,
+            "y": 156
+          },
+          "elapsedSeconds": 0.014874249987769872,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 800,
+            "width": 1200,
+            "x": 270,
+            "y": 156
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2753984166192822,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved Code to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.37705004162853584,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved Code to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4005412500118837,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved Code to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4014879166497849,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved Code to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.36349837499437854,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved Code to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2556569583248347,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved Code to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.5115197916748002,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved Code to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4744278750149533,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved Code to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.31232237501535565,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: Code.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.22983074997318909,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: Code.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.26855737500591204,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: Code.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.004676375014241785,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 800,
+            "width": 1200,
+            "x": 270,
+            "y": 156
+          },
+          "elapsedSeconds": 0.44370787497609854,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 800,
+            "width": 1200,
+            "x": 270,
+            "y": 156
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 800,
+            "width": 1200,
+            "x": 270,
+            "y": 156
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 800,
+            "width": 1200,
+            "x": 270,
+            "y": 156
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 38157
+    },
+    {
+      "bundleID": "com.spotify.client",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25205",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38162:layer=0:(1825.0, 274.0, 1470.0, 922.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38162"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25205",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38162:layer=0:(1825.0, 274.0, 1470.0, 922.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38162"
+      },
+      "original": {
+        "height": 922,
+        "width": 1470,
+        "x": 1825,
+        "y": 274
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "elapsedSeconds": 0.022871125023812056,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.24883820832474157,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved Spotify to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.41299604170490056,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved Spotify to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4099129583337344,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved Spotify to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4011924166115932,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved Spotify to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3513606666820124,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved Spotify to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.394109999993816,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved Spotify to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.5321426666923799,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved Spotify to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.6101157083176076,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved Spotify to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.22606787498807535,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: Spotify.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4046329999691807,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: Spotify.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.28183404164155945,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: Spotify.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.004441416647750884,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "elapsedSeconds": 0.4503584166523069,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 922,
+            "width": 1470,
+            "x": 1825,
+            "y": 274
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 38162
+    },
+    {
+      "bundleID": "com.hnc.Discord",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility": "false",
+        "AXManualAccessibility.error": "0",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38178:layer=0:(95.0, 84.0, 1280.0, 720.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38178"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility": "false",
+        "AXManualAccessibility.error": "0",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38178:layer=0:(95.0, 84.0, 1280.0, 720.0)",
+        "child.AXRole": "AXButton",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38178"
+      },
+      "original": {
+        "height": 720,
+        "width": 1280,
+        "x": 95,
+        "y": 84
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 720,
+            "width": 1280,
+            "x": 95,
+            "y": 84
+          },
+          "elapsedSeconds": 0.014116791659034789,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 720,
+            "width": 1280,
+            "x": 95,
+            "y": 84
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2570461666909978,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved Discord to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4095945416484028,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved Discord to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.38968645833665505,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved Discord to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.39281112496973947,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved Discord to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3141337083070539,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved Discord to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.36711558332899585,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved Discord to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.43723849998787045,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved Discord to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4438112916541286,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved Discord to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.26969966664910316,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: Discord.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.41035029164049774,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: Discord.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.28513666667276993,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: Discord.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.006895458325743675,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 720,
+            "width": 1280,
+            "x": 95,
+            "y": 84
+          },
+          "elapsedSeconds": 0.4533910416648723,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 720,
+            "width": 1280,
+            "x": 95,
+            "y": 84
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 720,
+            "width": 1280,
+            "x": 95,
+            "y": 84
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 720,
+            "width": 1280,
+            "x": 95,
+            "y": 84
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 38178
+    },
+    {
+      "bundleID": "company.thebrowser.Browser",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25205",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "37431:layer=0:(1856.0, 31.0, 1280.0, 1409.0)",
+        "child.AXRole": "AXGroup",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "37431"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25205",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "37431:layer=0:(1856.0, 31.0, 1280.0, 1409.0)",
+        "child.AXRole": "AXGroup",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "37431"
+      },
+      "original": {
+        "height": 1409,
+        "width": 1280,
+        "x": 1856,
+        "y": 31
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1856,
+            "y": 31
+          },
+          "elapsedSeconds": 0.22871137503534555,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1856,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3789459583349526,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved Arc to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.37565329170320183,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved Arc to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4179727916489355,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved Arc to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3730775416479446,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved Arc to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3018119166372344,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved Arc to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2978754583746195,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved Arc to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4155634166672826,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved Arc to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4080046666203998,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved Arc to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.29346100002294406,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: Arc.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.40420649998122826,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: Arc.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2506269167060964,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: Arc.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.008700416656211019,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1856,
+            "y": 31
+          },
+          "elapsedSeconds": 0.44929116661660373,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1856,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1856,
+            "y": 31
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1856,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 37431
+    },
+    {
+      "bundleID": "com.apple.finder",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25212",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38385:layer=0:(333.0, 690.0, 920.0, 464.0); 38384:layer=0:(304.0, 661.0, 920.0, 464.0); 38386:layer=0:(362.0, 719.0, 920.0, 464.0); 37602:layer=0:(2100.0, 268.0, 920.0, 464.0)",
+        "child.AXRole": "AXStaticText",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38385"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25212",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38385:layer=0:(333.0, 690.0, 920.0, 464.0); 38384:layer=0:(304.0, 661.0, 920.0, 464.0); 38386:layer=0:(362.0, 719.0, 920.0, 464.0); 37602:layer=0:(2100.0, 268.0, 920.0, 464.0)",
+        "child.AXRole": "AXStaticText",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38385"
+      },
+      "original": {
+        "height": 464,
+        "width": 920,
+        "x": 333,
+        "y": 690
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 464,
+            "width": 920,
+            "x": 333,
+            "y": 690
+          },
+          "elapsedSeconds": 0.05469329166226089,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 464,
+            "width": 920,
+            "x": 333,
+            "y": 690
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.36737079167505726,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved Finder to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.38910833332920447,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved Finder to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.38261162501294166,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved Finder to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3695104999933392,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved Finder to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.26978070836048573,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved Finder to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2691705416655168,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved Finder to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4018222083686851,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved Finder to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.39613641664618626,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved Finder to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2559666666784324,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: Finder.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4102487083291635,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: Finder.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.2663078333134763,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: Finder.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.008649625000543892,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 464,
+            "width": 920,
+            "x": 333,
+            "y": 690
+          },
+          "elapsedSeconds": 0.4872507083346136,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 464,
+            "width": 920,
+            "x": 333,
+            "y": 690
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 464,
+            "width": 920,
+            "x": 333,
+            "y": 690
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 464,
+            "width": 920,
+            "x": 333,
+            "y": 690
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 38385
+    },
+    {
+      "bundleID": "com.apple.TextEdit",
+      "finalMetadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25205",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38481:layer=0:(698.0, 110.0, 66.0, 20.0); 38431:layer=0:(692.0, 104.0, 603.0, 505.0)",
+        "child.AXRole": "AXStaticText",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38431"
+      },
+      "metadata": {
+        "AXChildren.error": "0",
+        "AXEnhancedUserInterface": "false",
+        "AXEnhancedUserInterface.error": "0",
+        "AXFocusedWindow.error": "0",
+        "AXFullScreen.error": "0",
+        "AXMainWindow.error": "0",
+        "AXManualAccessibility.error": "-25205",
+        "AXMinimized.error": "0",
+        "AXModal.error": "0",
+        "AXPosition.settable": "true",
+        "AXPosition.settableError": "0",
+        "AXRole": "AXWindow",
+        "AXRole.error": "0",
+        "AXSize.settable": "true",
+        "AXSize.settableError": "0",
+        "AXSubrole": "AXStandardWindow",
+        "AXSubrole.error": "0",
+        "AXWindows.error": "0",
+        "WindowServer.order": "38460:layer=0:(698.0, 110.0, 66.0, 20.0); 38431:layer=0:(692.0, 104.0, 603.0, 505.0)",
+        "child.AXRole": "AXStaticText",
+        "child.AXRole.error": "0",
+        "eligibility": "eligible",
+        "shortcutIdentity": "38431"
+      },
+      "original": {
+        "height": 505,
+        "width": 603,
+        "x": 692,
+        "y": 104
+      },
+      "steps": [
+        {
+          "actual": {
+            "height": 505,
+            "width": 603,
+            "x": 692,
+            "y": 104
+          },
+          "elapsedSeconds": 0.03143795829964802,
+          "eligibility": "eligible",
+          "name": "focused-discovery",
+          "reason": "eligible; exact WindowServer identity",
+          "result": "PASS",
+          "target": {
+            "height": 505,
+            "width": 603,
+            "x": 692,
+            "y": 104
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3958950000233017,
+          "eligibility": "eligible",
+          "name": "pane-1",
+          "reason": "Moved TextEdit to pane 1.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.41456991666927934,
+          "eligibility": "eligible",
+          "name": "pane-2",
+          "reason": "Moved TextEdit to pane 2.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.42273958335863426,
+          "eligibility": "eligible",
+          "name": "pane-3",
+          "reason": "Moved TextEdit to pane 3.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "elapsedSeconds": 0.404446791682858,
+          "eligibility": "eligible",
+          "name": "pane-4",
+          "reason": "Moved TextEdit to pane 4.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 1280,
+            "x": 3840,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4108175000292249,
+          "eligibility": "eligible",
+          "name": "range-3-4",
+          "reason": "Moved TextEdit to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3905137083493173,
+          "eligibility": "eligible",
+          "name": "range-4-2",
+          "reason": "Moved TextEdit to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.6390847083530389,
+          "eligibility": "eligible",
+          "name": "range-3-4-settled",
+          "reason": "Moved TextEdit to panes 3\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "elapsedSeconds": 0.4204651250038296,
+          "eligibility": "eligible",
+          "name": "range-4-2-settled",
+          "reason": "Moved TextEdit to panes 2\u20134.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 3840,
+            "x": 1280,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.27453070832416415,
+          "eligibility": "eligible",
+          "name": "Left half",
+          "reason": "Left half: TextEdit.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "elapsedSeconds": 0.3922889166860841,
+          "eligibility": "eligible",
+          "name": "Right half",
+          "reason": "Right half: TextEdit.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 2560,
+            "x": 2560,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.41628758335718885,
+          "eligibility": "eligible",
+          "name": "Maximize window",
+          "reason": "Maximize window: TextEdit.",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "elapsedSeconds": 0.00583599996753037,
+          "eligibility": "eligible",
+          "name": "pointer-discovery",
+          "reason": "Command-drag captureWindow/windowForOperation at title-bar point (2560.0, 43.0)",
+          "result": "PASS",
+          "target": {
+            "height": 1409,
+            "width": 5120,
+            "x": 0,
+            "y": 31
+          },
+          "AXWriteErrors": []
+        },
+        {
+          "actual": {
+            "height": 505,
+            "width": 603,
+            "x": 692,
+            "y": 104
+          },
+          "elapsedSeconds": 0.48425833333749324,
+          "eligibility": "eligible",
+          "name": "restore",
+          "reason": "Original WindowServer frame restored.",
+          "result": "PASS",
+          "target": {
+            "height": 505,
+            "width": 603,
+            "x": 692,
+            "y": 104
+          },
+          "AXWriteErrors": [
+            0
+          ]
+        },
+        {
+          "actual": {
+            "height": 505,
+            "width": 603,
+            "x": 692,
+            "y": 104
+          },
+          "elapsedSeconds": 0,
+          "eligibility": "eligible",
+          "name": "accessibility-modes",
+          "reason": "Enhanced UI and Manual Accessibility unchanged.",
+          "result": "PASS",
+          "target": {
+            "height": 505,
+            "width": 603,
+            "x": 692,
+            "y": 104
+          },
+          "AXWriteErrors": []
+        }
+      ],
+      "windowID": 38431
+    },
+    {
+      "bundleID": "com.mitchellh.ghostty",
+      "finalMetadata": {},
+      "metadata": {},
+      "steps": [
+        {
+          "elapsedSeconds": 0,
+          "eligibility": "unconfirmed",
+          "name": "precondition",
+          "reason": "No on-screen window on the current desktop. No desktop switch attempted.",
+          "refusal": "No on-screen window on the current desktop. No desktop switch attempted.",
+          "result": "UNAVAILABLE",
+          "AXWriteErrors": []
+        }
+      ]
+    }
+  ],
+  "operatingSystem": "Version 26.6.2 (Build 25G83)",
+  "storage": "Disposable UUID preference suite and temporary directory; complete trace retained locally under build/external-placement-audit/",
+  "trusted": true,
+  "executableSHA256": "58af84e82b72bc23e63b099d3edadd9de7c41714bd3ecf5c89623ed856d28b15",
+  "divider": {
+    "observations": [
+      {
+        "step": "visible",
+        "windows": [
+          {
+            "frame": [
+              2556,
+              706,
+              8,
+              60
+            ],
+            "id": 38491,
+            "isHandle": true,
+            "layer": 0,
+            "pid": 51385,
+            "rank": 29
+          },
+          {
+            "frame": [
+              2560,
+              31,
+              2560,
+              1409
+            ],
+            "id": 38385,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 30
+          },
+          {
+            "frame": [
+              0,
+              31,
+              2560,
+              1409
+            ],
+            "id": 38384,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 31
+          },
+          {
+            "frame": [
+              362,
+              719,
+              920,
+              464
+            ],
+            "id": 38386,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 37
+          }
+        ]
+      },
+      {
+        "step": "covered",
+        "windows": [
+          {
+            "frame": [
+              2160,
+              436,
+              800,
+              600
+            ],
+            "id": 38386,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 29
+          },
+          {
+            "frame": [
+              2560,
+              31,
+              2560,
+              1409
+            ],
+            "id": 38385,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 30
+          },
+          {
+            "frame": [
+              0,
+              31,
+              2560,
+              1409
+            ],
+            "id": 38384,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 31
+          }
+        ]
+      },
+      {
+        "step": "uncovered",
+        "windows": [
+          {
+            "frame": [
+              2556,
+              706,
+              8,
+              60
+            ],
+            "id": 38491,
+            "isHandle": true,
+            "layer": 0,
+            "pid": 51385,
+            "rank": 29
+          },
+          {
+            "frame": [
+              2560,
+              31,
+              2560,
+              1409
+            ],
+            "id": 38385,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 30
+          },
+          {
+            "frame": [
+              0,
+              31,
+              2560,
+              1409
+            ],
+            "id": 38384,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 31
+          },
+          {
+            "frame": [
+              2160,
+              436,
+              800,
+              600
+            ],
+            "id": 38386,
+            "isHandle": false,
+            "layer": 0,
+            "pid": 808,
+            "rank": 32
+          }
+        ]
+      }
+    ],
+    "passed": true,
+    "reason": "Normal-level divider appeared, hid under a real cover, and reappeared.",
+    "restored": true,
+    "trusted": true
+  },
+  "textEditBeforeFix": [
+    {
+      "actual": {
+        "height": 1409,
+        "width": 1280,
+        "x": 3840,
+        "y": 31
+      },
+      "elapsedSeconds": 0.318623416707851,
+      "name": "range-3-4",
+      "reason": "Moved TextEdit to pane 4.",
+      "result": "FAIL",
+      "target": {
+        "height": 1409,
+        "width": 2560,
+        "x": 2560,
+        "y": 31
+      },
+      "AXWriteErrors": [
+        0
+      ]
+    },
+    {
+      "actual": {
+        "height": 1409,
+        "width": 1280,
+        "x": 1280,
+        "y": 31
+      },
+      "elapsedSeconds": 0.41029362502740696,
+      "name": "range-4-2",
+      "reason": "Moved TextEdit to pane 2.",
+      "result": "FAIL",
+      "target": {
+        "height": 1409,
+        "width": 3840,
+        "x": 1280,
+        "y": 31
+      },
+      "AXWriteErrors": [
+        0
+      ]
+    }
+  ]
+}

@@ -11,6 +11,24 @@ import Carbon
     }
     var chord = PaneRangeChord()
     let original = context()
+    let document = WindowServerCandidate(identity: .init(id: 10, pid: 20), layer: 0,
+                                         bounds: CGRect(x: 692, y: 104, width: 603, height: 505))
+    let decoration = WindowServerCandidate(identity: .init(id: 12, pid: 20), layer: 0,
+                                           bounds: CGRect(x: 698, y: 110, width: 66, height: 20))
+    let observed = WindowDiscovery.shortcutIdentity(for: 20, in: [decoration, document])
+    precondition(observed == document.identity, "A TextEdit-sized decoration is not the shortcut document")
+    _ = chord.request(2, modifiers: modifiers, pid: 20, windowID: observed?.id)
+    let decoratedRetarget = chord.request(3, modifiers: modifiers, pid: 20, windowID: observed?.id)
+    precondition(chord.resolve(decoratedRetarget, context: original) == 2...3,
+                 "A normal-level decoration must not discard a range captured during AX discovery")
+    precondition(chord.anchor?.context.window.id == observed?.id, "The same observation preserves a settled chord")
+    let floatingDecoration = WindowServerCandidate(identity: decoration.identity, layer: 3, bounds: decoration.bounds)
+    precondition(WindowDiscovery.shortcutIdentity(for: 20, in: [floatingDecoration, document]) == decoration.identity)
+    let dialog = WindowServerCandidate(identity: decoration.identity, layer: 0, bounds: CGRect(x: 700, y: 110, width: 400, height: 200))
+    precondition(WindowDiscovery.shortcutIdentity(for: 20, in: [dialog, document]) == dialog.identity)
+    precondition(WindowDiscovery.foremost(for: 20, in: [decoration, document])?.identity == decoration.identity,
+                 "Focused fallback must still refuse an unmatched foremost window")
+    chord.reset()
     precondition(chord.press(2, modifiers: modifiers, context: original) == 2...2, "The first press places immediately")
     precondition(chord.press(3, modifiers: modifiers, context: original) == 2...3)
     precondition(chord.press(0, modifiers: modifiers, context: original) == 0...2, "Each endpoint uses the original anchor")

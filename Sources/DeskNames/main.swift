@@ -562,6 +562,20 @@ if CommandLine.arguments.contains("--self-test") {
         exit(0)
     }
     NSApplication.shared.run()
+} else if CommandLine.arguments.contains("--external-divider-test") {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        do { try await runExternalDividerTest(arguments: CommandLine.arguments); exit(0) }
+        catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
+    }
+    NSApplication.shared.run()
+} else if CommandLine.arguments.contains("--external-placement-test") {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        do { let passed = try await runExternalPlacementTests(arguments: CommandLine.arguments); exit(passed ? 0 : 1) }
+        catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
+    }
+    NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--movement-session-test") {
     NSApplication.shared.setActivationPolicy(.accessory)
     Task { @MainActor in

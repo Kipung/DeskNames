@@ -73,6 +73,16 @@ enum WindowDiscovery {
         windows.first { $0.visible && $0.layer >= 0 && $0.identity.pid == pid }
     }
 
+    static func operationBounds(_ frame: CGRect) -> Bool {
+        frame.width > 80 && frame.height > 50
+    }
+
+    static func shortcutIdentity(for pid: Int32, in windows: [WindowServerCandidate]) -> WindowIdentity? {
+        // AppKit can put a small normal-level decoration above its AX document window.
+        // Elevated windows still interrupt a chord, regardless of their size.
+        foremost(for: pid, in: windows.filter { $0.layer != 0 || operationBounds($0.bounds) })?.identity
+    }
+
     static func message(for refusal: String) -> String {
         if refusal == "accessibility-off" { return "Enable Accessibility for DeskNames to use the focused window." }
         if refusal == "frontmost-app-changed" { return "The active app changed. Try the shortcut again." }
