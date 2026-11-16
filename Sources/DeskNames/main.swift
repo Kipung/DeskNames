@@ -334,6 +334,7 @@ final class LabelPanel: NSPanel {
 }
 
 @MainActor final class AppDelegate:NSObject,NSApplicationDelegate {
+    let onboarding = FirstRunPreferences(defaults: .standard, domainName: Bundle.main.bundleIdentifier!)
     let store=Store()
     var window:NSWindow!
     var item:NSStatusItem!
@@ -347,6 +348,7 @@ final class LabelPanel: NSPanel {
     var linkedPanes:LinkedPaneController!
     let shortcuts=ShortcutSettings()
     let updater = AppUpdater()
+    let loginItem = LoginItemController()
     var switcher:NSPanel?
     private var switcherPreviousApp: NSRunningApplication?
     private var switcherTask: Task<Void, Never>?
@@ -360,6 +362,7 @@ final class LabelPanel: NSPanel {
         item.button?.imagePosition = .imageLeading
         item.button?.target=self;item.button?.action=#selector(showSwitcher)
         overlay=OverlayController(store)
+        PreferenceMigrations.migratePaneSpacing(in: store.defaults)
         workspace=LayoutController(store:store)
         smartPanes=SmartPaneController(workspace:workspace)
         smartPanes.start()
@@ -387,13 +390,10 @@ final class LabelPanel: NSPanel {
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
             MainActor.assumeIsolated { self?.workspace.paneRangeChord.reset();self?.store.refresh();self?.workspace.tick() }
         }
-        // DeskNames has no Dock icon or window, so a first launch looks like nothing happened.
-        // Show the panel once for new installs; existing users with names or layouts skip it.
-        if !store.defaults.bool(forKey:"didShowFirstLaunchPanel") {
-            store.defaults.set(true,forKey:"didShowFirstLaunchPanel")
-            if store.appearance.isEmpty && workspace.layouts.isEmpty {
+        if onboarding.isPresented {
+            if workspace.layouts.isEmpty {
                 DispatchQueue.main.async { [weak self] in self?.showSwitcher() }
-            }
+            } else { onboarding.finish() }
         }
     }
     func shortcut(_ id:UInt32) {
@@ -483,10 +483,12 @@ final class LabelPanel: NSPanel {
         window?.orderOut(nil)
         let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:690),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
         panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
-        panel.contentView=NSHostingView(rootView:SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,pinCandidate:pinCandidate,
+        let content = SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,loginItem:loginItem,pinCandidate:pinCandidate,
             choose:{ [weak self] d in self?.workspace.switchTo(d) },
             close:{ [weak self] in self?.closeSwitcher() },
-            openSettings:{ [weak self] in self?.showWindow() }))
+            openSettings:{ [weak self] in self?.showWindow() })
+        panel.contentView=NSHostingView(rootView:FirstRunPanel(onboarding:onboarding,store:store,workspace:workspace,shortcuts:shortcuts,loginItem:loginItem,desktop:desktop,
+            close:{ [weak self] in self?.closeSwitcher() }) { content })
         if let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop?.display }) {
             let area = screen.visibleFrame
             panel.setFrameOrigin(CGPoint(x: area.midX-panel.frame.width/2, y: area.midY-panel.frame.height/2))
@@ -528,6 +530,7 @@ if CommandLine.arguments.contains("--self-test") {
     NSApplication.shared.setActivationPolicy(.prohibited)
     Task { @MainActor in
         do {
+            try runFirstRunTests()
             try runWorkspaceTests()
             runDesktopNavigationTests()
             try runScreenLayoutTests()

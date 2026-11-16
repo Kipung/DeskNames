@@ -70,10 +70,14 @@ cask = f'''cask "desknames" do
   ]
 
   caveats <<~EOS
-    DeskNames is an unnotarized preview. macOS may require first-launch approval
-    in System Settings > Privacy & Security. See the README before installing.
-    Window management requires Accessibility permission, which carries over
-    between updates. Uninstall preserves settings; --zap removes them.
+    DeskNames is an unnotarized preview; Apple has not checked it through notarization.
+    Open DeskNames from Applications once. If macOS blocks it and you trust this
+    download, use System Settings > Privacy & Security > Open Anyway, then confirm.
+    Homebrew does not bypass this approval. See https://github.com/Kipung/DeskNames#install
+    The welcome panel guides you through Accessibility, optional shortcuts and panes.
+    Accessibility is detected without relaunching. If approval is stale after an
+    update, remove the old entry and add the current app in Accessibility settings.
+    Uninstall preserves settings; --zap removes them.
   EOS
 end
 '''

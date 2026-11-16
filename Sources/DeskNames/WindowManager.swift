@@ -921,7 +921,7 @@ final class NativeWindows {
     @Published var trusted=false
     @Published var columns=2
     @Published var rows=2
-    @Published var gap:Double=12
+    @Published var gap:Double=0
     @Published var shortcutStatus=""
     let native:NativeWindows
     let frameHistory = WindowFrameHistory()

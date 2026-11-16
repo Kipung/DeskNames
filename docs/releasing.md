@@ -6,6 +6,21 @@ The first downloadable release is an **unnotarized Apple Silicon preview**. A De
 
 Sparkle update signatures are independent of Apple code signing. They establish that updates were produced by the holder of the DeskNames update key, not Apple approval of the app.
 
+The installation command is `brew install --cask kipung/desknames/desknames`. The generated cask must retain quarantine and explain the manual first-open approval. Do not add an automatic `open`, permission reset, or quarantine-removal hook. Keep the README and cask caveats aligned with [Apple's first-open instructions](https://support.apple.com/en-us/102445).
+
+## First-run release checks
+
+Use a separate macOS test account or disposable VM for installation checks. Do not clear the owner's preferences, Accessibility approval, or saved layouts. These native checks are separate from `--self-test` and offscreen rendering.
+
+1. Install the downloaded ZIP or generated cask and attempt to open DeskNames from Applications. Verify that the README's manual **Open Anyway** path works. Homebrew must not approve the app for the user.
+2. On an account without saved DeskNames preferences, check all three welcome steps. Enable Accessibility and return to the panel without quitting. The status must update automatically. Check refusal and **Continue without permission** too.
+3. Opt into suggested shortcuts with one click, test a window shortcut using a physical keyboard, and choose a pane layout. Confirm that selecting guides does not move windows. Skip setup and relaunch to check that it stays dismissed.
+4. Toggle **Launch DeskNames at login**. Check any pending approval in Login Items, then verify login launch and disabling it. The app uses `SMAppService.mainApp`; no registration occurs until the user opts in. See [Apple's service-management API](https://developer.apple.com/documentation/servicemanagement/smappservice).
+5. Upgrade an account with existing preferences. It must not see onboarding or gain enabled shortcuts or automatic behaviors. The single intentional preference migration changes saved desktop and monitor pane gaps of exactly 12 pt to 0. Set a gap back to 12 and relaunch to verify that it remains 12.
+6. Check Accessibility across the update. If approval is stale, follow the README's manual remove-and-add instructions. A matching release certificate is expected to preserve approval; it is not a guarantee across signing identity changes or macOS versions.
+
+The pure tests use isolated UserDefaults suites for onboarding gating, shortcut opt-in, migration idempotence, and login-item status handling. They do not exercise Gatekeeper, TCC approval, actual login registration, or physical hotkey delivery.
+
 ## Publishing a release
 
 Releases run from the release Mac, which holds the update key in its login Keychain. On `main`, with everything committed and pushed, run:
@@ -31,7 +46,7 @@ After a release, check for updates from an older installed version and record wh
 
 ## Release certificate
 
-Releases are signed with a self-signed **DeskNames Release** code-signing certificate in the release Mac’s login Keychain (valid until 2036). Its designated requirement is the bundle identifier plus that certificate, so it stays the same across builds and macOS keeps users’ Accessibility approval when they update. Ad-hoc signatures change with every build, which made every update ask again.
+Releases are signed with a self-signed **DeskNames Release** code-signing certificate in the release Mac’s login Keychain (valid until 2036). Its designated requirement is the bundle identifier plus that certificate, so it stays the same across builds and updates can retain users’ Accessibility approval. Ad-hoc signatures change with every build, which made every update ask again.
 
 A self-signed certificate has no Apple Team ID, so `build.sh` signs without hardened runtime or a timestamp for it (hardened runtime’s library validation would refuse to load Sparkle). Hardened runtime is only required for notarization; Apple-issued identities still get it. The certificate does not affect Gatekeeper: the app remains unnotarized.
 
@@ -55,6 +70,8 @@ Sparkle is pinned to 2.10.1 in `scripts/fetch-sparkle.sh`, including the SHA-256
 ```
 
 Requires `ffmpeg` for GIF/MP4 encoding. `--render-marketing` creates isolated preference/layout stores and substitutes fictional desktops before creating the views. The control-panel PNG renders the production SwiftUI view. The animated scene is an **illustrated demonstration**, using synthetic sample windows and the production geometry/interpolation functions. It is not a screen recording or a claim that choosing a preset immediately tiles existing windows.
+
+To render only the panel and welcome states without encoding the animation, run `build/DeskNames.app/Contents/MacOS/DeskNames --render-marketing build/first-run-preview --panels-only`. The fixtures include denied/granted Accessibility, disabled/enabled shortcuts, and pane selection. Login-item fixtures use an in-memory status and do not register the app.
 
 No screenshot of the user's display, real app content, personal saved layout, or runtime preference export is included. Inspect the generated PNG and representative animation frames before publication. Never use the older `--render-preview` entry point for public media; it reads normal app settings.
 

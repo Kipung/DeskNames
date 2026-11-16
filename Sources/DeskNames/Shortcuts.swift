@@ -133,6 +133,12 @@ final class ShortcutSettings: ObservableObject {
         enabled=value
         saveAndApply()
     }
+    func enableSuggestions() {
+        for action in ShortcutAction.all where bindings[action.id] == nil && !bindings.values.contains(action.suggested) {
+            bindings[action.id] = action.suggested
+        }
+        setEnabled(true)
+    }
     @discardableResult func set(_ binding:ShortcutBinding?,for id:UInt32) -> Bool {
         var next=bindings
         next[id]=binding

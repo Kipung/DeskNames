@@ -6,6 +6,7 @@ import SwiftUI
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let domain = "local.desknames.marketing.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: domain)!
+    let onboarding = FirstRunPreferences(defaults: defaults, domainName: domain)
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("marketing-\(UUID().uuidString).json")
     defer { defaults.removePersistentDomain(forName: domain); try? FileManager.default.removeItem(at: file) }
     let store = Store(defaults: defaults)
@@ -21,6 +22,24 @@ import SwiftUI
     let panel = SwitcherView(store: store, workspace: workspace, preferences: workspace.panes, models: workspace.monitorPresets,
                              desktop: store.desktops[0], choose: { _ in }, close: {}, openSettings: {})
     try renderFixture(panel, size: CGSize(width: 560, height: 620), to: directory.appendingPathComponent("control-panel.png"))
+    let shortcuts = ShortcutSettings(defaults: defaults)
+    let loginItem = LoginItemController(readStatus: { .notRegistered }, changeRegistration: { _ in })
+    let welcome = FirstRunPanel(onboarding: onboarding, store: store, workspace: workspace, shortcuts: shortcuts,
+                               loginItem: loginItem, desktop: store.desktops[0], close: {}) { panel }
+    store.accessibilityGranted = false
+    try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-accessibility.png"))
+    store.accessibilityGranted = true
+    try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-allowed.png"))
+    onboarding.advance()
+    try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-shortcuts.png"))
+    shortcuts.enableSuggestions()
+    try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-shortcuts-enabled.png"))
+    onboarding.advance()
+    try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-layout.png"))
+    if CommandLine.arguments.contains("--panels-only") {
+        print("Rendered isolated control panel and onboarding fixtures.")
+        return
+    }
     let frames = Int((PaneDemoFrame.duration*PaneDemoFrame.fps).rounded())
     for frame in 0..<frames {
         try renderFixture(PaneDemoFrame(time: Double(frame)/PaneDemoFrame.fps),

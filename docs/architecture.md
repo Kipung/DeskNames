@@ -29,6 +29,7 @@ Application sources live in `Sources/DeskNames/`; the self-tests compiled into t
 | `NativeSpaceMove.m` | Native bridged Space transfer and symbol resolution |
 | `SelfTests/`: `Tests.swift`, `GeometryTests.swift`, `PaneTests.swift`, `PaneInteractionTests.swift`, `MovementTests.swift`, `WindowActionTests.swift`, `ScreenLayoutTests.swift` | Matching, geometry, persistence, operation sessions, window commands, and screen cases |
 | `MarketingPreview.swift` | Offscreen, fixture-only rendering of the README screenshot and illustrated demo |
+| `FirstRunPreferences.swift`, `FirstRunPanel.swift`, `LoginItemController.swift` | Persistent first-run gating and progress, one-time pane spacing migration, compact welcome UI and explicit login-item registration |
 | `Tools/`: `Fixture.swift`, `probe.swift`, `geometry.swift`, `window-check.swift`, `verify_alignment.py` | Separate development fixtures and inspection helpers, not part of the app build |
 | `Tools/Icon.swift`, `Resources/DeskNames.icns`, `Resources/DeskNames.iconset/` | Icon generation source and app icon resources |
 | `docs/command-drag-review.md`, `docs/smooth-movement-report.md` | Historical design review and measured movement results |
@@ -36,6 +37,8 @@ Application sources live in `Sources/DeskNames/`; the self-tests compiled into t
 ## Runtime flow
 
 AppDelegate creates the store, window/layout controller, overlays, pane controller, and shortcuts. Space notifications refresh active desktop state. The store associates appearance settings with stable desktop IDs.
+
+AppDelegate captures first-run eligibility from the persistent preference domain before initializing preference-writing services. It applies the pane spacing migration only in normal application startup, before constructing pane models. Model construction, self-tests and rendering never implicitly migrate standard preferences. The existing timer polls Accessibility trust for the welcome state and panel banner. Login-item registration is separate from UserDefaults and uses explicit SMAppService actions.
 
 LayoutController coordinates operations through idle, user-drag, and writing states. A desktop request received during a window operation retains the latest destination. Pane sessions and routing must respect this shared admission state to avoid competing native writes.
 
