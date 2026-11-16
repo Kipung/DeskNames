@@ -9,6 +9,7 @@ enum WindowAction: Int, CaseIterable, Identifiable {
     var id: UInt32 { UInt32(200 + rawValue) }
     var name: String { ["Left half","Right half","Top half","Bottom half","Top left quarter","Top right quarter","Bottom left quarter","Bottom right quarter","Left third","Middle third","Right third","Maximize window","Center window","Restore previous size","Make smaller","Make larger","Next display","Previous display","Column 1 of 4","Column 2 of 4","Column 3 of 4","Column 4 of 4"][rawValue] }
     var suggestion: ShortcutBinding {
+        if let binding = ShortcutDefaults.bindings[id] { return binding }
         let keys: [UInt32] = [123,124,126,125,32,34,38,40,18,19,20,36,8,51,27,24,124,123,18,19,20,21]
         var mods = UInt32(controlKey | optionKey)
         if (8...10).contains(rawValue) { mods |= UInt32(shiftKey) }

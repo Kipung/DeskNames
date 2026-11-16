@@ -4,7 +4,7 @@
 
 DeskNames is compiled directly by `build.sh`. There is no package manager dependency graph. The script compiles `NativeSpaceMove.m`, links every Swift file under `Sources/DeskNames/` against AppKit, SwiftUI, and Carbon, writes Info.plist, copies resources and third-party notices, and signs the bundle. Signing defaults to ad hoc; a configured persistent certificate supports repeated development builds without changing the designated identity.
 
-`main.swift` defines desktop identity, preference-backed names and colors, Space enumeration, the editor, Mission Control labels, and application lifecycle. It also dispatches command-line test and preview modes.
+`main.swift` defines desktop identity, preference-backed names and colors, Space enumeration, Mission Control labels, and application lifecycle. It also dispatches command-line test and preview modes.
 
 ## Source map
 
@@ -12,7 +12,10 @@ Application sources live in `Sources/DeskNames/`; the self-tests compiled into t
 
 | Files | Responsibility |
 | --- | --- |
-| `main.swift` | SpaceReader, Store, main editor, overlay panels, and AppDelegate |
+| `main.swift` | SpaceReader, Store, overlay panels, and AppDelegate |
+| `ControlCenter.swift` | One native window, quick/settings routes, sizing, focus restoration, and background-launch classification |
+| `SettingsViews.swift` | Settings page model, navigation, and detailed editor composition |
+| `GeneralPreferences.swift` | Read-only preference initialization, visibility persistence, and General settings for menu bar, startup, and updates |
 | `MissionControlGeometry.swift`, `AlignmentDiagnostics.swift` | Native strip geometry, stable placement, and alignment diagnostics |
 | `DesktopNavigation.swift` | Mission Control thumbnail selection for direct desktop jumps |
 | `WindowManager.swift` | Saved/live window models, Accessibility operations, LayoutController, and operation coordination |
@@ -22,7 +25,8 @@ Application sources live in `Sources/DeskNames/`; the self-tests compiled into t
 | `PaneInteraction.swift`, `LinkedPanes.swift` | Shared-divider geometry and persisted ratios, pane shortcut actions, display-paced interruptible frame transitions, reused divider handles, shortcut-layout detection and serialized linked-resize transactions |
 | `SmartPanes.swift` | Drag observation, overlays, snapping, cancellation, and edge snapping |
 | `WindowActions.swift` | Direct window commands and original-frame history |
-| `Shortcuts.swift` | Binding persistence, validation, recording, and Carbon hotkey registration |
+| `Shortcuts.swift`, `ShortcutDefaults.swift` | Binding defaults, persistence, validation, recording, digit normalization, and Carbon hotkey registration |
+| `ShortcutConflicts.swift` | Physical shortcut identities, macOS/global conflict inspection, report model, and shared setup/settings report |
 | `DisplayProfiles.swift`, `ScreenAwareWindows.swift` | Monitor identity/model matching, model-shared presets, and display-aware operations |
 | `PinnedWindows.swift` | Session-only pinned windows that follow the current desktop on their display, the pin confirmation bubble, and the control-panel pin section |
 | `WindowRouting.swift`, `WindowRoutingView.swift` | Rule persistence, window birth tracking, routing, and settings interface |
@@ -37,6 +41,12 @@ Application sources live in `Sources/DeskNames/`; the self-tests compiled into t
 ## Runtime flow
 
 AppDelegate creates the store, window/layout controller, overlays, pane controller, and shortcuts. Space notifications refresh active desktop state. The store associates appearance settings with stable desktop IDs.
+
+ControlCenter owns one NSWindow and switches its content between compact controls and detailed settings. Quick controls are non-resizable and floating; settings are resizable at normal window level, preserving editor eligibility for capture and snapping. Routes retain the selected quick-controls section and original external application for focus restoration. Navigation and closing cancel shortcut recording. Opening settings from onboarding does not complete setup; Back restores its current step.
+
+GeneralPreferences reads visibility defaults without writing them during initialization. AppDelegate applies icon/name visibility and hide-on-deactivate to the status item and control window. Explicit app reopen forces the control center open even when the menu-bar icon is hidden. A cold explicit launch also recovers the hidden-icon state, while login/service Apple events suppress that recovery opening. Startup registration and update settings live in General, with the initial login choice also available during onboarding.
+
+ShortcutConflictInspector combines enabled CopySymbolicHotKeys entries with short-lived exclusive Carbon registration probes. PhysicalShortcut retains raw key codes so a successful number-row registration cannot conceal a conflicting numpad variant. HotKeys supplies only its successfully owned physical combinations, which are excluded from probes. Each acquired probe is released immediately. Reports distinguish known macOS conflicts, occupied global registrations, and incomplete checks; they neither identify other applications nor guarantee discovery of app-local bindings. The welcome shortcut step and keyboard page share the report UI. Edits invalidate reports, and enabling or reapplying unchanged bindings refreshes an existing report after registration changes.
 
 AppDelegate captures first-run eligibility from the persistent preference domain before initializing preference-writing services. It applies the pane spacing migration only in normal application startup, before constructing pane models. Model construction, self-tests and rendering never implicitly migrate standard preferences. The existing timer polls Accessibility trust for the welcome state and panel banner. Login-item registration is separate from UserDefaults and uses explicit SMAppService actions.
 

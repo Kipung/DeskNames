@@ -18,7 +18,7 @@ A quiet macOS menu-bar utility for named desktops, visual pane layouts, and reme
 
 ## What it does
 
-DeskNames lives in the menu bar. Open its compact panel to pick a pane layout for the current desktop, or switch to another desktop by name. Search, click, or use the arrow keys and Return. The full settings window opens only when you ask for it.
+DeskNames lives in the menu bar. Open its compact panel to pick a pane layout for the current desktop, or switch to another desktop by name. Search, click, or use the arrow keys and Return. Settings opens in the same window, with Back to return to the quick controls. Right-click the menu-bar icon for Settings and visibility options.
 
 - **Seven pane layouts:** two, three, or four columns; quarters; rows; wide + stack; and focus.
 - **Command-drag to fit:** choose a guide, drag a window, and release the mouse before Command. Panes are edge-to-edge by default; spacing is adjustable per desktop.
@@ -30,24 +30,25 @@ DeskNames lives in the menu bar. Open its compact panel to pick a pane layout fo
 
 ### Keyboard shortcuts
 
-Shortcuts start **off**. On a new install, click **Enable suggested shortcuts** in the welcome panel to opt in with one click. You can also enable and customize them in **Settings → Keyboard shortcuts**. The **Add suggested** buttons fill missing bindings without replacing your choices.
+Shortcuts start **off**. On a new install, click **Enable suggested shortcuts** in the welcome panel to opt in with one click. You can also enable and customize them in **Settings → Keyboard shortcuts**. Under **Shortcut options**, **Add suggested window shortcuts** and **Add suggested pane shortcuts** fill missing bindings without replacing your choices. **Restore default shortcuts** replaces the binding set while keeping the on/off setting. The welcome shortcut step checks for conflicts automatically; **Customize shortcuts** opens the same keyboard settings, and Back returns to setup.
 
 | Action | Suggested shortcut |
 | --- | --- |
 | Open the DeskNames panel | ⌃⌥⌘ Space |
 | Save / restore this desktop’s arrangement | ⌃⌥S / ⌃⌥R |
-| Go to desktop 1–9 | ⌃⌥1 … ⌃⌥9 |
 | Pin / unpin the focused window | ⌃⌥P |
 | Left / right / top / bottom half | ⌃⌥← / → / ↑ / ↓ |
-| Quarters | ⌃⌥U, I, J, K |
-| Thirds | ⌃⌥⇧1, 2, 3 |
-| Maximize / center / restore previous size | ⌃⌥↩ / ⌃⌥C / ⌃⌥⌫ |
-| Move the window into pane 1–4 | ⌃⌥F1 … F4 |
-| Previous / next pane layout | ⌃⌥[ / ⌃⌥] |
+| Upper / lower quarters | ⌃⌘← / → and ⌃⌥⌘← / → |
+| Thirds | ⌃⌥1, 2, 3 |
+| Maximize / center / restore previous size | ⌃⌥↩ / ⌃⌥/ / ⌃⌥⌫ |
+| Move the window into pane 1–4 | ⌃⌥⌘1 … 4 |
+| Equal fourths | ⌃⌥⌘⇧1 … 4 |
 
-Every binding can be changed. The [user guide](README.txt) lists them all.
+Every binding can be changed. Desktop jumps, pane-layout cycling, preset selection, and display movement start unbound. The [user guide](README.txt) lists all defaults.
 
-Keep the same modifiers held between pane-placement shortcuts to span a range. For example, press F3 then F4 with ⌃⌥ held to fill panes 3 through 4, including the gap. Reverse order works too; F2 then F4 fills panes 2 through 4. The first press places immediately, and each later press selects a new endpoint from that first pane. Release a modifier to start fresh. Your saved pane bindings work without re-recording, including custom number keys. Other presets use the bounding rectangle of the selected panes.
+The conflict check reports enabled macOS shortcuts and combinations currently registered globally. Use **Recheck** after changing another app’s shortcuts. It checks both number-row and numpad variants, releases its temporary checks immediately, and does not enable shortcuts or change system settings. Some app-specific shortcuts cannot be detected, and the check cannot identify which other app owns a registration.
+
+Keep the same modifiers held between pane-placement shortcuts to span a range. For example, press 3 then 4 with ⌃⌥⌘ held to fill panes 3 through 4, including the gap. Reverse order works too; 2 then 4 fills panes 2 through 4. The first press places immediately, and each later press selects a new endpoint from that first pane. Release a modifier to start fresh. Your saved pane bindings work without re-recording, including custom number keys. Other presets use the bounding rectangle of the selected panes.
 
 > [!NOTE]
 > Selecting a pane preset changes the guides; it does not rearrange every open window at once. The separate tiling and restore commands handle arrangements.
@@ -92,7 +93,7 @@ The welcome panel opens on a brand-new install. After that, click the **DeskName
 2. Click **Continue**, then **Enable suggested shortcuts** if you want keyboard window controls. This opts in to the suggested window, pane, and desktop shortcuts together.
 3. Continue to the pane step, choose a layout, and click **Use this layout**. Hold Command while dragging a window, then release the mouse before Command to fit it into a pane. Choosing a layout does not move existing windows.
 
-Every step is optional. **Set up later** dismisses setup; the same choices remain available in Settings or the control panel. **Launch DeskNames at login** is an optional toggle in the pane step and the regular control panel. Keep the app in Applications before enabling it. If macOS requires approval, use **Open Login Items**. Routing, edge snapping, linked resizing, automatic restore, and automatic update installation remain opt-in.
+Every step is optional. **Set up later** dismisses setup; the same choices remain available in Settings or the control panel. **Launch DeskNames at login** is an optional toggle in the pane step and **Settings → General**. Keep the app in Applications before enabling it. If macOS requires approval, use **Open Login Items**. Routing, edge snapping, linked resizing, automatic restore, and automatic update installation remain opt-in.
 
 Pane spacing defaults to 0 pt. On the first launch of this update, saved desktop and monitor pane gaps of exactly 12 pt change once to 0. Other gaps and layout choices stay intact. You can choose 12 pt again in **Settings → Smart panes** and it will remain saved.
 
@@ -100,16 +101,16 @@ Pane spacing defaults to 0 pt. On the first launch of this update, saved desktop
 
 - **No “Open Anyway” button:** open DeskNames once first (Step 2.1). The button only appears after macOS blocks an attempt, and it stays for about an hour.
 - **Window controls stay off after an update, even though DeskNames is turned on in Accessibility:** the approval may refer to an older app signature. Select DeskNames in the Accessibility list, remove it with the **–** button, then use **+** to add the current copy from Applications and turn it on. Return to the panel to check the live status. Releases signed with the same certificate are intended to retain approval, but a changed signing identity or local build can require it again. When you click Enable Accessibility while DeskNames is not trusted, it resets only its own Accessibility approval before prompting again.
-- **Shortcuts do not fire:** check that **Settings → Keyboard shortcuts** is enabled and Accessibility is allowed. Check that the action has a binding, and use **Add suggested** if it is missing. The page reports registration conflicts; change a conflicting shortcut there or in the other app. Finish or cancel any shortcut recording, which temporarily pauses shortcuts. Focus an ordinary, non-full-screen window for window commands. For F1–F4 bindings, your keyboard settings may require the **Fn** key. Try the same command from Settings to distinguish a key conflict from an app that refuses window movement.
-- **Launch at login stays pending:** use **Open Login Items** in the panel to approve DeskNames in System Settings. Registration errors appear beside the toggle. Moving or deleting the app can invalidate its registration.
-- **Can’t find the menu bar icon:** a crowded menu bar can hide it behind the notch. Open DeskNames from Applications again and the panel appears.
+- **Shortcuts do not fire:** check that **Settings → Keyboard shortcuts** is enabled and Accessibility is allowed. Check that the action has a binding, and use **Shortcut options → Add suggested window shortcuts** or **Add suggested pane shortcuts** if it is missing. The page reports registration conflicts; change a conflicting shortcut there or in the other app. Finish or cancel any shortcut recording, which temporarily pauses shortcuts. Focus an ordinary, non-full-screen window for window commands. Default pane shortcuts use **Control–Option–Command–1 through 4**. Number-row and numpad digits work alike. Use **Shortcut options → Restore default shortcuts** to replace an older binding set. Try the same command from Settings to distinguish a key conflict from an app that refuses window movement.
+- **Launch at login stays pending:** use **Open Login Items** in **Settings → General** to approve DeskNames in System Settings. Registration errors appear beside the toggle. Moving or deleting the app can invalidate its registration.
+- **Can’t find the menu bar icon:** it may be hidden by your preference or behind the notch. Open DeskNames from Applications again to show the control center, including after quitting. In **Settings → General**, turn on **Show DeskNames in the menu bar**. You can also hide desktop names beside the icon, or choose whether the window hides when switching apps. Login-item launches remain in the background.
 - **Intel Mac:** not supported.
 
 To check a download, compare it with `SHA256SUMS.txt` from the release. The Homebrew [tap](https://github.com/Kipung/homebrew-desknames) checks the archive automatically. It is maintained by this project; DeskNames isn’t in Homebrew’s official cask list. The [0.6.0 validation report](docs/release-0.6.0-validation.md) has the tested install and update details.
 
 ## Updates
 
-The control panel includes **Check for Updates…**, **Check automatically**, and **Download and install updates automatically**. On its second launch, DeskNames asks once whether to check for updates automatically. Automatic installation **starts off**. You can change both settings at any time.
+**Settings → General** includes **Check for Updates…**, **Check automatically**, and **Download and install updates automatically**. On its second launch, DeskNames asks once whether to check for updates automatically. Automatic installation **starts off**. You can change both settings at any time.
 
 Updates use [Sparkle](https://sparkle-project.org/). Both the feed and archives are verified with the embedded Ed25519 public key, and downloads use HTTPS. Update signing is separate from Apple notarization: this preview is still unnotarized after an update. Builds from before the updater was added need a one-time manual upgrade.
 

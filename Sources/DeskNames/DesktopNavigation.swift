@@ -83,6 +83,7 @@ extension NativeWindows {
 }
 
 @MainActor func runDesktopNavigationTests() {
+    runDesktopIdentityTests()
     func desktop(_ id: String, _ display: String, _ position: Int, _ fullscreen: Bool = false) -> Desktop {
         Desktop(id:id,spaceID:UInt64(position+1),display:display,position:position,number:position+1,isCurrent:false,isFullScreen:fullscreen)
     }

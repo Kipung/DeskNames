@@ -968,7 +968,8 @@ final class NativeWindows {
     @Published var targetDesktop=""
     @Published var selectedLayoutID=""
     @Published var saveAcrossScreens=true {didSet{store.defaults.set(saveAcrossScreens,forKey:"saveAcrossScreens")}}
-    @Published var message="Save a desktop’s windows, then restore them whenever you need."
+    static let initialMessage="Save a desktop’s windows, then restore them whenever you need."
+    @Published var message=initialMessage
     var busy: Bool { interaction != .idle }
     var hasUserWindowDrag: Bool { interaction == .userDrag }
     @Published var trusted=false
@@ -1009,7 +1010,9 @@ final class NativeWindows {
         self.routing=RoutingSettings(defaults:store.defaults)
         self.saveAcrossScreens=store.defaults.object(forKey:"saveAcrossScreens") as? Bool ?? true
         self.file=file ?? RuntimeStorage.current.supportDirectory.appendingPathComponent("layouts-v1.json")
-        if let data=try? Data(contentsOf:self.file),let saved=try? JSONDecoder().decode([String:DesktopLayout].self,from:data) {layouts=saved}
+        if let data=try? Data(contentsOf:self.file),let saved=try? JSONDecoder().decode([String:DesktopLayout].self,from:data) {
+            layouts=PrimaryDesktopCompatibility.layouts(saved, desktops:store.desktops)
+        }
         trusted=native.trusted;lastActive=Set(store.desktops.filter(\.isCurrent).map(\.id));targetDesktop=store.desktops.first(where:{$0.isCurrent})?.id ?? ""
     }
     var selectedDesktop:Desktop? {store.desktops.first(where:{$0.id==targetDesktop}) ?? store.desktops.first(where:{$0.isCurrent})}

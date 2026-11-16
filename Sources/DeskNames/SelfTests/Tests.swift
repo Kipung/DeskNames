@@ -65,13 +65,14 @@ import AppKit
 }
 
 func runShortcutTests() {
+    runShortcutDefaultsTests()
     let domain="local.desknames.shortcuts.test.\(UUID().uuidString)"
     let defaults=UserDefaults(suiteName:domain)!
     defer {defaults.removePersistentDomain(forName:domain)}
     defaults.set(true,forKey:"enabled")
     let settings=ShortcutSettings(defaults:defaults)
     precondition(!settings.enabled,"Existing label preferences must not enable shortcuts")
-    precondition(settings.bindings.count==ShortcutAction.all.count)
+    precondition(settings.bindings == ShortcutDefaults.bindings)
     var installed:[UInt32:ShortcutBinding]=[:]
     var removals=0
     var manager:HotKeys?=HotKeys(action:{_ in},register:{id,binding in installed[id]=binding;return true},unregister:{installed.removeAll();removals+=1})
@@ -79,9 +80,9 @@ func runShortcutTests() {
     settings.apply()
     precondition(installed.isEmpty,"Startup must not register shortcuts")
     settings.setEnabled(true)
-    precondition(installed.count==ShortcutAction.all.count && ShortcutSettings(defaults:defaults).enabled)
+    precondition(installed.count==ShortcutDefaults.bindings.count && ShortcutSettings(defaults:defaults).enabled)
     let original=settings.bindings[100]!
-    settings.set(settings.bindings[1],for:100)
+    settings.set(settings.bindings[320],for:100)
     precondition(settings.bindings[100]==original && !settings.message.isEmpty,"Duplicate must be refused")
     settings.set(ShortcutBinding(key:49,modifiers:0),for:100)
     precondition(settings.bindings[100]==original,"Unmodified key must be refused")
@@ -154,4 +155,38 @@ func runShortcutTests() {
     _=failed.apply(enabled:false,bindings:[1:original])
     precondition(failed.unavailable.isEmpty,"Disabled shortcuts clear stale conflict status")
     print("PASS: shortcuts default off, upgrade default off, opt-in persistence, duplicate/key validation, edit/clear/disable/deinit unregister, conflict reporting, recorded keys, cancellation, duplicate/repeat rejection, temporary suspension, persistence")
+}
+
+private func runShortcutDefaultsTests() {
+    struct Saved: Encodable { let enabled: Bool; let bindings: [UInt32: ShortcutBinding] }
+    let domain = "local.desknames.default-shortcuts.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: domain)!
+    defer { defaults.removePersistentDomain(forName: domain) }
+    let custom: [UInt32: ShortcutBinding] = [100: .init(key: 0, modifiers: 256), 1: .init(key: 18, modifiers: 6144)]
+    let saved = try! JSONEncoder().encode(Saved(enabled: true, bindings: custom))
+    defaults.set(saved, forKey: "keyboardShortcuts.v1")
+    let settings = ShortcutSettings(defaults: defaults)
+    precondition(settings.enabled && settings.bindings == custom,
+                 "Existing bindings, including desktop jumps, must remain authoritative")
+    precondition(defaults.data(forKey: "keyboardShortcuts.v1") == saved,
+                 "Loading an existing configuration must not write new defaults")
+    var applied: [UInt32: ShortcutBinding] = [:]
+    var enabled = false
+    settings.onChange = { active, bindings in enabled = active; applied = bindings; return "" }
+    settings.restoreDefaults()
+    precondition(settings.enabled && enabled && applied == ShortcutDefaults.bindings)
+    precondition(settings.bindings.count == 28 && settings.bindings[1] == nil && settings.bindings[310] == nil && settings.bindings[216] == nil,
+                 "Default shortcuts match the configured set without activating optional conflicting actions")
+    precondition(settings.bindings[208] == ShortcutBinding(key: 18, modifiers: 6144))
+    precondition(settings.bindings[320] == ShortcutBinding(key: 18, modifiers: 6400))
+    let reloaded = ShortcutSettings(defaults: defaults)
+    precondition(reloaded.enabled && reloaded.bindings == ShortcutDefaults.bindings,
+                 "Explicit restore must persist the complete default set")
+    settings.setEnabled(false)
+    precondition(settings.set(custom[100], for: 100))
+    settings.restoreDefaults()
+    precondition(!settings.enabled && !enabled && applied == ShortcutDefaults.bindings)
+    precondition(!ShortcutSettings(defaults: defaults).enabled && ShortcutSettings(defaults: defaults).bindings == ShortcutDefaults.bindings,
+                 "Restoring defaults while disabled must not enable global shortcuts")
+    print("PASS: 28 default shortcuts, preserved custom configurations, explicit restore persistence, enabled and disabled restore behavior")
 }

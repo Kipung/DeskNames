@@ -240,7 +240,7 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
         key(code, down: false, flags: flags)
     }
     func press(_ id: UInt32, expectedPID: pid_t) async throws {
-        let binding = ShortcutAction.all.first { $0.id == id }!.suggested
+        guard let binding = ShortcutDefaults.bindings[id] else { throw WindowIssue("No default shortcut for action \(id).") }
         try await plain(UInt16(binding.key), expectedPID: expectedPID, modifiers: binding.modifiers)
         pressCount += 1
     }
@@ -369,7 +369,7 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
         }
     }
     func pressFixture(_ id: UInt32, fixture: Fixture, release: Bool = true, hold: Bool = true) async throws {
-        let binding = ShortcutAction.all.first { $0.id == id }!.suggested
+        guard let binding = ShortcutDefaults.bindings[id] else { throw WindowIssue("No default shortcut for action \(id).") }
         try requireFixtureInput(fixture)
         do {
             if hold { await modifiers(binding.modifiers, down: true) }
@@ -519,8 +519,8 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
         guard await wait(5, until: { existing.allSatisfy(\.isTerminated) }) else { throw WindowIssue("Installed DeskNames did not quit; refusing duplicate hotkey registration.") }
         targetApp = try await launch(Bundle.main.bundleURL, arguments: ["--storage", directory.path])
         try saveRecovery()
-        guard await wait(10, until: { self.read("hotkey-status.json")["registeredCount"] as? Int == ShortcutAction.all.count }) else {
-            throw WindowIssue("Normal instance did not register all suggested shortcuts: \(read("hotkey-status.json"))")
+        guard await wait(10, until: { self.read("hotkey-status.json")["registeredCount"] as? Int == ShortcutDefaults.bindings.count }) else {
+            throw WindowIssue("Normal instance did not register all default shortcuts: \(read("hotkey-status.json"))")
         }
         let textApp: NSRunningApplication
         if let existing = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
@@ -691,7 +691,7 @@ final class HotkeyFixtureDelegate: NSObject, NSApplicationDelegate {
                 let entered = await wait(2) { self.read("hotkey-status.json")["recordingAction"] as? UInt32 == 100 }
                 note("recorder-begin", record && entered, "tab=\(tab) button=\(record) entered=\(entered)")
                 try await plain(53, expectedPID: app.processIdentifier)
-                let restored = await wait(2) { self.read("hotkey-status.json")["registeredCount"] as? Int == ShortcutAction.all.count }
+                let restored = await wait(2) { self.read("hotkey-status.json")["registeredCount"] as? Int == ShortcutDefaults.bindings.count }
                 note("recorder-cancel", entered && restored, "Escape restores every registration")
             }
             for window in axWindows(app) { closeWindow(window) }

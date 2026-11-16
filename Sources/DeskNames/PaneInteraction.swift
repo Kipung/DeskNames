@@ -77,8 +77,8 @@ enum PaneShortcut {
         ShortcutAction(id: next, name: "Next pane layout", suggested: ShortcutBinding(key: 30, modifiers: UInt32(controlKey | optionKey))),
         ShortcutAction(id: previous, name: "Previous pane layout", suggested: ShortcutBinding(key: 33, modifiers: UInt32(controlKey | optionKey))),
         ShortcutAction(id: toggleLinked, name: "Toggle linked pane resizing", suggested: ShortcutBinding(key: 29, modifiers: UInt32(controlKey | optionKey | cmdKey)))
-    ] + zip(UInt32(320)...UInt32(323), [UInt32(122), 120, 99, 118]).map {
-        ShortcutAction(id: $0.0, name: "Move window to pane \($0.0 - 319)", suggested: ShortcutBinding(key: $0.1, modifiers: UInt32(controlKey | optionKey)))
+    ] + (UInt32(320)...UInt32(323)).map {
+        ShortcutAction(id: $0, name: "Move window to pane \($0 - 319)", suggested: ShortcutDefaults.bindings[$0]!)
     } + presets.map { ShortcutAction(id: $0.0, name: "Pane layout: " + $0.1.name, suggested: ShortcutBinding(key: $0.2, modifiers: UInt32(controlKey | optionKey | cmdKey))) }
 
     static func preset(for id: UInt32, current: PanePreset) -> PanePreset? {

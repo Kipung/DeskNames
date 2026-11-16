@@ -23,18 +23,39 @@ final class SpaceReader {
     typealias Connection = @convention(c) () -> Int32
     typealias CopySpaces = @convention(c) (Int32) -> Unmanaged<CFArray>?
     private let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_NOW)
+    private let snapshot: (() -> [Desktop])?
+    init(snapshot: (() -> [Desktop])? = nil) { self.snapshot = snapshot }
     func read() -> [Desktop] {
+        if let snapshot { return snapshot() }
         guard let handle, let cp = dlsym(handle,"CGSMainConnectionID"), let sp = dlsym(handle,"CGSCopyManagedDisplaySpaces") else { return [] }
         let connection = unsafeBitCast(cp,to:Connection.self)()
         guard let raw = unsafeBitCast(sp,to:CopySpaces.self)(connection)?.takeRetainedValue() as? [[String:Any]] else { return [] }
+        return Self.desktops(in: raw, screenIDs: NSScreen.screens.map(screenUUID))
+    }
+    static func desktops(in raw: [[String: Any]], screenIDs: [String]) -> [Desktop] {
         var result: [Desktop] = []; var number = 0
         for display in raw {
-            let displayID = display["Display Identifier"] as? String ?? "Main"
+            let nativeDisplayID = display["Display Identifier"] as? String ?? "Main"
+            let displayID = nativeDisplayID == "Main" && raw.count == 1 && screenIDs.count == 1
+                ? screenIDs[0] : nativeDisplayID
             let current = (display["Current Space"] as? [String:Any])?["ManagedSpaceID"] as? NSNumber
-            for (position,item) in (display["Spaces"] as? [[String:Any]] ?? []).enumerated() {
-                guard let id = item["ManagedSpaceID"] as? NSNumber, let uuid = item["uuid"] as? String else { continue }
+            let spaces = display["Spaces"] as? [[String: Any]] ?? []
+            let unnamedOrdinary = spaces.filter {
+                ($0["type"] as? Int ?? 0) == 0 && ($0["uuid"] == nil || ($0["uuid"] as? String) == "")
+            }
+            let uniqueDisplay = raw.filter { ($0["Display Identifier"] as? String ?? "Main") == nativeDisplayID }.count == 1
+            for (position,item) in spaces.enumerated() {
+                guard let id = item["ManagedSpaceID"] as? NSNumber else { continue }
+                let fullscreen = (item["type"] as? Int ?? 0) != 0
+                let uuid: String
+                if let value = item["uuid"] as? String, !value.isEmpty { uuid = value }
+                else if (item["uuid"] == nil || (item["uuid"] as? String) == ""),
+                        !fullscreen, unnamedOrdinary.count == 1, uniqueDisplay {
+                    // The primary desktop can lack a UUID even after other desktops are added.
+                    uuid = "desknames:primary:\(displayID)"
+                } else { continue }
                 number += 1
-                result.append(Desktop(id:uuid,spaceID:id.uint64Value,display:displayID,position:position,number:number,isCurrent:id==current,isFullScreen:(item["type"] as? Int ?? 0) != 0))
+                result.append(Desktop(id:uuid,spaceID:id.uint64Value,display:displayID,position:position,number:number,isCurrent:id==current,isFullScreen:fullscreen))
             }
         }
         return result
@@ -51,10 +72,11 @@ final class Store: ObservableObject {
     @Published var missionControl = false
     @Published var accessibilityGranted = AXIsProcessTrusted()
     let defaults: UserDefaults
-    let reader = SpaceReader()
+    let reader: SpaceReader
     var onChange: (() -> Void)?
-    init(defaults: UserDefaults = RuntimeStorage.current.defaults) {
+    init(defaults: UserDefaults = RuntimeStorage.current.defaults, reader: SpaceReader = SpaceReader()) {
         self.defaults = defaults
+        self.reader = reader
         if let data = defaults.data(forKey:"desktopAppearance"), let saved = try? JSONDecoder().decode([String:Appearance].self,from:data) { appearance = saved }
         enabled = defaults.object(forKey:"labelsEnabled") as? Bool ?? true
         vertical = defaults.double(forKey:"vertical")
@@ -67,7 +89,8 @@ final class Store: ObservableObject {
         if desktops != next { desktops = next; onChange?() }
     }
     func style(_ d:Desktop) -> Appearance {
-        var value=appearance[d.id] ?? Appearance(name:d.isFullScreen ? "Full screen" : "Desktop \(d.number)",color:(d.number-1)%palette.count)
+        let legacy = PrimaryDesktopCompatibility.usesLegacyAppearance(d, in: desktops) ? appearance[""] : nil
+        var value=appearance[d.id] ?? legacy ?? Appearance(name:d.isFullScreen ? "Full screen" : "Desktop \(d.number)",color:(d.number-1)%palette.count)
         // Saved preferences may hold a color index outside the palette; never index out of range.
         value.color=max(0,min(value.color,palette.count-1))
         return value
@@ -80,10 +103,6 @@ final class Store: ObservableObject {
         appearance[d.id]=value
         if let data=try? JSONEncoder().encode(appearance) { defaults.set(data,forKey:"desktopAppearance") }
         onChange?()
-    }
-    func starterNames() {
-        let names=["Work","Research","Code","Personal","Focus"]
-        for (i,d) in desktops.filter({!$0.isFullScreen}).enumerated() where appearance[d.id] == nil { update(d,name:names[i%names.count],color:i%palette.count) }
     }
 }
 
@@ -98,110 +117,6 @@ struct NamePill: View {
         .background(Color(red:0.09,green:0.12,blue:0.15),in:Capsule())
         .overlay(Capsule().strokeBorder(color.opacity(current ? 0.9 : 0.4),lineWidth:1))
         .foregroundStyle(.white)
-    }
-}
-
-struct MainView: View {
-    @ObservedObject var store:Store
-    @ObservedObject var workspace:LayoutController
-    @ObservedObject var shortcuts:ShortcutSettings = ShortcutSettings()
-    @State var page=0
-    var body: some View {
-        GeometryReader { geometry in
-        let compact = geometry.size.width < 850
-        HStack(spacing:0) {
-            VStack(alignment:.leading,spacing:0) {
-                HStack(spacing:10) {
-                    Image(systemName:"rectangle.3.group.fill").font(.system(size:23)).foregroundStyle(palette[0])
-                    if !compact { Text("DeskNames").font(.system(size:19,weight:.semibold)) }
-                }.padding(.top,34)
-                if !compact { Text("A place for everything.").font(.system(size:12)).foregroundStyle(.white.opacity(0.45)).padding(.top,10) }
-                VStack(spacing:7) {
-                    nav("Your desktops",icon:"rectangle.3.group",selected:page==0,compact:compact) { page=0 }
-                    nav("Layouts & windows",icon:"square.grid.2x2",selected:page==1,compact:compact) { page=1 }
-                    nav("Smart panes",icon:"rectangle.split.2x2",selected:page==4,compact:compact) { page=4 }
-                    nav("Window routing",icon:"arrow.up.forward.app",selected:page==5,compact:compact) {page=5}
-                    nav("Keyboard shortcuts",icon:"keyboard",selected:page==3,compact:compact) { page=3 }
-                    nav("Label settings",icon:"slider.horizontal.3",selected:page==2,compact:compact) { page=2 }
-                }.padding(.top,38)
-                Spacer()
-                if !compact {
-                Circle().fill(palette[0]).frame(width:7,height:7)
-                Text("Made for your Mac.").font(.system(size:13,weight:.medium)).padding(.top,12)
-                Text("Free. Open source.\nNames stay on this Mac.").font(.system(size:12)).foregroundStyle(.white.opacity(0.43)).lineSpacing(5).padding(.top,8)
-                Text("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "DEV") · BUILD \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")").font(.system(size:9,weight:.medium,design:.monospaced)).tracking(1.4).foregroundStyle(.white.opacity(0.3)).padding(.top,25).padding(.bottom,30)
-                }
-            }.padding(.horizontal,compact ? 12 : 24).frame(width:compact ? 72 : 212).background(Color(red:0.065,green:0.085,blue:0.105))
-            VStack(alignment:.leading,spacing:20) {
-                HStack {
-                    VStack(alignment:.leading,spacing:8) {
-                        Text(page==5 ? "New windows, right where they belong." : page==4 ? "Make room for your work." : page==3 ? "Your keys. Your choice." : page==2 ? "Make them yours." : (page==1 ? "Your workspace, remembered." : "Give your desktops a name.")).font(.system(size:27,weight:.semibold))
-                        Text(page==5 ? "Send newly opened windows to the desktop you choose." : page==4 ? "Pick your panes. Hold Command. Drop into place." : page==3 ? "Set shortcuts for your everyday actions." : page==2 ? "Fine-tune your Mission Control labels." : (page==1 ? "Save, restore, and arrange your windows." : "Less searching. More room to think.")).font(.system(size:13)).foregroundStyle(.white.opacity(0.48))
-                    }
-                    Spacer()
-                    Text("\(store.desktops.count) SPACES").font(.system(size:10,weight:.semibold,design:.monospaced)).tracking(1).foregroundStyle(palette[0]).padding(9).background(palette[0].opacity(0.1),in:Capsule())
-                }
-                if page==5 { WindowRoutingView(controller:workspace,store:store,settings:workspace.routing) } else if page==4 { SmartPanesView(workspace:workspace,store:store,preferences:workspace.panes,models:workspace.monitorPresets) } else if page==3 { ShortcutSettingsView(settings:shortcuts,workspace:workspace) } else if page==2 { settingsView } else if page==1 { LayoutView(controller:workspace,store:store) } else { desktopsView }
-                Spacer(minLength:0)
-                HStack(spacing:7) {
-                    Image(systemName:"checkmark.circle.fill").foregroundStyle(palette[0])
-                    Text("Saved automatically").foregroundStyle(.white.opacity(0.45))
-                    Spacer()
-                    Text(store.missionControl ? "Mission Control is open" : "Names follow your desktops").foregroundStyle(.white.opacity(0.3))
-                }.font(.system(size:11))
-            }.padding(30)
-                .frame(maxWidth:1060,maxHeight:900)
-                .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.top)
-                .background(Color(red:0.09,green:0.11,blue:0.135))
-        }
-        }.frame(minWidth:640,minHeight:520).preferredColorScheme(.dark)
-    }
-    func nav(_ title:String,icon:String,selected:Bool,compact:Bool=false,action:@escaping()->Void)->some View {
-        Button(action:action) { HStack(spacing:10) { Image(systemName:icon).frame(width:17); if !compact { Text(title); Spacer() } }.font(.system(size:12,weight:.medium)).padding(12).foregroundStyle(selected ? palette[0] : .white.opacity(0.5)).background(selected ? palette[0].opacity(0.1) : .clear,in:RoundedRectangle(cornerRadius:9)) }.buttonStyle(.plain).help(title).accessibilityLabel(title)
-    }
-    var desktopsView: some View {
-        VStack(alignment:.leading,spacing:16) {
-            HStack { Text("YOUR DESKTOPS").tracking(1.6); Spacer(); Button("Control panel") {workspace.showSwitcher?()}; Text("Click a name to edit") }.font(.system(size:10,weight:.medium)).foregroundStyle(.white.opacity(0.4))
-            ScrollView {
-                VStack(spacing:8) {
-                    ForEach(store.desktops) { d in
-                        let style=store.style(d); let color=palette[style.color]
-                        HStack(spacing:13) {
-                            ZStack { RoundedRectangle(cornerRadius:10).fill(color.opacity(0.12)); Image(systemName:icons[style.color]).font(.system(size:18)).foregroundStyle(color) }.frame(width:43,height:43)
-                            VStack(alignment:.leading,spacing:4) {
-                                TextField("Desktop \(d.number)",text:Binding(get:{store.style(d).name},set:{store.update(d,name:$0)})).textFieldStyle(.plain).font(.system(size:15,weight:.semibold)).accessibilityLabel("Name for desktop \(d.number)")
-                                Text(d.isFullScreen ? "FULL SCREEN" : "DESKTOP \(String(format:"%02d",d.number))").font(.system(size:9,weight:.medium,design:.monospaced)).tracking(1.5).foregroundStyle(.white.opacity(0.32))
-                            }
-                            if d.isCurrent { Text("Current").font(.system(size:10,weight:.medium)).foregroundStyle(color).padding(.horizontal,9).padding(.vertical,5).background(color.opacity(0.08),in:Capsule()) }
-                            Menu { ForEach(0..<palette.count,id:\.self) { i in Button(["Mint","Blue","Lilac","Amber","Rose"][i]) {store.update(d,color:i)} } } label: { Circle().fill(color).frame(width:10,height:10) }.menuStyle(.borderlessButton).frame(width:25).accessibilityLabel("Color for desktop \(d.number)")
-                        }.padding(12).background(Color.white.opacity(0.025),in:RoundedRectangle(cornerRadius:12)).overlay(RoundedRectangle(cornerRadius:12).strokeBorder(d.isCurrent ? color.opacity(0.4) : .white.opacity(0.055)))
-                    }
-                }
-            }.frame(maxHeight:390)
-            HStack(alignment:.top,spacing:12) {
-                Image(systemName:"rectangle.topthird.inset.filled").foregroundStyle(palette[0]).font(.system(size:19))
-                VStack(alignment:.leading,spacing:5) {
-                    HStack { Text("Meet your Mission Control labels").font(.system(size:12,weight:.semibold)); Spacer(); Button("Open") { NSWorkspace.shared.open(URL(fileURLWithPath:"/System/Applications/Mission Control.app")) }.buttonStyle(.bordered).controlSize(.small) }
-                    Text("Open Mission Control and hover over the desktops at the top. Your names appear as colored labels.").font(.system(size:11)).foregroundStyle(.white.opacity(0.45)).fixedSize(horizontal:false,vertical:true).lineSpacing(3)
-                }
-                Spacer()
-            }.padding(16).background(palette[0].opacity(0.045),in:RoundedRectangle(cornerRadius:12))
-        }
-    }
-    var settingsView: some View {
-        VStack(alignment:.leading,spacing:22) {
-            Toggle("Show labels in Mission Control",isOn:$store.enabled).toggleStyle(.switch).tint(palette[0])
-            HStack { Spacer(); NamePill(number:1,name:"Work",color:palette[0],current:true); Spacer() }.padding(24).background(.white.opacity(0.025),in:RoundedRectangle(cornerRadius:12))
-            Text("ALIGNMENT").font(.system(size:10,weight:.medium)).tracking(1.5).foregroundStyle(.white.opacity(0.4))
-            Text("Automatic alignment").font(.system(size:14,weight:.semibold))
-            Text("Names follow your desktop thumbnails as Mission Control changes. Labels appear when the expanded strip settles.").font(.system(size:12)).foregroundStyle(.white.opacity(0.55)).fixedSize(horizontal:false,vertical:true)
-            if !store.accessibilityGranted {
-                Text("Allow DeskNames in System Settings → Privacy & Security → Accessibility to align labels with your desktops.").font(.system(size:12)).foregroundStyle(palette[3]).fixedSize(horizontal:false,vertical:true)
-            }
-            Divider()
-            Text("Early preview · macOS 26\nExpanded desktop strip supported. Full-screen Spaces keep their native labels.").font(.system(size:12)).foregroundStyle(.white.opacity(0.4)).lineSpacing(5)
-            Button("Quit DeskNames") { NSApp.terminate(nil) }.buttonStyle(.bordered)
-        }
     }
 }
 
@@ -337,7 +252,6 @@ final class LabelPanel: NSPanel {
 @MainActor final class AppDelegate:NSObject,NSApplicationDelegate {
     let onboarding = FirstRunPreferences(defaults: RuntimeStorage.current.defaults, domainName: RuntimeStorage.current.preferencesDomainName)
     let store=Store()
-    var window:NSWindow!
     var item:NSStatusItem!
     var overlay:OverlayController!
     var timer:Timer?
@@ -350,26 +264,33 @@ final class LabelPanel: NSPanel {
     let shortcuts=ShortcutSettings()
     let updater = AppUpdater(enabled: !RuntimeStorage.current.isIsolated)
     let loginItem = LoginItemController()
-    var switcher:NSPanel?
-    private var switcherPreviousApp: NSRunningApplication?
+    let general = GeneralPreferences()
+    lazy var controlCenter = ControlCenter()
+    var switcher: NSWindow { controlCenter.panel }
     private var switcherTask: Task<Void, Never>?
     func applicationDidFinishLaunching(_ notification:Notification) {
         NSApp.setActivationPolicy(.accessory)
         let menu=NSMenu(); let appMenuItem=NSMenuItem(); let appMenu=NSMenu()
+        let settingsItem = appMenu.addItem(withTitle: "Settings…", action: #selector(settingsFromMenu), keyEquivalent: ",")
+        settingsItem.target = self
         appMenu.addItem(withTitle:"Quit DeskNames",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q")
         appMenuItem.submenu=appMenu;menu.addItem(appMenuItem);NSApp.mainMenu=menu
         item=NSStatusBar.system.statusItem(withLength:NSStatusItem.variableLength)
         item.button?.image=NSImage(systemSymbolName:"rectangle.3.group",accessibilityDescription:"DeskNames")
         item.button?.imagePosition = .imageLeading
-        item.button?.target=self;item.button?.action=#selector(showSwitcher)
+        item.button?.target=self;item.button?.action=#selector(statusItemClicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        general.onChange = { [weak self] in self?.updateStatus() }
+        controlCenter.onClose = { [weak self] in self?.cancelShortcutRecording() }
+        controlCenter.willNavigate = { [weak self] in self?.cancelShortcutRecording() }
         overlay=OverlayController(store)
         PreferenceMigrations.migratePaneSpacing(in: store.defaults)
         workspace=LayoutController(store:store)
         smartPanes=SmartPaneController(workspace:workspace)
         smartPanes.start()
         linkedPanes = LinkedPaneController(workspace: workspace)
-        workspace.showSwitcher = { [weak self] in self?.showSwitcher() }
-        workspace.onSwitch = { [weak self] in self?.switcher?.orderOut(nil) }
+        workspace.showSwitcher = { [weak self] in self?.controlCenter.navigate(to: .controls) }
+        workspace.onSwitch = { [weak self] in self?.controlCenter.dismiss(restoreFocus: false) }
         hotkeys=HotKeys { [weak self] id in MainActor.assumeIsolated {self?.shortcut(id)} }
         hotkeys?.modifiersChanged = { [weak self] modifiers in
             MainActor.assumeIsolated { self?.workspace.paneRangeChord.modifiersChanged(modifiers) }
@@ -381,6 +302,9 @@ final class LabelPanel: NSPanel {
             self.shortcuts.unavailable=self.hotkeys?.unavailable ?? []
             self.refreshShortcutStatus()
             return result
+        }
+        shortcuts.onConflictCheck = { [weak self] bindings in
+            self?.hotkeys?.checkConflicts(bindings) ?? ShortcutConflictReport(checkedCount: bindings.count, issues: [], systemCheckError: OSStatus(unimpErr))
         }
         shortcuts.apply()
         updater.start()
@@ -397,6 +321,9 @@ final class LabelPanel: NSPanel {
                 DispatchQueue.main.async { [weak self] in self?.showSwitcher() }
             } else { onboarding.finish() }
         }
+        if !general.showMenuBarIcon && !ControlCenter.isBackgroundLaunch(NSAppleEventManager.shared().currentAppleEvent) {
+            DispatchQueue.main.async { [weak self] in self?.presentSwitcher(forceOpen: true) }
+        }
     }
     private func refreshShortcutStatus() {
         let secureInput = IsSecureEventInputEnabled()
@@ -406,8 +333,8 @@ final class LabelPanel: NSPanel {
             "uptime": ProcessInfo.processInfo.systemUptime,
             "busy": workspace.busy,
             "userDrag": workspace.hasUserWindowDrag,
-            "panelVisible": switcher?.isVisible ?? false,
-            "panelKey": switcher?.isKeyWindow ?? false,
+            "panelVisible": switcher.isVisible,
+            "panelKey": switcher.isKeyWindow,
             "enabled": shortcuts.enabled,
             "recordingAction": shortcuts.recordingAction.map { $0 as Any } ?? NSNull(),
             "registeredCount": hotkeys?.registeredCount ?? 0,
@@ -490,12 +417,12 @@ final class LabelPanel: NSPanel {
     @objc func showSwitcher() {
         presentSwitcher()
     }
-    private func presentSwitcher(result: ((String) -> Void)? = nil) {
+    private func presentSwitcher(result: ((String) -> Void)? = nil, forceOpen: Bool = false, page: SettingsPage? = nil) {
         if let switcherTask {
             switcherTask.cancel(); self.switcherTask = nil
-            result?("Control panel opening cancelled."); return
+            if !forceOpen { result?("Control panel opening cancelled."); return }
         }
-        if ControlPanelToggle.closes(isVisible: switcher?.isVisible == true, applicationActive: NSApp.isActive) {closeSwitcher();result?("Control panel closed.");return}
+        if ControlCenter.shouldToggleClosed(visible: switcher.isVisible, active: NSApp.isActive, forceOpen: forceOpen) {closeSwitcher();result?("Control panel closed.");return}
         let previous = NSWorkspace.shared.frontmostApplication
         result?("Opening control panel…")
         switcherTask = Task { @MainActor [weak self] in
@@ -506,63 +433,80 @@ final class LabelPanel: NSPanel {
             guard NSWorkspace.shared.frontmostApplication?.processIdentifier == previous?.processIdentifier else {
                 result?("Focus changed before the control panel opened. Try again."); return
             }
-            self.openSwitcher(previous: previous, candidate: candidate)
+            self.openSwitcher(previous: previous, candidate: candidate, page: page)
             result?("Control panel opened.")
         }
     }
-    private func openSwitcher(previous: NSRunningApplication?, candidate: LiveWindow?) {
+    private func openSwitcher(previous: NSRunningApplication?, candidate: LiveWindow?, page: SettingsPage? = nil) {
         store.refresh()
         let desktop = workspace.native.activeDesktop(reader: store.reader, focusedWindow: candidate)
-        switcherPreviousApp = previous
-        // Read before DeskNames activates, so this is the window the user was working in.
         let pinCandidate = previous?.processIdentifier == getpid() ? nil : candidate
-        window?.orderOut(nil)
-        switcher?.orderOut(nil)
-        let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:690),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
-        panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
-        let content = SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,loginItem:loginItem,pinCandidate:pinCandidate,
-            choose:{ [weak self] d in self?.workspace.switchTo(d) },
-            close:{ [weak self] in self?.closeSwitcher() },
-            openSettings:{ [weak self] in self?.showWindow() })
-        panel.contentView=NSHostingView(rootView:FirstRunPanel(onboarding:onboarding,store:store,workspace:workspace,shortcuts:shortcuts,loginItem:loginItem,desktop:desktop,
-            close:{ [weak self] in self?.closeSwitcher() }) {
-                VStack(alignment: .leading, spacing: 8) {
-                    ShortcutAvailabilityView(settings: self.shortcuts)
-                    content
-                }
+        let screen = NSScreen.screens.first { screenUUID($0) == desktop?.display }
+        controlCenter.present(previousApplication: previous, screen: screen, onboarding: onboarding.isPresented,
+                              route: page.map(ControlCenterRoute.settings) ?? .controls,
+            controls: { [weak self] in
+                guard let self else { return AnyView(EmptyView()) }
+                let content = SwitcherView(store:self.store,workspace:self.workspace,preferences:self.workspace.panes,models:self.workspace.monitorPresets,
+                    desktop:desktop,pinCandidate:pinCandidate,
+                    choose:{ [weak self] d in self?.workspace.switchTo(d) },
+                    close:{ [weak self] in self?.closeSwitcher() },
+                    openSettings:{ [weak self] page in self?.showWindow(page) },
+                    section:self.controlCenter.quickSection,sectionChanged:{ [weak self] section in self?.controlCenter.quickSection = section })
+                return AnyView(FirstRunPanel(onboarding:self.onboarding,store:self.store,workspace:self.workspace,shortcuts:self.shortcuts,
+                    loginItem:self.loginItem,desktop:desktop,close:{ [weak self] in self?.closeSwitcher() },
+                    openShortcutSettings:{ [weak self] in self?.showWindow(.shortcuts) }) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ShortcutAvailabilityView(settings: self.shortcuts)
+                        content
+                    }
+                })
+            }, settings: { [weak self] page in
+                guard let self else { return AnyView(EmptyView()) }
+                return AnyView(MainView(store:self.store,workspace:self.workspace,shortcuts:self.shortcuts,page:page,
+                    general:self.general,loginItem:self.loginItem,updater:self.updater,
+                    back:{ [weak self] in self?.controlCenter.navigate(to: .controls) },
+                    close:{ [weak self] in self?.closeSwitcher() }))
             })
-        if let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop?.display }) {
-            let area = screen.visibleFrame
-            panel.setFrameOrigin(CGPoint(x: area.midX-panel.frame.width/2, y: area.midY-panel.frame.height/2))
-        } else { panel.center() }
-        switcher=panel;NSApp.activate(ignoringOtherApps:true);panel.makeKeyAndOrderFront(nil)
+        updateStatus()
     }
-    private func closeSwitcher() {
-        switcher?.orderOut(nil)
-        if let previous = switcherPreviousApp, previous.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-            previous.activate(options: [])
-        }
-        switcherPreviousApp = nil
+    private func closeSwitcher() { controlCenter.dismiss() }
+    private func cancelShortcutRecording() {
+        if let id = shortcuts.recordingAction { shortcuts.cancelRecording(id) }
     }
-    func updateStatus() { item?.button?.title="  "+store.desktops.filter(\.isCurrent).map{store.name($0)}.joined(separator:" · ") }
-    private func showWindow() {
-        switcher?.orderOut(nil)
-        switcherPreviousApp = nil
-        if window == nil {
-            window=NSWindow(contentRect:NSRect(x:0,y:0,width:1020,height:820),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false)
-            window.contentMinSize=NSSize(width:640,height:520)
-            window.title="DeskNames";window.titleVisibility = .hidden;window.titlebarAppearsTransparent=true;window.isReleasedWhenClosed=false
-            window.appearance=NSAppearance(named:.darkAqua)
-            window.contentView=NSHostingView(rootView:MainView(store:store,workspace:workspace,shortcuts:shortcuts))
-            window.center()
-            window.isRestorable = false
-        }
-        NSApp.activate(ignoringOtherApps:true)
-        window.makeKeyAndOrderFront(nil)
+    func updateStatus() {
+        item?.isVisible = general.showMenuBarIcon
+        item?.button?.title = general.showDesktopNames ? "  " + store.desktops.filter(\.isCurrent).map { store.name($0) }.joined(separator: " · ") : ""
+        controlCenter.panel.hidesOnDeactivate = general.hideWhenInactive
     }
+    private func showWindow(_ page: SettingsPage? = nil) {
+        controlCenter.navigate(to: .settings(page ?? .general))
+    }
+    @objc private func statusItemClicked() {
+        guard NSApp.currentEvent?.type == .rightMouseUp, let button = item?.button else { showSwitcher(); return }
+        let menu = NSMenu()
+        let open = menu.addItem(withTitle: "Open DeskNames", action: #selector(openFromMenu), keyEquivalent: "")
+        open.target = self
+        let settings = menu.addItem(withTitle: "Settings", action: #selector(settingsFromMenu), keyEquivalent: "")
+        settings.target = self
+        menu.addItem(.separator())
+        let names = menu.addItem(withTitle: "Show desktop names", action: #selector(toggleDesktopNames), keyEquivalent: "")
+        names.target = self; names.state = general.showDesktopNames ? .on : .off
+        let hide = menu.addItem(withTitle: "Hide menu-bar icon", action: #selector(hideMenuBarIcon), keyEquivalent: "")
+        hide.target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit DeskNames", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.popUp(positioning: nil, at: CGPoint(x: 0, y: button.bounds.minY), in: button)
+    }
+    @objc private func openFromMenu() { presentSwitcher(forceOpen: true) }
+    @objc private func settingsFromMenu() {
+        if switcher.isVisible && switcher.isKeyWindow { showWindow(.general) }
+        else { presentSwitcher(forceOpen: true, page: .general) }
+    }
+    @objc private func toggleDesktopNames() { general.setShowDesktopNames(!general.showDesktopNames) }
+    @objc private func hideMenuBarIcon() { general.setShowMenuBarIcon(false) }
     func applicationWillTerminate(_ notification:Notification) { switcherTask?.cancel();smartPanes?.stop();linkedPanes?.stop();timer?.invalidate();if let spaceObserver {NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)} }
     func applicationShouldHandleReopen(_ sender:NSApplication,hasVisibleWindows flag:Bool)->Bool {
-        if switcher?.isVisible != true { showSwitcher() }
+        presentSwitcher(forceOpen: true)
         return false
     }
 }
@@ -578,6 +522,8 @@ if CommandLine.arguments.contains("--self-test") {
     NSApplication.shared.setActivationPolicy(.prohibited)
     Task { @MainActor in
         do {
+            runControlCenterTests()
+            runShortcutConflictTests()
             try runStorageTests()
             try runFirstRunTests()
             try runWorkspaceTests()
@@ -611,6 +557,13 @@ if CommandLine.arguments.contains("--self-test") {
             print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
         } catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
         exit(0)
+    }
+    NSApplication.shared.run()
+} else if CommandLine.arguments.contains("--control-center-test") {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        do { try await runControlCenterSessionTests(); exit(0) }
+        catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
     }
     NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--hotkey-soak-fixture") {
@@ -688,7 +641,7 @@ if CommandLine.arguments.contains("--self-test") {
               let value=Double(CommandLine.arguments[i+1]),value.isFinite,value>0,value<=5000 else{return fallback}
         return value
     }
-    let host=NSHostingView(rootView:MainView(store:s,workspace:LayoutController(store:s),page:CommandLine.arguments.contains("--panes") ? 4 : CommandLine.arguments.contains("--layouts") ? 1:0)); host.frame=NSRect(x:0,y:0,width:previewDimension("--preview-width",1020),height:previewDimension("--preview-height",820))
+    let host=NSHostingView(rootView:MainView(store:s,workspace:LayoutController(store:s),page:CommandLine.arguments.contains("--panes") ? .panes : CommandLine.arguments.contains("--layouts") ? .layouts : .desktops)); host.frame=NSRect(x:0,y:0,width:previewDimension("--preview-width",1020),height:previewDimension("--preview-height",820))
     let window=NSWindow(contentRect:host.frame,styleMask:.borderless,backing:.buffered,defer:false)
     window.appearance=NSAppearance(named:.darkAqua);window.contentView=host
     host.layoutSubtreeIfNeeded()

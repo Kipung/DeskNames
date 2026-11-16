@@ -20,12 +20,13 @@ import SwiftUI
     let workspace = LayoutController(store: store, file: file, native: NativeWindows(trustCheck: { true }, includeExternal: false))
     workspace.panes.set(PaneConfiguration(preset: .thirds, gap: 0), for: store.desktops[0].id)
     let panel = SwitcherView(store: store, workspace: workspace, preferences: workspace.panes, models: workspace.monitorPresets,
-                             desktop: store.desktops[0], choose: { _ in }, close: {}, openSettings: {})
+                             desktop: store.desktops[0], choose: { _ in }, close: {}, openSettings: { _ in })
     try renderFixture(panel, size: CGSize(width: 560, height: 620), to: directory.appendingPathComponent("control-panel.png"))
     let shortcuts = ShortcutSettings(defaults: defaults)
+    shortcuts.onConflictCheck = { bindings in ShortcutConflictReport(checkedCount: bindings.count, issues: [], systemCheckError: nil) }
     let loginItem = LoginItemController(readStatus: { .notRegistered }, changeRegistration: { _ in })
     let welcome = FirstRunPanel(onboarding: onboarding, store: store, workspace: workspace, shortcuts: shortcuts,
-                               loginItem: loginItem, desktop: store.desktops[0], close: {}) { panel }
+                               loginItem: loginItem, desktop: store.desktops[0], close: {}, openShortcutSettings: {}) { panel }
     store.accessibilityGranted = false
     try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-accessibility.png"))
     store.accessibilityGranted = true
@@ -36,6 +37,36 @@ import SwiftUI
     try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-shortcuts-enabled.png"))
     onboarding.advance()
     try renderFixture(welcome, size: CGSize(width: 560, height: 690), to: directory.appendingPathComponent("onboarding-layout.png"))
+    func savedPanel() -> SwitcherView {
+        SwitcherView(store: store, workspace: workspace, preferences: workspace.panes, models: workspace.monitorPresets,
+                     desktop: store.desktops[0], choose: { _ in }, close: {}, openSettings: { _ in }, section: 2)
+    }
+    try renderFixture(savedPanel(), size: CGSize(width: 560, height: 620), to: directory.appendingPathComponent("saved-windows-empty.png"))
+    let sampleWindows = [("com.example.Editor", CGRect(x: 0, y: 0, width: 0.6, height: 1)), ("com.example.Notes", CGRect(x: 0.6, y: 0, width: 0.4, height: 0.5)), ("com.example.Browser", CGRect(x: 0.6, y: 0.5, width: 0.4, height: 0.5))]
+    workspace.layouts[store.desktops[0].id] = DesktopLayout(id: store.desktops[0].id, savedAt: Date().addingTimeInterval(-600), windows: sampleWindows.enumerated().map {
+        SavedWindow(bundleID: $0.element.0, title: "Sample", ordinal: 0, windowID: UInt32($0.offset+1), pid: 1, displayID: "sample-display", frame: SavedRect($0.element.1), exactFrame: SavedRect($0.element.1), stackingIndex: $0.offset, displayProfile: DisplayProfile(model: "sample", name: "Sample display", slot: 0, peers: 1))
+    }, autoRestore: true, stackingSource: DesktopLayout.currentStackingSource)
+    try renderFixture(savedPanel(), size: CGSize(width: 560, height: 620), to: directory.appendingPathComponent("saved-windows.png"))
+    try renderFixture(MainView(store: store, workspace: workspace, shortcuts: shortcuts, page: .layouts, back: {}, close: {}), size: CGSize(width: 1020, height: 820), to: directory.appendingPathComponent("settings-layouts.png"))
+    try renderFixture(MainView(store: store, workspace: workspace, shortcuts: shortcuts, page: .shortcuts, back: {}, close: {}), size: CGSize(width: 1020, height: 820), to: directory.appendingPathComponent("settings-shortcuts.png"))
+    try renderFixture(MainView(store: store, workspace: workspace, shortcuts: shortcuts, page: .shortcuts, back: {}, close: {}), size: CGSize(width: 640, height: 520), to: directory.appendingPathComponent("settings-shortcuts-compact.png"))
+    shortcuts.onConflictCheck = { bindings in
+        ShortcutConflictReport(checkedCount: bindings.count, issues: [
+            .init(actionID: 100, combination: PhysicalShortcut(key: 49, modifiers: 6400), cause: .registeredElsewhere)
+        ], systemCheckError: nil)
+    }
+    shortcuts.checkConflicts()
+    try renderFixture(MainView(store: store, workspace: workspace, shortcuts: shortcuts, page: .shortcuts, back: {}, close: {}),
+                      size: CGSize(width: 640, height: 520), to: directory.appendingPathComponent("settings-shortcuts-conflict.png"))
+    let general = GeneralPreferences(defaults: defaults)
+    let updater = AppUpdater(enabled: false)
+    try renderFixture(MainView(store: store, workspace: workspace, shortcuts: shortcuts, page: .general,
+                               general: general, loginItem: loginItem, updater: updater, back: {}, close: {}),
+                      size: CGSize(width: 1020, height: 820), to: directory.appendingPathComponent("settings-general.png"))
+    general.setShowMenuBarIcon(false)
+    try renderFixture(MainView(store: store, workspace: workspace, shortcuts: shortcuts, page: .general,
+                               general: general, loginItem: loginItem, updater: updater, back: {}, close: {}),
+                      size: CGSize(width: 640, height: 520), to: directory.appendingPathComponent("settings-general-compact.png"))
     if CommandLine.arguments.contains("--panels-only") {
         print("Rendered isolated control panel and onboarding fixtures.")
         return

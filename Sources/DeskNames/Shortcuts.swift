@@ -5,6 +5,19 @@ struct ShortcutBinding: Codable, Equatable, Hashable {
     var key: UInt32
     var modifiers: UInt32
 
+    var normalized: ShortcutBinding {
+        ShortcutBinding(key: ShortcutKey.normalized(key), modifiers: modifiers)
+    }
+
+    static func == (lhs: ShortcutBinding, rhs: ShortcutBinding) -> Bool {
+        ShortcutKey.normalized(lhs.key) == ShortcutKey.normalized(rhs.key) && lhs.modifiers == rhs.modifiers
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(ShortcutKey.normalized(key))
+        hasher.combine(modifiers)
+    }
+
     static func carbonModifiers(_ flags: NSEvent.ModifierFlags) -> UInt32 {
         var result: UInt32 = 0
         for (flag, value) in [(NSEvent.ModifierFlags.control, controlKey), (.option, optionKey), (.shift, shiftKey), (.command, cmdKey)] {
@@ -19,7 +32,7 @@ struct ShortcutBinding: Codable, Equatable, Hashable {
     }
 
     var displayName: String {
-        Self.modifierSymbols(modifiers) + (ShortcutKey.all.first { $0.id == key }?.name ?? "Unknown key")
+        Self.modifierSymbols(modifiers) + (ShortcutKey.all.first { $0.id == ShortcutKey.normalized(key) }?.name ?? "Unknown key")
     }
 }
 
@@ -119,6 +132,17 @@ enum ShortcutAvailability: Equatable {
 struct ShortcutKey: Identifiable {
     let id: UInt32
     let name: String
+    private static let numberPadKeys: [UInt32: UInt32] = [82: 29, 83: 18, 84: 19, 85: 20, 86: 21,
+                                                               87: 23, 88: 22, 89: 26, 91: 28, 92: 25]
+
+    static func normalized(_ key: UInt32) -> UInt32 { numberPadKeys[key] ?? key }
+
+    static func physicalKeys(for key: UInt32) -> [UInt32] {
+        let normal = normalized(key)
+        guard let numberPad = numberPadKeys.first(where: { $0.value == normal })?.key else { return [normal] }
+        return [normal, numberPad]
+    }
+
     static let all: [ShortcutKey] = [(0,"A"),(11,"B"),(8,"C"),(2,"D"),(14,"E"),(3,"F"),(5,"G"),(4,"H"),(34,"I"),(38,"J"),(40,"K"),(37,"L"),(46,"M"),(45,"N"),(31,"O"),(35,"P"),(12,"Q"),(15,"R"),(1,"S"),(17,"T"),(32,"U"),(9,"V"),(13,"W"),(7,"X"),(16,"Y"),(6,"Z"),(29,"0"),(18,"1"),(19,"2"),(20,"3"),(21,"4"),(23,"5"),(22,"6"),(26,"7"),(28,"8"),(25,"9"),(49,"Space"),(123,"Left arrow"),(124,"Right arrow"),(125,"Down arrow"),(126,"Up arrow"),(24,"="),(27,"−"),(30,"]"),(33,"["),(39,"'"),(41,";"),(42,"\\"),(43,","),(44,"/"),(47,"."),(50,"`"),(36,"Return"),(48,"Tab"),(51,"Delete"),(53,"Esc"),(117,"Forward delete"),(115,"Home"),(119,"End"),(116,"Page up"),(121,"Page down"),(122,"F1"),(120,"F2"),(99,"F3"),(118,"F4"),(96,"F5"),(97,"F6"),(98,"F7"),(100,"F8"),(101,"F9"),(109,"F10"),(103,"F11"),(111,"F12"),(105,"F13"),(107,"F14"),(113,"F15"),(106,"F16"),(64,"F17"),(79,"F18"),(80,"F19"),(90,"F20")].map {ShortcutKey(id:UInt32($0.0),name:$0.1)}
 }
 
@@ -134,19 +158,22 @@ final class ShortcutSettings: ObservableObject {
     @Published var lastAction = ""
     @Published private(set) var delivery = ShortcutDelivery()
     @Published private(set) var availability = ShortcutAvailability.disabled
+    @Published private(set) var conflictReport: ShortcutConflictReport?
+    private var checkedBindings: [UInt32: ShortcutBinding]?
+    var onConflictCheck: (([UInt32: ShortcutBinding]) -> ShortcutConflictReport)?
     var onChange: ((Bool,[UInt32:ShortcutBinding])->String)?
     init(defaults: UserDefaults = RuntimeStorage.current.defaults) {
         self.defaults=defaults
-        bindings=Dictionary(uniqueKeysWithValues:ShortcutAction.all.map{($0.id,$0.suggested)})
+        bindings=ShortcutDefaults.bindings
         if let data=defaults.data(forKey:Self.storageKey),let saved=try? JSONDecoder().decode(Saved.self,from:data),Self.validation(saved.bindings)==nil {
-            bindings=saved.bindings
+            bindings=saved.bindings.mapValues { $0.normalized }
             enabled=saved.enabled
         }
     }
     static func validation(_ bindings:[UInt32:ShortcutBinding])->String? {
         var seen=Set<ShortcutBinding>()
         for (id,binding) in bindings.sorted(by:{$0.key<$1.key}) {
-            guard ShortcutAction.all.contains(where:{$0.id==id}),ShortcutKey.all.contains(where:{$0.id==binding.key}),binding.modifiers & ~UInt32(cmdKey|optionKey|controlKey|shiftKey)==0,binding.modifiers & UInt32(cmdKey|optionKey|controlKey) != 0 else {return "Choose a key with Command, Option, or Control."}
+            guard ShortcutAction.all.contains(where:{$0.id==id}),ShortcutKey.all.contains(where:{$0.id==ShortcutKey.normalized(binding.key)}),binding.modifiers & ~UInt32(cmdKey|optionKey|controlKey|shiftKey)==0,binding.modifiers & UInt32(cmdKey|optionKey|controlKey) != 0 else {return "Choose a key with Command, Option, or Control."}
             guard seen.insert(binding).inserted else {return "Each action needs a different shortcut."}
         }
         return nil
@@ -174,14 +201,18 @@ final class ShortcutSettings: ObservableObject {
         saveAndApply()
     }
     func enableSuggestions() {
-        for action in ShortcutAction.all where bindings[action.id] == nil && !bindings.values.contains(action.suggested) {
-            bindings[action.id] = action.suggested
+        for (id, binding) in ShortcutDefaults.bindings.sorted(by: { $0.key < $1.key }) where bindings[id] == nil && !bindings.values.contains(binding) {
+            bindings[id] = binding
         }
         setEnabled(true)
     }
+    func restoreDefaults() {
+        bindings = ShortcutDefaults.bindings
+        saveAndApply()
+    }
     @discardableResult func set(_ binding:ShortcutBinding?,for id:UInt32) -> Bool {
         var next=bindings
-        next[id]=binding
+        next[id]=binding?.normalized
         if let error=Self.validation(next) {message=error;return false}
         bindings=next
         saveAndApply()
@@ -191,7 +222,18 @@ final class ShortcutSettings: ObservableObject {
         if let data=try? JSONEncoder().encode(Saved(enabled:enabled,bindings:bindings)) {defaults.set(data,forKey:Self.storageKey)}
         apply()
     }
-    func apply() {message=onChange?(enabled && recordingAction == nil,bindings) ?? ""}
+    func apply() {
+        let recheck = conflictReport != nil && checkedBindings == bindings && recordingAction == nil
+        conflictReport = nil; checkedBindings = nil
+        message=onChange?(enabled && recordingAction == nil,bindings) ?? ""
+        if recheck { checkConflicts() }
+    }
+
+    func checkConflicts() {
+        guard recordingAction == nil else { return }
+        conflictReport = onConflictCheck?(bindings) ?? ShortcutConflictReport(checkedCount: bindings.count, issues: [], systemCheckError: OSStatus(unimpErr))
+        checkedBindings = bindings
+    }
 
     @discardableResult func updateAvailability(secureInput: Bool) -> Bool {
         let next = ShortcutAvailability(enabled: enabled, recording: recordingAction != nil,
@@ -214,6 +256,7 @@ final class ShortcutSettings: ObservableObject {
     func beginRecording(_ id: UInt32) {
         guard ShortcutAction.all.contains(where: { $0.id == id }) else { return }
         recordingAction = id
+        conflictReport = nil; checkedBindings = nil
         apply()
     }
 
@@ -244,10 +287,11 @@ final class ShortcutSettings: ObservableObject {
 }
 
 final class HotKeys {
-    private var refs:[UInt32:EventHotKeyRef]=[:]
+    private var refs:[EventHotKeyRef]=[]
     private var handler:EventHandlerRef?
     private var active=Set<UInt32>()
     private var activeBindings: [UInt32: ShortcutBinding] = [:]
+    private var ownedPhysicalShortcuts = Set<PhysicalShortcut>()
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var activationObserver: NSObjectProtocol?
@@ -300,17 +344,31 @@ final class HotKeys {
         var failed:[String]=[]
         for entry in ShortcutAction.all {
             guard let binding=bindings[entry.id] else {continue}
-            let success:Bool
-            if usesCarbon {
-                var ref:EventHotKeyRef?
-                let status=RegisterEventHotKey(binding.key,binding.modifiers,EventHotKeyID(signature:0x444E414D,id:entry.id),GetApplicationEventTarget(),UInt32(kEventHotKeyExclusive),&ref)
-                success=status==noErr && ref != nil
-                if success {refs[entry.id]=ref}
-            } else {success=registerKey(entry.id,binding)}
-            if success {active.insert(entry.id);activeBindings[entry.id]=binding} else {unavailable.insert(entry.id);failed.append(entry.name)}
+            var registered = false
+            for key in ShortcutKey.physicalKeys(for: binding.key) {
+                let physical = ShortcutBinding(key: key, modifiers: binding.modifiers)
+                let success: Bool
+                if usesCarbon {
+                    var ref: EventHotKeyRef?
+                    let status = RegisterEventHotKey(key, binding.modifiers, EventHotKeyID(signature: 0x444E414D, id: entry.id),
+                                                     GetApplicationEventTarget(), UInt32(kEventHotKeyExclusive), &ref)
+                    success = status == noErr && ref != nil
+                    if success, let ref { refs.append(ref) }
+                } else { success = registerKey(entry.id, physical) }
+                if success { registered = true; ownedPhysicalShortcuts.insert(PhysicalShortcut(key: key, modifiers: binding.modifiers)) }
+                else {
+                    unavailable.insert(entry.id)
+                    let suffix = key == ShortcutKey.normalized(key) ? "" : " (numpad)"
+                    failed.append(entry.name + suffix)
+                }
+            }
+            if registered { active.insert(entry.id); activeBindings[entry.id] = binding.normalized }
         }
         refreshChordMonitors(trusted: AXIsProcessTrusted())
         return failed.isEmpty ? "" : "Unavailable shortcuts: "+failed.joined(separator:", ")+". Choose another combination."
+    }
+    func checkConflicts(_ bindings: [UInt32: ShortcutBinding], inspector: ShortcutConflictInspector = ShortcutConflictInspector()) -> ShortcutConflictReport {
+        inspector.check(bindings, owned: ownedPhysicalShortcuts)
     }
     func refreshChordMonitors(trusted: Bool) {
         guard !activeBindings.isEmpty, monitorTrust != trusted else { return }
@@ -363,8 +421,9 @@ final class HotKeys {
         chordInterrupted?()
         removeChordMonitors()
         activeBindings.removeAll()
+        ownedPhysicalShortcuts.removeAll()
         active.removeAll()
-        for ref in refs.values {UnregisterEventHotKey(ref)}
+        for ref in refs {UnregisterEventHotKey(ref)}
         refs.removeAll()
         if !usesCarbon {unregisterKeys()}
     }
@@ -376,17 +435,20 @@ struct ShortcutSettingsView: View {
     @ObservedObject var workspace: LayoutController
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             Toggle("Enable global keyboard shortcuts", isOn: Binding(get: { settings.enabled }, set: { settings.setEnabled($0) }))
             Text(settings.enabled ? "Shortcuts work while you use other apps. Changes save automatically." : "Shortcuts are off. You can edit them below before turning them on.")
                 .font(.caption).foregroundStyle(.secondary)
-            HStack {
+            Menu("Shortcut options") {
+                Button("Restore default shortcuts") { settings.restoreDefaults() }
                 Button("Add suggested window shortcuts") { settings.addWindowSuggestions() }
                 Button("Add suggested pane shortcuts") { settings.addPaneSuggestions() }
-            }
-            Text("Click a shortcut, then press the keys you want to use.")
+            }.fixedSize()
+            Text("Click a shortcut, then press the keys you want to use. Number-row and numpad digits use the same shortcut.")
                 .font(.system(size: 13))
             ShortcutAvailabilityView(settings: settings)
+            ShortcutConflictView(settings: settings)
             if !settings.message.isEmpty {
                 Text(settings.message).font(.caption).foregroundStyle(.orange)
             }
@@ -394,8 +456,7 @@ struct ShortcutSettingsView: View {
                 Text("Last shortcut: " + settings.lastAction).font(.caption).foregroundStyle(.secondary)
                 Text(settings.delivery.result).font(.caption).foregroundStyle(.secondary)
             }
-            ScrollView {
-                VStack(spacing: 10) {
+                LazyVStack(spacing: 10) {
                     ForEach(ShortcutAction.all) { action in
                         HStack {
                             VStack(alignment:.leading,spacing:3) {
@@ -418,10 +479,11 @@ struct ShortcutSettingsView: View {
                         .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
                     }
                 }
-            }
             Text("Include Command, Option, or Control. Escape cancels; Delete clears. DeskNames shortcuts pause while you record.")
                 .font(.caption).foregroundStyle(.secondary)
         }
+        }
+        .onAppear { settings.checkConflicts() }
         .onDisappear {
             if let id = settings.recordingAction { settings.cancelRecording(id) }
         }

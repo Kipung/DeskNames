@@ -8,6 +8,7 @@ struct FirstRunPanel<Content: View>: View {
     let loginItem: LoginItemController
     let desktop: Desktop?
     let close: () -> Void
+    var openShortcutSettings: (() -> Void)? = nil
     @ViewBuilder var content: () -> Content
     @State private var selectedPreset = PanePreset.halves
     @State private var error = ""
@@ -50,14 +51,16 @@ struct FirstRunPanel<Content: View>: View {
                             .font(.caption).foregroundStyle(.secondary)
                     case .shortcuts:
                         Text("Arrange windows from the keyboard").font(.title2).fontWeight(.semibold)
-                        Text("Shortcuts start off. Enable the suggested window, pane and desktop bindings together, then customize them in Settings → Keyboard shortcuts.")
+                        Text("Shortcuts start off. Enable the default window and pane bindings, then customize them in Settings → Keyboard shortcuts. Desktop jumps are optional.")
                             .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 12) {
                             shortcutExample("Open this panel", keys: "⌃⌥⌘ Space")
                             shortcutExample("Left / right half", keys: "⌃⌥ ← / →")
                             shortcutExample("Maximize", keys: "⌃⌥ Return")
-                            shortcutExample("Move into pane 1–4", keys: "⌃⌥ F1–F4")
+                            shortcutExample("Move into pane 1–4", keys: "⌃⌥⌘ 1–4")
                         }.padding(16).background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                        ShortcutConflictView(settings: shortcuts, compact: true)
+                        if let openShortcutSettings { Button("Customize shortcuts", action: openShortcutSettings) }
                         if shortcuts.enabled {
                             Label("Shortcuts enabled", systemImage: "checkmark.circle.fill").foregroundStyle(palette[0])
                             Button("Turn shortcuts off") { shortcuts.setEnabled(false) }
@@ -117,6 +120,8 @@ struct FirstRunPanel<Content: View>: View {
                 .font(.caption).foregroundStyle(.secondary)
         }.padding(24).frame(width: 560, height: 690)
             .background(Color(red: 0.09, green: 0.11, blue: 0.135)).preferredColorScheme(.dark)
+            .onAppear { if onboarding.step == .shortcuts { shortcuts.checkConflicts() } }
+            .onChange(of: onboarding.step) { if onboarding.step == .shortcuts { shortcuts.checkConflicts() } }
             .onExitCommand(perform: close)
     }
 

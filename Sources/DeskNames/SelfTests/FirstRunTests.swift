@@ -39,7 +39,7 @@ import ServiceManagement
     shortcuts.onChange = { enabled, bindings in applied = enabled && !bindings.isEmpty; return "" }
     shortcuts.enableSuggestions()
     precondition(applied && ShortcutSettings(defaults: defaults).enabled)
-    precondition(shortcuts.bindings.count == ShortcutAction.all.count)
+    precondition(shortcuts.bindings == ShortcutDefaults.bindings)
     let custom = ShortcutBinding(key: 0, modifiers: 256)
     precondition(shortcuts.set(custom, for: 100))
     precondition(shortcuts.set(nil, for: ShortcutAction.pin.id))
