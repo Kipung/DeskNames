@@ -4,18 +4,18 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>DeskNames</title>
         <item>
-            <title>0.6.2</title>
-            <pubDate>Tue, 10 Nov 2026 20:22:48 -0800</pubDate>
+            <title>0.7.0</title>
+            <pubDate>Sun, 15 Nov 2026 19:35:56 -0800</pubDate>
             <link>https://github.com/Kipung/DeskNames</link>
-            <sparkle:version>30</sparkle:version>
-            <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
+            <sparkle:version>31</sparkle:version>
+            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>DeskNames is now signed with a stable certificate. After this update, approve DeskNames in Accessibility once more; future updates keep that approval.</p><p>This app is not notarized by Apple.</p>]]></description>
-            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.6.2/DeskNames-0.6.2-arm64.zip" length="2977255" type="application/octet-stream" sparkle:edSignature="VyRHqRYRMFbcVbRtsmAwasDQQdcSulhzdQuUJChn0YtjHS/4VS4REyehrjbvgxL6K8dWrpwz5V4FsWBhvoR1BQ=="></enclosure>
+            <description><![CDATA[<p>Edge-to-edge panes by default: new desktops have no gaps, and saved 12 pt gaps from the old default move to 0 once.</p><p>Pane ranges: hold your pane-shortcut modifiers and press two pane numbers (for example 3 then 4) to make the window span those panes.</p><p>Linked divider handles now sit at window level and hide behind any window that covers them.</p><p>Shortcut reliability: shortcuts work immediately after the control panel is dismissed, stale drag state no longer blocks a shortcut, unresponsive apps no longer stall DeskNames, and Secure Input or failed registrations are reported instead of failing silently.</p><p>Better app compatibility for window discovery, checked against Obsidian, VS Code, Spotify, Discord, Arc, Finder and TextEdit.</p><p>New installs get a short welcome that walks through Accessibility, shortcuts and a pane layout, plus a launch-at-login option.</p><p>This app is not notarized by Apple.</p>]]></description>
+            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.7.0/DeskNames-0.7.0-arm64.zip" length="3453836" type="application/octet-stream" sparkle:edSignature="InBqhSQaHqKQ2Cav9fRIIFjVIUH1Ur91QFStFEaIt+fAVijLhDK6SiIcMXB9jOQfigsdalrBsocZZgzN4Q0uAw=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: R45oM07PPvqAnv2A0ja07kA1JxZMzJaUzoKoVuyQzBoEct+XXt3lnwSuBj3BIwZy4/J/poYp1DuyPKa4Qm2fAQ==
-length: 1440
+edSignature: poM2xu8nOnANtZKKpJSmYXnWWneiKB6UedEXvpYAwR5zRZdTQ0oALuEkWExEW4zHQVJ6C1Pjw6pu5CkILcJ2Cg==
+length: 2175
 -->
