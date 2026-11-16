@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Darwin
+import Carbon
 
 struct Desktop: Identifiable, Equatable {
     let id: String
@@ -378,13 +379,14 @@ final class LabelPanel: NSPanel {
             guard let self else{return ""}
             let result=self.hotkeys?.apply(enabled:enabled,bindings:bindings) ?? ""
             self.shortcuts.unavailable=self.hotkeys?.unavailable ?? []
+            self.refreshShortcutStatus()
             return result
         }
         shortcuts.apply()
         updater.start()
         store.onChange = { [weak self] in self?.updateStatus() }
         updateStatus()
-        timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.hotkeys?.refreshChordMonitors(trusted:self.workspace.trusted);self.smartPanes.tick();self.linkedPanes.tick()} }
+        timer=Timer(timeInterval:0.2,repeats:true) { [weak self] _ in DispatchQueue.main.async {guard let self else { return };let now=ProcessInfo.processInfo.systemUptime;if self.store.missionControl || now-self.lastDesktopRefresh>=1 {self.store.refresh();self.lastDesktopRefresh=now};self.overlay.tick();self.workspace.tick();self.hotkeys?.refreshChordMonitors(trusted:self.workspace.trusted);self.refreshShortcutStatus();self.smartPanes.tick();self.linkedPanes.tick()} }
         timer?.tolerance=0.04
         RunLoop.main.add(timer!,forMode:.common)
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
@@ -396,17 +398,37 @@ final class LabelPanel: NSPanel {
             } else { onboarding.finish() }
         }
     }
+    private func refreshShortcutStatus() {
+        let secureInput = IsSecureEventInputEnabled()
+        let changed = shortcuts.updateAvailability(secureInput: secureInput)
+        guard changed || RuntimeStorage.current.isIsolated else { return }
+        workspace.native.recordWindowDiagnostic("hotkey-status.json", [
+            "uptime": ProcessInfo.processInfo.systemUptime,
+            "busy": workspace.busy,
+            "enabled": shortcuts.enabled,
+            "recordingAction": shortcuts.recordingAction.map { $0 as Any } ?? NSNull(),
+            "registeredCount": hotkeys?.registeredCount ?? 0,
+            "secureInput": secureInput,
+            "lastSequence": shortcuts.delivery.sequence,
+            "cause": shortcuts.availability.cause,
+            "status": shortcuts.availability.message
+        ])
+    }
     func shortcut(_ id:UInt32) {
         if !(320...323).contains(id) { workspace.paneRangeChord.reset() }
         let request = shortcuts.receive(id)
+        let receivedUptime = ProcessInfo.processInfo.systemUptime
         let report: (String) -> Void = { [weak self] result in
             guard let self, self.shortcuts.complete(request, result: result) else { return }
             self.workspace.shortcutStatus = self.shortcuts.delivery.action + ": " + result
             self.workspace.native.recordWindowDiagnostic("shortcut-result.json", [
                 "actionID": id, "action": self.shortcuts.delivery.action, "result": result,
+                "sequence": request, "receivedUptime": receivedUptime,
+                "updatedUptime": ProcessInfo.processInfo.systemUptime, "busy": self.workspace.busy,
                 "updatedAt": ISO8601DateFormatter().string(from: Date())
             ])
         }
+        report("Received.")
         guard let action = ShortcutAction.all.first(where: { $0.id == id }) else { report("Unknown shortcut action."); return }
         if let refusal = action.refusal(trusted: workspace.native.trusted, busy: workspace.busy) { report(refusal.message); return }
         if id == 100 { presentSwitcher(result: report); return }
@@ -488,7 +510,12 @@ final class LabelPanel: NSPanel {
             close:{ [weak self] in self?.closeSwitcher() },
             openSettings:{ [weak self] in self?.showWindow() })
         panel.contentView=NSHostingView(rootView:FirstRunPanel(onboarding:onboarding,store:store,workspace:workspace,shortcuts:shortcuts,loginItem:loginItem,desktop:desktop,
-            close:{ [weak self] in self?.closeSwitcher() }) { content })
+            close:{ [weak self] in self?.closeSwitcher() }) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ShortcutAvailabilityView(settings: self.shortcuts)
+                    content
+                }
+            })
         if let screen = NSScreen.screens.first(where: { screenUUID($0) == desktop?.display }) {
             let area = screen.visibleFrame
             panel.setFrameOrigin(CGPoint(x: area.midX-panel.frame.width/2, y: area.midY-panel.frame.height/2))
@@ -537,6 +564,7 @@ if CommandLine.arguments.contains("--self-test") {
             runWindowRoutingTests()
             runShortcutTests()
             runShortcutDeliveryTests()
+            runShortcutAvailabilityTests()
             runGeometryTests()
             runPaneTests()
             runWindowActionTests()

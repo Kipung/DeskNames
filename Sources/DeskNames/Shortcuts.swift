@@ -77,6 +77,39 @@ enum ShortcutRefusal: Equatable {
     }
 }
 
+enum ShortcutAvailability: Equatable {
+    case disabled, recording, secureInput, ready
+    case unavailable(Int)
+
+    init(enabled: Bool, recording: Bool, secureInput: Bool, unavailableCount: Int) {
+        if !enabled { self = .disabled }
+        else if recording { self = .recording }
+        else if secureInput { self = .secureInput }
+        else if unavailableCount > 0 { self = .unavailable(unavailableCount) }
+        else { self = .ready }
+    }
+
+    var cause: String {
+        switch self {
+        case .disabled: return "disabled"
+        case .recording: return "recording"
+        case .secureInput: return "secure-input"
+        case .unavailable: return "registration-unavailable"
+        case .ready: return "ready"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .disabled: return "Global shortcuts are off."
+        case .recording: return "Global shortcuts are paused while recording."
+        case .secureInput: return "Secure Input is enabled by macOS or another app and may block global shortcuts. Leave the password field or turn off that app's Secure Keyboard Entry. DeskNames cannot bypass it."
+        case .unavailable(let count): return "\(count) shortcut registrations are unavailable."
+        case .ready: return "Global shortcuts are ready."
+        }
+    }
+}
+
 struct ShortcutKey: Identifiable {
     let id: UInt32
     let name: String
@@ -94,6 +127,7 @@ final class ShortcutSettings: ObservableObject {
     @Published var unavailable = Set<UInt32>()
     @Published var lastAction = ""
     @Published private(set) var delivery = ShortcutDelivery()
+    @Published private(set) var availability = ShortcutAvailability.disabled
     var onChange: ((Bool,[UInt32:ShortcutBinding])->String)?
     init(defaults: UserDefaults = .standard) {
         self.defaults=defaults
@@ -153,6 +187,14 @@ final class ShortcutSettings: ObservableObject {
     }
     func apply() {message=onChange?(enabled && recordingAction == nil,bindings) ?? ""}
 
+    @discardableResult func updateAvailability(secureInput: Bool) -> Bool {
+        let next = ShortcutAvailability(enabled: enabled, recording: recordingAction != nil,
+                                        secureInput: secureInput, unavailableCount: unavailable.count)
+        guard next != availability else { return false }
+        availability = next
+        return true
+    }
+
     func receive(_ id: UInt32) -> UInt64 {
         let request = delivery.receive(id)
         lastAction = delivery.action
@@ -208,6 +250,7 @@ final class HotKeys {
     var modifiersChanged: ((UInt32) -> Void)?
     var chordInterrupted: (() -> Void)?
     private(set) var unavailable = Set<UInt32>()
+    var registeredCount: Int { active.count }
     private let action:(UInt32)->Void
     private let registerKey:(UInt32,ShortcutBinding)->Bool
     private let unregisterKeys:()->Void
@@ -318,6 +361,7 @@ struct ShortcutSettingsView: View {
             }
             Text("Click a shortcut, then press the keys you want to use.")
                 .font(.system(size: 13))
+            ShortcutAvailabilityView(settings: settings)
             if !settings.message.isEmpty {
                 Text(settings.message).font(.caption).foregroundStyle(.orange)
             }
@@ -355,6 +399,17 @@ struct ShortcutSettingsView: View {
         }
         .onDisappear {
             if let id = settings.recordingAction { settings.cancelRecording(id) }
+        }
+    }
+}
+
+struct ShortcutAvailabilityView: View {
+    @ObservedObject var settings: ShortcutSettings
+
+    var body: some View {
+        if settings.availability == .secureInput {
+            Text(settings.availability.message).font(.caption).foregroundStyle(.orange)
+                .accessibilityLabel("Shortcut status: " + settings.availability.message)
         }
     }
 }
