@@ -30,11 +30,11 @@ enum PanePreset: String, Codable, CaseIterable, Identifiable {
 
 struct PaneConfiguration: Codable, Equatable {
     var preset: PanePreset = .halves
-    var gap: Double = 12
+    var gap: Double = 0
     var splitPositions: [String: Double]? = nil
     var sanitized: PaneConfiguration {
         var result = self
-        result.gap = min(32, max(0, gap.isFinite ? gap : 12))
+        result.gap = min(32, max(0, gap.isFinite ? gap : 0))
         if let positions = splitPositions {
             let splits = PaneDivider.all(for: preset)
             let valid = positions.allSatisfy { key, value in

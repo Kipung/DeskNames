@@ -9,6 +9,7 @@ import SwiftUI
     let file = FileManager.default.temporaryDirectory.appendingPathComponent("marketing-\(UUID().uuidString).json")
     defer { defaults.removePersistentDomain(forName: domain); try? FileManager.default.removeItem(at: file) }
     let store = Store(defaults: defaults)
+    store.accessibilityGranted = true
     store.desktops = ["Create", "Read", "Plan"].enumerated().map {
         Desktop(id: "sample-\($0.offset)", spaceID: UInt64($0.offset+1), display: "sample-display", position: $0.offset, number: $0.offset+1, isCurrent: $0.offset == 0, isFullScreen: false)
     }

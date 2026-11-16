@@ -21,7 +21,7 @@ A quiet macOS menu-bar utility for named desktops, visual pane layouts, and reme
 DeskNames lives in the menu bar. Open its compact panel to pick a pane layout for the current desktop, or switch to another desktop by name. Search, click, or use the arrow keys and Return. The full settings window opens only when you ask for it.
 
 - **Seven pane layouts:** two, three, or four columns; quarters; rows; wide + stack; and focus.
-- **Command-drag to fit:** choose a guide, drag a window, and release the mouse before Command. Per-desktop spacing includes an edge-to-edge option.
+- **Command-drag to fit:** choose a guide, drag a window, and release the mouse before Command. Panes are edge-to-edge by default; spacing is adjustable per desktop.
 - **Resize neighbors together:** an optional shared divider adjusts windows on both sides.
 - **Name your desktops:** names and colors follow Space identities, with labels in expanded Mission Control.
 - **Remember arrangements:** save where every window sits on a desktop, including overlap order, and put them all back in one step after things get messy. Restores can run automatically when you enter a desktop. Optional routing sends a newly opened window to its chosen desktop once.

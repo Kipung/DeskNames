@@ -121,8 +121,22 @@ struct SwitcherView: View {
                 Text("DeskNames").font(.system(size: 17, weight: .semibold))
                 Spacer()
                 Button("Settings", action: openSettings).buttonStyle(.plain).foregroundStyle(.secondary)
+                Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.plain).foregroundStyle(.secondary)
+                    .help("Quit DeskNames (⌘Q)")
                 Button(action: close) { Image(systemName: "xmark").padding(6) }
                     .buttonStyle(.plain).accessibilityLabel("Close control panel")
+            }
+            if !store.accessibilityGranted {
+                HStack(spacing: 12) {
+                    Image(systemName: "hand.raised.fill").foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Accessibility needed").font(.system(size: 13, weight: .semibold))
+                        Text("Window shortcuts, snapping and desktop jumps are off until you allow DeskNames.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button("Allow…") { workspace.native.requestPermission() }.buttonStyle(.borderedProminent)
+                }.padding(12).background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
             }
             Picker("Show", selection: $section) {
                 Text("Pane layouts").tag(0)

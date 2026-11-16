@@ -155,6 +155,17 @@ final class NativeWindows {
     }
     var trusted:Bool {trustCheck()}
     func requestPermission() {
+        // An approval saved for an older signature still shows as on in System Settings,
+        // but macOS refuses it and won't prompt again. Clearing only DeskNames' own entry
+        // lets the prompt below appear.
+        if !trusted, let bundleID = Bundle.main.bundleIdentifier {
+            let reset = Process()
+            reset.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            reset.arguments = ["reset", "Accessibility", bundleID]
+            reset.standardOutput = FileHandle.nullDevice
+            reset.standardError = FileHandle.nullDevice
+            if (try? reset.run()) != nil { reset.waitUntilExit() }
+        }
         _=AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary)
         NSWorkspace.shared.open(URL(string:"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }

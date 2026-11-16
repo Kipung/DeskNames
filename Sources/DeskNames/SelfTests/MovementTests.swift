@@ -114,7 +114,7 @@ import AppKit
     let firstMove = workspace.operationTask
     workspace.performWindowAction(.left)
     await firstMove?.value; await workspace.operationTask?.value
-    let left = WindowAction.left.frame(in: area, current: wa.frame, configuration: PaneConfiguration())!
+    let left = WindowAction.left.frame(in: area, current: wa.frame, configuration: workspace.paneConfiguration(for: desktop.id))!
     precondition(native.verifyFrame(left, window: wa) && !workspace.busy)
     precondition(workspace.frameHistory.previous(wa, screen: screen) == wa.frame, "Retargeting must retain the pre-animation restore frame")
     workspace.selectedWindow = wb.id; workspace.performWindowAction(.right); await workspace.operationTask?.value

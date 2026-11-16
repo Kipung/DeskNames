@@ -22,7 +22,8 @@ import AppKit
     precondition(halves.cells[1] == CGRect(x: -594, y: 112, width: 582, height: 776))
     precondition(halves.hit(CGPoint(x: -600, y: 500)) == nil, "The gap must not be a drop target")
     precondition(PaneGeometry(area: .zero, configuration: PaneConfiguration()).cells.isEmpty)
-    precondition(PaneGeometry(area: CGRect(x: 0, y: 0, width: 4, height: 4), configuration: PaneConfiguration()).cells.isEmpty)
+    precondition(PaneConfiguration().gap == 0, "New desktops default to edge-to-edge panes")
+    precondition(PaneGeometry(area: CGRect(x: 0, y: 0, width: 4, height: 4), configuration: PaneConfiguration(gap: 12)).cells.isEmpty)
     let wide = PaneGeometry(area: CGRect(x: 0, y: 0, width: 1200, height: 800), configuration: PaneConfiguration(preset: .wideLeft, gap: 0))
     precondition(wide.cells == [CGRect(x: 0, y: 0, width: 800, height: 800), CGRect(x: 800, y: 0, width: 400, height: 400), CGRect(x: 800, y: 400, width: 400, height: 400)])
 
@@ -104,7 +105,7 @@ import AppKit
     precondition(loaded.configuration(for: "stable-desktop-uuid") == PaneConfiguration(preset: .wideLeft, gap: 32))
     precondition(loaded.configuration(for: "another-uuid") == PaneConfiguration() && !loaded.enabled)
     loaded.set(PaneConfiguration(preset: .thirds, gap: .nan), for: "stable-desktop-uuid")
-    precondition(loaded.configuration(for: "stable-desktop-uuid").gap == 12)
+    precondition(loaded.configuration(for: "stable-desktop-uuid").gap == 0, "Invalid spacing falls back to the edge-to-edge default")
     defaults.set(Data("invalid".utf8), forKey: "smartPanes.v1")
     precondition(PanePreferences(defaults: defaults).configuration(for: "stable-desktop-uuid") == PaneConfiguration())
     print("PASS: 84 pane layouts across translated screens; non-overlap, hit/gap targets, asymmetric panes, invalid geometry; recorded fast drag with delayed bounds; selection, resize, opposite motion, stale trajectory and unrelated-speed rejection; UUID preference persistence and clamping")
