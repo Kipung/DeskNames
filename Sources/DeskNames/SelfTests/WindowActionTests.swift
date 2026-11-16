@@ -1,6 +1,7 @@
 import AppKit
 
 @MainActor func runWindowActionTests() {
+    runWindowDiscoveryTests()
     let areas=[CGRect(x:0,y:30,width:1440,height:870),CGRect(x:-1920,y:-1080,width:1920,height:1080),CGRect(x:0,y:0,width:5120,height:1440)]
     for area in areas {
         let current=CGRect(x:area.midX-250,y:area.midY-200,width:500,height:400)

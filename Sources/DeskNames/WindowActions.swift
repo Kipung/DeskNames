@@ -85,21 +85,12 @@ enum WindowAction: Int, CaseIterable, Identifiable {
     func forget(_ window: LiveWindow) { entries.removeValue(forKey:window.id);order.removeAll{$0==window.id} }
 }
 
-extension NativeWindows {
-    @MainActor func focusedWindow() -> LiveWindow? {
-        if NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid(), let window=NSApp.keyWindow { return localSnapshot(window) }
-        let system=AXUIElementCreateSystemWide();AXUIElementSetMessagingTimeout(system,0.2)
-        guard let app=axValue(system,kAXFocusedApplicationAttribute),CFGetTypeID(app)==AXUIElementGetTypeID(),
-              let value=axValue(app as! AXUIElement,kAXFocusedWindowAttribute),CFGetTypeID(value)==AXUIElementGetTypeID() else { return nil }
-        return liveWindow(value as! AXUIElement)
-    }
-}
-
 extension LayoutController {
     func performWindowAction(_ action: WindowAction, focused: Bool = false) {
         guard !busy || canRetargetPlacement else { message="A window operation is in progress. Try this shortcut again when it finishes.";return }
-        let candidate=focused ? native.focusedWindow() : windows.first{$0.id==selectedWindow}
-        guard let candidate else { message="Select an ordinary window first.";return }
+        var refusal = "focused-window-unavailable"
+        let candidate=focused ? native.focusedWindow(onFailure: { refusal = $0 }) : windows.first{$0.id==selectedWindow}
+        guard let candidate else { message=focused ? WindowDiscovery.message(for: refusal) : "Select an ordinary window first.";return }
         run(interruptible: action != .nextDisplay && action != .previousDisplay) {
             let refreshed=await self.native.refreshedForOperation(candidate)
             try Task.checkCancellation()
