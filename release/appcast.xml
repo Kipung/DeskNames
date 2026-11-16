@@ -4,18 +4,18 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>DeskNames</title>
         <item>
-            <title>0.7.0</title>
-            <pubDate>Sun, 15 Nov 2026 19:35:56 -0800</pubDate>
+            <title>0.8.0</title>
+            <pubDate>Mon, 16 Nov 2026 15:12:47 -0800</pubDate>
             <link>https://github.com/Kipung/DeskNames</link>
-            <sparkle:version>31</sparkle:version>
-            <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+            <sparkle:version>32</sparkle:version>
+            <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description><![CDATA[<p>Edge-to-edge panes by default: new desktops have no gaps, and saved 12 pt gaps from the old default move to 0 once.</p><p>Pane ranges: hold your pane-shortcut modifiers and press two pane numbers (for example 3 then 4) to make the window span those panes.</p><p>Linked divider handles now sit at window level and hide behind any window that covers them.</p><p>Shortcut reliability: shortcuts work immediately after the control panel is dismissed, stale drag state no longer blocks a shortcut, unresponsive apps no longer stall DeskNames, and Secure Input or failed registrations are reported instead of failing silently.</p><p>Better app compatibility for window discovery, checked against Obsidian, VS Code, Spotify, Discord, Arc, Finder and TextEdit.</p><p>New installs get a short welcome that walks through Accessibility, shortcuts and a pane layout, plus a launch-at-login option.</p><p>This app is not notarized by Apple.</p>]]></description>
-            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.7.0/DeskNames-0.7.0-arm64.zip" length="3453836" type="application/octet-stream" sparkle:edSignature="InBqhSQaHqKQ2Cav9fRIIFjVIUH1Ur91QFStFEaIt+fAVijLhDK6SiIcMXB9jOQfigsdalrBsocZZgzN4Q0uAw=="></enclosure>
+            <description><![CDATA[<p>DeskNames now checks for enabled macOS shortcut conflicts and occupied global shortcuts during setup. Keyboard settings provides the same check and a Recheck button. Some shortcuts local to other apps cannot be detected.</p><p>Quick controls and settings share one window with Back navigation. General groups startup, updates, menu-bar icon and desktop-name visibility, and hiding the window when switching apps. Reopening DeskNames restores access when the icon is hidden. Saved-window controls are simpler and available directly from the panel.</p><p>New installations use the updated default shortcuts. Existing custom bindings are preserved; choose Keyboard shortcuts &gt; Shortcut options &gt; Restore default shortcuts to adopt the defaults. Number-row and numpad digits now work alike. Fixed pane-layout selection on the original desktop when macOS supplies an empty desktop identifier, so creating a second desktop is no longer required.</p><p>This app is not notarized by Apple.</p>]]></description>
+            <enclosure url="https://github.com/Kipung/DeskNames/releases/download/v0.8.0/DeskNames-0.8.0-arm64.zip" length="3558044" type="application/octet-stream" sparkle:edSignature="uGL20ASfsuwkgOW1KF+pq621j1cgWTCwc5hsS/RXadZuKLLyT0PrXTOJDmO6M5vzZRPIJyuAwRf5jZCy40AnCg=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: poM2xu8nOnANtZKKpJSmYXnWWneiKB6UedEXvpYAwR5zRZdTQ0oALuEkWExEW4zHQVJ6C1Pjw6pu5CkILcJ2Cg==
-length: 2175
+edSignature: PwKF90hf+wV6V6uo35ZIFgrIDJNsf+oU6p8dIHGWOhiPwa5AoWRCnnGBj75rFylrUwsKEKHFdqK17TtVvyBTDA==
+length: 2235
 -->
