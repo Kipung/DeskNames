@@ -266,7 +266,11 @@ final class HotKeys {
         clear()
         unavailable.removeAll()
         guard enabled else {return ""}
-        if let error=ShortcutSettings.validation(bindings) {return error}
+        if let error=ShortcutSettings.validation(bindings) {
+            unavailable = Set(bindings.keys)
+            return error
+        }
+        guard !bindings.isEmpty else { return "" }
         if usesCarbon && handler==nil {
             var type=EventTypeSpec(eventClass:OSType(kEventClassKeyboard),eventKind:UInt32(kEventHotKeyPressed))
             let status=InstallEventHandler(GetApplicationEventTarget(),{_,event,data in
@@ -278,7 +282,10 @@ final class HotKeys {
                 owner.action(id.id)
                 return noErr
             },1,&type,Unmanaged.passUnretained(self).toOpaque(),&handler)
-            guard status==noErr else{return "Could not start keyboard shortcuts. Turn them off and try again."}
+            guard status==noErr else {
+                unavailable = Set(bindings.keys)
+                return "Could not start keyboard shortcuts. Turn them off and try again."
+            }
         }
         var failed:[String]=[]
         for entry in ShortcutAction.all {

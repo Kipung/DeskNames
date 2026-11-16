@@ -26,5 +26,28 @@ func runShortcutAvailabilityTests() {
     settings.setEnabled(false)
     precondition(settings.updateAvailability(secureInput: true) && settings.availability == .disabled)
     precondition(settings.delivery == delivered)
-    print("PASS: Secure Input availability and recovery without delivery; recording, disabled and registration states; last delivery retained")
+
+    var registrationCalls = 0
+    let hotkeys = HotKeys(action: { _ in }, register: { _, _ in registrationCalls += 1; return true })
+    var invalidBindings = true
+    settings.onChange = { enabled, bindings in
+        let requested = invalidBindings ? [UInt32(320): ShortcutBinding(key: 999, modifiers: 0)] : bindings
+        let result = hotkeys.apply(enabled: enabled, bindings: requested)
+        settings.unavailable = hotkeys.unavailable
+        return result
+    }
+    settings.setEnabled(true)
+    precondition(registrationCalls == 0 && hotkeys.registeredCount == 0 && hotkeys.unavailable == [320])
+    precondition(settings.updateAvailability(secureInput: false) && settings.availability == .unavailable(1),
+                 "Registration validation failure must never report shortcuts ready")
+    precondition(!settings.message.isEmpty && settings.availability.cause == "registration-unavailable")
+    invalidBindings = false
+    settings.apply()
+    precondition(settings.updateAvailability(secureInput: false) && settings.availability == .ready)
+    precondition(hotkeys.registeredCount == settings.bindings.count && settings.message.isEmpty)
+    precondition(settings.delivery == delivered)
+    precondition(hotkeys.apply(enabled: true, bindings: [:]).isEmpty && hotkeys.registeredCount == 0 && hotkeys.unavailable.isEmpty,
+                 "No configured bindings need no handler or registration")
+    settings.onChange = nil
+    print("PASS: Secure Input availability and recovery without delivery; recording, disabled and registration failure states; last delivery retained")
 }
