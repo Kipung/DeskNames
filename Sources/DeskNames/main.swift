@@ -405,6 +405,9 @@ final class LabelPanel: NSPanel {
         workspace.native.recordWindowDiagnostic("hotkey-status.json", [
             "uptime": ProcessInfo.processInfo.systemUptime,
             "busy": workspace.busy,
+            "userDrag": workspace.hasUserWindowDrag,
+            "panelVisible": switcher?.isVisible ?? false,
+            "panelKey": switcher?.isKeyWindow ?? false,
             "enabled": shortcuts.enabled,
             "recordingAction": shortcuts.recordingAction.map { $0 as Any } ?? NSNull(),
             "registeredCount": hotkeys?.registeredCount ?? 0,
@@ -415,6 +418,7 @@ final class LabelPanel: NSPanel {
         ])
     }
     func shortcut(_ id:UInt32) {
+        smartPanes?.prepareForShortcut(mouseDown: CGEventSource.buttonState(.combinedSessionState, button: .left))
         if !(320...323).contains(id) { workspace.paneRangeChord.reset() }
         let request = shortcuts.receive(id)
         let receivedUptime = ProcessInfo.processInfo.systemUptime
@@ -491,7 +495,7 @@ final class LabelPanel: NSPanel {
             switcherTask.cancel(); self.switcherTask = nil
             result?("Control panel opening cancelled."); return
         }
-        if switcher?.isVisible==true {closeSwitcher();result?("Control panel closed.");return}
+        if ControlPanelToggle.closes(isVisible: switcher?.isVisible == true, applicationActive: NSApp.isActive) {closeSwitcher();result?("Control panel closed.");return}
         let previous = NSWorkspace.shared.frontmostApplication
         result?("Opening control panel…")
         switcherTask = Task { @MainActor [weak self] in
@@ -513,6 +517,7 @@ final class LabelPanel: NSPanel {
         // Read before DeskNames activates, so this is the window the user was working in.
         let pinCandidate = previous?.processIdentifier == getpid() ? nil : candidate
         window?.orderOut(nil)
+        switcher?.orderOut(nil)
         let panel=NSPanel(contentRect:NSRect(x:0,y:0,width:560,height:690),styleMask:[.titled,.fullSizeContentView],backing:.buffered,defer:false)
         panel.title="DeskNames control panel";panel.titleVisibility = .hidden;panel.titlebarAppearsTransparent=true;panel.level = .floating;panel.isReleasedWhenClosed=false;panel.hidesOnDeactivate=true;panel.appearance=NSAppearance(named:.darkAqua)
         let content = SwitcherView(store:store,workspace:workspace,preferences:workspace.panes,models:workspace.monitorPresets,desktop:desktop,updater:updater,loginItem:loginItem,pinCandidate:pinCandidate,
@@ -562,7 +567,11 @@ final class LabelPanel: NSPanel {
     }
 }
 
-try RuntimeStorage.configure(arguments: CommandLine.arguments)
+var storageArguments = CommandLine.arguments
+if storageArguments.contains(where: { $0.hasPrefix("--hotkey-soak-") }) && !storageArguments.contains("--storage") {
+    storageArguments += ["--storage", FileManager.default.temporaryDirectory.appendingPathComponent("desknames-hotkey-helper-\(UUID().uuidString)").path]
+}
+try RuntimeStorage.configure(arguments: storageArguments)
 
 try MainActor.assumeIsolated {
 if CommandLine.arguments.contains("--self-test") {
@@ -578,6 +587,7 @@ if CommandLine.arguments.contains("--self-test") {
             runShortcutTests()
             runShortcutDeliveryTests()
             runShortcutAvailabilityTests()
+            runHotkeyInputTests()
             runGeometryTests()
             runPaneTests()
             runWindowActionTests()
@@ -601,6 +611,26 @@ if CommandLine.arguments.contains("--self-test") {
             print("PASS: persistence, desktop reordering, empty names, length/color bounds; live desktops: \(s.desktops.count)")
         } catch { print("FAIL: \(error.localizedDescription)"); exit(1) }
         exit(0)
+    }
+    NSApplication.shared.run()
+} else if CommandLine.arguments.contains("--hotkey-soak-fixture") {
+    let fixtureDelegate = HotkeyFixtureDelegate()
+    NSApplication.shared.delegate = fixtureDelegate
+    NSApplication.shared.run()
+} else if let index = CommandLine.arguments.firstIndex(of: "--hotkey-soak-cleanup"), CommandLine.arguments.indices.contains(index+1) {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    Task { @MainActor in
+        let passed = await recoverHotkeySoak(at: URL(fileURLWithPath: CommandLine.arguments[index+1]))
+        exit(passed ? 0 : 1)
+    }
+    NSApplication.shared.run()
+} else if CommandLine.arguments.contains("--hotkey-soak-test") {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    let helperDelegate = HotkeySoakDelegate()
+    NSApplication.shared.delegate = helperDelegate
+    Task { @MainActor in
+        let passed = await runHotkeySoakTest(arguments: CommandLine.arguments)
+        exit(passed ? 0 : 1)
     }
     NSApplication.shared.run()
 } else if CommandLine.arguments.contains("--external-divider-test") {

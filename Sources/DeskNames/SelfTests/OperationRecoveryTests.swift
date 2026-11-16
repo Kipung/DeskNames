@@ -27,6 +27,17 @@ import AppKit
     let store = Store(defaults: defaults)
     let native = NativeWindows(trustCheck: { true }, includeExternal: false, diagnosticsDirectory: directory)
     let workspace = LayoutController(store: store, file: directory.appendingPathComponent("layouts.json"), native: native)
+    let smartPanes = SmartPaneController(workspace: workspace)
+    precondition(workspace.beginUserWindowDrag())
+    smartPanes.prepareForShortcut(mouseDown: true)
+    precondition(workspace.busy && workspace.hasUserWindowDrag, "A held mouse still owns its drag")
+    smartPanes.prepareForShortcut(mouseDown: false)
+    precondition(!workspace.busy, "A shortcut after mouse-up must not wait for delayed drag-monitor cleanup")
+    workspace.run(refreshWindows: false) { "Shortcut admitted after released drag" }
+    smartPanes.prepareForShortcut(mouseDown: false)
+    precondition(workspace.busy && workspace.operationTask != nil, "Releasing stale drag admission must not release a live writer")
+    await workspace.operationTask?.value
+    precondition(workspace.message == "Shortcut admitted after released drag" && !workspace.busy)
     var ran: [String] = []
     var completions: [String] = []
 

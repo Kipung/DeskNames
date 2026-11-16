@@ -42,6 +42,12 @@ struct ShortcutAction: Identifiable {
     static let all: [ShortcutAction] = [ShortcutAction(id:100,name:"DeskNames control panel",suggested:ShortcutBinding(key:49,modifiers:UInt32(controlKey|cmdKey|optionKey)))] + zip(1...9,[18,19,20,21,23,22,26,28,25]).map { ShortcutAction(id:UInt32($0.0),name:"Go to desktop \($0.0)",suggested:ShortcutBinding(key:UInt32($0.1),modifiers:UInt32(controlKey|optionKey))) } + [ShortcutAction(id:101,name:"Save active layout",suggested:ShortcutBinding(key:1,modifiers:UInt32(controlKey|optionKey))),ShortcutAction(id:102,name:"Restore active layout",suggested:ShortcutBinding(key:15,modifiers:UInt32(controlKey|optionKey))),ShortcutAction.pin] + WindowAction.allCases.map { ShortcutAction(id:$0.id,name:$0.name,suggested:$0.suggestion) } + PaneShortcut.all
 }
 
+enum ControlPanelToggle {
+    static func closes(isVisible: Bool, applicationActive: Bool) -> Bool {
+        isVisible && applicationActive
+    }
+}
+
 struct ShortcutDelivery: Equatable {
     private(set) var sequence: UInt64 = 0
     private(set) var actionID: UInt32 = 0

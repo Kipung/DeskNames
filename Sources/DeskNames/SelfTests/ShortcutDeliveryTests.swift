@@ -1,6 +1,10 @@
 import Foundation
 
 func runShortcutDeliveryTests() {
+    precondition(ControlPanelToggle.closes(isVisible: true, applicationActive: true))
+    precondition(!ControlPanelToggle.closes(isVisible: true, applicationActive: false), "A panel hidden on deactivation must reopen on the next shortcut")
+    precondition(!ControlPanelToggle.closes(isVisible: false, applicationActive: true))
+    precondition(!ControlPanelToggle.closes(isVisible: false, applicationActive: false))
     var delivery = ShortcutDelivery()
     let first = delivery.receive(101)
     precondition(delivery.action == "Save active layout" && delivery.result == "Received.")

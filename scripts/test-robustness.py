@@ -19,7 +19,7 @@ for mode in ['self-test', 'pane-session-test', 'pane-interaction-test', 'movemen
     environment = dict(os.environ, CFFIXED_USER_HOME=str(home), TMPDIR=str(temporary) + '/', NSUnbufferedIO='YES')
     with (directory / 'output.log').open('w') as output:
         try:
-            result = subprocess.run([str(binary), '--' + mode], env=environment,
+            result = subprocess.run([str(binary), '--storage', str(directory / 'storage'), '--' + mode], env=environment,
                                     stdout=output, stderr=subprocess.STDOUT, timeout=120)
             status = result.returncode
         except subprocess.TimeoutExpired:

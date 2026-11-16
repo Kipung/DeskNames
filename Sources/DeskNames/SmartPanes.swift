@@ -132,6 +132,10 @@ private struct PaneOverlayHost: View {
         if (session != nil || placementInProgress) && (!workspace.native.trusted || !(workspace.panes.enabled || workspace.panes.edgeSnapping)) { environmentChanged() }
     }
 
+    func prepareForShortcut(mouseDown: Bool) {
+        if !mouseDown { cancel() }
+    }
+
     private func environmentChanged() {
         cancel()
         if placementInProgress { workspace.cancel() }
