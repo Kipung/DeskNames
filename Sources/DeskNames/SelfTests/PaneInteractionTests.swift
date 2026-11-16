@@ -2,6 +2,7 @@ import AppKit
 
 @MainActor func runPaneInteractionTests() throws {
     runPaneHandleVisibilityTests()
+    try runPaneRangeTests()
     let area = CGRect(x: -1920, y: 40, width: 1920, height: 1040)
     let config = PaneConfiguration(preset: .fourColumns, gap: 12)
     let geometry = PaneGeometry(area: area, configuration: config)

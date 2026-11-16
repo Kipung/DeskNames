@@ -109,15 +109,18 @@ extension LayoutController {
             monitorPresets.set(display.profile, enabled: true, configuration: config)
         } else { panes.set(config, for: desktop.id) }
     }
-    func performPaneShortcut(_ id: UInt32) {
-        guard !busy || ((320...323).contains(id) && canRetargetPlacement) else { message = "Finish the window operation before changing pane layouts."; return }
+    func performPaneShortcut(_ id: UInt32, modifiers: UInt32 = 0) {
+        if !(320...323).contains(id) { paneRangeChord.reset() }
+        guard !busy || ((320...323).contains(id) && canRetargetPlacement) else { paneRangeChord.reset(); message = "Finish the window operation before changing pane layouts."; return }
         if id == PaneShortcut.toggleLinked {
             panes.setLinkedResizing(!panes.linkedResizing)
             message = panes.linkedResizing ? "Linked pane resizing on. Drag a handle between snapped windows." : "Linked pane resizing off."
             return
         }
         let placement = (320...323).contains(id)
-        if placement && !native.trusted { message = "Enable Accessibility before using window shortcuts."; return }
+        if placement && !native.trusted { paneRangeChord.reset(); message = "Enable Accessibility before using window shortcuts."; return }
+        let request = placement ? paneRangeChord.request(Int(id - 320), modifiers: modifiers,
+                                                         pid: NSWorkspace.shared.frontmostApplication?.processIdentifier) : nil
         run(interruptible: placement, refreshWindows: false) {
             let candidate = await self.native.focusedWindowForOperation()
             try Task.checkCancellation()
@@ -131,19 +134,24 @@ extension LayoutController {
                 guard let candidate, let screen = screenFor(candidate.frame), screenUUID(screen) == desktop.display else {
                     throw WindowIssue("No focused ordinary window is available on this desktop. The app may be unresponsive.")
                 }
-                let geometry = PaneGeometry(area: screenArea(screen), configuration: config, pixelScale: screen.backingScaleFactor)
+                let context = self.paneRangeContext(window: candidate, desktop: desktop, screen: screen)
+                let geometry = context.geometry
                 let index = Int(id - 320)
-                guard geometry.cells.indices.contains(index) else { throw WindowIssue("This layout has only \(geometry.cells.count) panes.") }
+                guard let request, let range = self.paneRangeChord.resolve(request, context: context),
+                      let frame = geometry.frame(spanning: range) else {
+                    throw WindowIssue("This layout has only \(geometry.cells.count) panes.")
+                }
                 guard let window = await self.native.refreshedForOperation(candidate), window.spaceIDs == [desktop.spaceID],
                       self.paneConfiguration(for: desktop.id) == config,
                       self.store.reader.read().contains(where: { $0.id == desktop.id && $0.isCurrent }) else {
                     throw WindowIssue("The window or desktop changed. Try again.")
                 }
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
-                try await self.native.animateFrames([(window, geometry.cells[index])])
-                guard self.native.verifyFrame(geometry.cells[index], window: window) else { return "The window needs a larger pane." }
+                try await self.native.animateFrames([(window, frame)])
+                guard self.native.verifyFrame(frame, window: window) else { return "The window needs a larger pane." }
                 self.frameHistory.remember(window, frame: window.frame, screen: screen)
-                return "Moved \(window.appName) to pane \(index + 1)."
+                let destination = range.count == 1 ? "pane \(index + 1)" : "panes \(range.lowerBound + 1)–\(range.upperBound + 1)"
+                return "Moved \(window.appName) to \(destination)."
             }
             guard let preset = PaneShortcut.preset(for: id, current: config.preset) else { return "This pane shortcut is unavailable." }
             self.setPaneConfiguration(PaneConfiguration(preset: preset, gap: config.gap), for: desktop)

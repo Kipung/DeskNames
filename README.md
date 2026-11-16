@@ -47,6 +47,8 @@ Shortcuts start **off**. Turn them on in **Settings → Keyboard shortcuts**, an
 
 Every binding can be changed. The [user guide](README.txt) lists them all.
 
+Keep the same modifiers held between pane-placement shortcuts to span a range. For example, press F3 then F4 with ⌃⌥ held to fill panes 3 through 4, including the gap. Reverse order works too; F2 then F4 fills panes 2 through 4. The first press places immediately, and each later press selects a new endpoint from that first pane. Release a modifier to start fresh. Your saved pane bindings work without re-recording, including custom number keys. Other presets use the bounding rectangle of the selected panes.
+
 > [!NOTE]
 > Selecting a pane preset changes the guides; it does not rearrange every open window at once. The separate tiling and restore commands handle arrangements.
 

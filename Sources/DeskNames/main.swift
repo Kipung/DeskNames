@@ -367,6 +367,10 @@ final class LabelPanel: NSPanel {
         workspace.showSwitcher = { [weak self] in self?.showSwitcher() }
         workspace.onSwitch = { [weak self] in self?.switcher?.orderOut(nil) }
         hotkeys=HotKeys { [weak self] id in MainActor.assumeIsolated {self?.shortcut(id)} }
+        hotkeys?.modifiersChanged = { [weak self] modifiers in
+            MainActor.assumeIsolated { self?.workspace.paneRangeChord.modifiersChanged(modifiers) }
+        }
+        hotkeys?.chordInterrupted = { [weak self] in MainActor.assumeIsolated { self?.workspace.paneRangeChord.reset() } }
         shortcuts.onChange = { [weak self] enabled,bindings in
             guard let self else{return ""}
             let result=self.hotkeys?.apply(enabled:enabled,bindings:bindings) ?? ""
@@ -381,7 +385,7 @@ final class LabelPanel: NSPanel {
         timer?.tolerance=0.04
         RunLoop.main.add(timer!,forMode:.common)
         spaceObserver=NSWorkspace.shared.notificationCenter.addObserver(forName:NSWorkspace.activeSpaceDidChangeNotification,object:nil,queue:.main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.store.refresh();self?.workspace.tick() }
+            MainActor.assumeIsolated { self?.workspace.paneRangeChord.reset();self?.store.refresh();self?.workspace.tick() }
         }
         // DeskNames has no Dock icon or window, so a first launch looks like nothing happened.
         // Show the panel once for new installs; existing users with names or layouts skip it.
@@ -393,6 +397,7 @@ final class LabelPanel: NSPanel {
         }
     }
     func shortcut(_ id:UInt32) {
+        if !(320...323).contains(id) { workspace.paneRangeChord.reset() }
         let request = shortcuts.receive(id)
         let report: (String) -> Void = { [weak self] result in
             guard let self, self.shortcuts.complete(request, result: result) else { return }
@@ -411,7 +416,7 @@ final class LabelPanel: NSPanel {
         if let windowAction=WindowAction.allCases.first(where:{$0.id==id}) {
             workspace.performWindowAction(windowAction,focused:true); report(workspace.message); return
         }
-        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id); report(workspace.message); return }
+        if PaneShortcut.all.contains(where: { $0.id == id }) { workspace.performPaneShortcut(id, modifiers: shortcuts.bindings[id]?.modifiers ?? 0); report(workspace.message); return }
         store.refresh()
         if id<100 {
             guard let d=store.desktops.first(where:{$0.number==Int(id)}) else {report("Desktop \(id) does not exist. Create it in Mission Control first.");return}
