@@ -417,7 +417,7 @@ private struct PaneOverlayHost: View {
                                     "target": rectDictionary(target), "actual": workspace.native.actualFrame(window).map(rectDictionary) ?? [:],
                                     "timestamp": Date().timeIntervalSince1970]
         trace("placement", entry)
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DeskNames/pane-diagnostics.json")
+        let url = RuntimeStorage.current.supportDirectory.appendingPathComponent("pane-diagnostics.json")
         if let data = try? JSONSerialization.data(withJSONObject: entry, options: [.prettyPrinted, .sortedKeys]) { try? data.write(to: url, options: .atomic) }
     }
 
@@ -432,7 +432,7 @@ private struct PaneOverlayHost: View {
         diagnosticEvents.append(entry)
         if diagnosticEvents.count > 150 { diagnosticEvents.removeFirst(diagnosticEvents.count - 150) }
         guard let data = try? JSONSerialization.data(withJSONObject: diagnosticEvents, options: [.prettyPrinted, .sortedKeys]) else { return }
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DeskNames/pane-events.json")
+        let url = RuntimeStorage.current.supportDirectory.appendingPathComponent("pane-events.json")
         diagnosticQueue.async { try? data.write(to: url, options: .atomic) }
     }
 }

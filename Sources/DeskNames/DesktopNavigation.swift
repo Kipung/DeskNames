@@ -38,7 +38,7 @@ extension NativeWindows {
             await Self.pause(0.35)
         }
         func record(_ phase: String) {
-            let path=FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("DeskNames/desktop-jump.json")
+            let path=RuntimeStorage.current.supportDirectory.appendingPathComponent("desktop-jump.json")
             let current=reader.read().filter(\.isCurrent).map(\.number)
             let detail:[String:Any]=["phase":phase,"targetNumber":live.number,"currentNumbers":current,"openedMissionControl":openedHere]
             if let data=try? JSONSerialization.data(withJSONObject:detail,options:[.prettyPrinted,.sortedKeys]) {try? data.write(to:path,options:.atomic)}

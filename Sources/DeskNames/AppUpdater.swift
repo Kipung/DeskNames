@@ -3,24 +3,27 @@ import SwiftUI
 import Sparkle
 
 @MainActor final class AppUpdater: ObservableObject {
-    private let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    private let controller: SPUStandardUpdaterController?
     @Published private(set) var canCheck = false
     @Published private(set) var automaticChecks = false
     @Published private(set) var automaticDownloads = false
     @Published private(set) var startupError = ""
 
-    init() {
+    init(enabled: Bool = true) {
+        guard enabled else { controller = nil; startupError = "Updates are disabled with isolated storage."; return }
+        let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+        self.controller = controller
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
         controller.updater.publisher(for: \.automaticallyChecksForUpdates).assign(to: &$automaticChecks)
         controller.updater.publisher(for: \.automaticallyDownloadsUpdates).assign(to: &$automaticDownloads)
     }
     func start() {
-        do { try controller.updater.start() }
+        do { try controller?.updater.start() }
         catch { startupError = "Updates are unavailable: \(error.localizedDescription)" }
     }
-    func check() { controller.checkForUpdates(nil) }
-    func setAutomaticChecks(_ value: Bool) { controller.updater.automaticallyChecksForUpdates = value }
-    func setAutomaticDownloads(_ value: Bool) { controller.updater.automaticallyDownloadsUpdates = value }
+    func check() { controller?.checkForUpdates(nil) }
+    func setAutomaticChecks(_ value: Bool) { controller?.updater.automaticallyChecksForUpdates = value }
+    func setAutomaticDownloads(_ value: Bool) { controller?.updater.automaticallyDownloadsUpdates = value }
 }
 
 struct UpdateControls: View {

@@ -29,8 +29,8 @@ import AppKit
         if samples.count > 100 { samples.removeFirst(samples.count - 100) }
         let snapshot: [String: Any] = ["schemaVersion": 1, "samples": samples]
         queue.async {
-            guard let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("DeskNames", isDirectory: true),
-                  let data = try? JSONSerialization.data(withJSONObject: snapshot, options: [.sortedKeys]) else { return }
+            let directory = RuntimeStorage.current.supportDirectory
+            guard let data = try? JSONSerialization.data(withJSONObject: snapshot, options: [.sortedKeys]) else { return }
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 try data.write(to: directory.appendingPathComponent("alignment-diagnostics.json"), options: .atomic)

@@ -129,7 +129,7 @@ final class ShortcutSettings: ObservableObject {
     @Published private(set) var delivery = ShortcutDelivery()
     @Published private(set) var availability = ShortcutAvailability.disabled
     var onChange: ((Bool,[UInt32:ShortcutBinding])->String)?
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = RuntimeStorage.current.defaults) {
         self.defaults=defaults
         bindings=Dictionary(uniqueKeysWithValues:ShortcutAction.all.map{($0.id,$0.suggested)})
         if let data=defaults.data(forKey:Self.storageKey),let saved=try? JSONDecoder().decode(Saved.self,from:data),Self.validation(saved.bindings)==nil {

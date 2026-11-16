@@ -723,7 +723,7 @@ final class NativeWindows {
     }
     func recordWindowDiagnostic(_ name: String, _ detail: [String: Any]) {
         guard includeExternal, let data = try? JSONSerialization.data(withJSONObject: detail, options: [.prettyPrinted, .sortedKeys]) else { return }
-        let directory = diagnosticsDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DeskNames")
+        let directory = diagnosticsDirectory ?? RuntimeStorage.current.supportDirectory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try? data.write(to: directory.appendingPathComponent(name), options: .atomic)
     }
@@ -1008,7 +1008,7 @@ final class NativeWindows {
         self.monitorPresets=MonitorPresets(defaults:store.defaults)
         self.routing=RoutingSettings(defaults:store.defaults)
         self.saveAcrossScreens=store.defaults.object(forKey:"saveAcrossScreens") as? Bool ?? true
-        self.file=file ?? FileManager.default.urls(for:.applicationSupportDirectory,in:.userDomainMask)[0].appendingPathComponent("DeskNames/layouts-v1.json")
+        self.file=file ?? RuntimeStorage.current.supportDirectory.appendingPathComponent("layouts-v1.json")
         if let data=try? Data(contentsOf:self.file),let saved=try? JSONDecoder().decode([String:DesktopLayout].self,from:data) {layouts=saved}
         trusted=native.trusted;lastActive=Set(store.desktops.filter(\.isCurrent).map(\.id));targetDesktop=store.desktops.first(where:{$0.isCurrent})?.id ?? ""
     }

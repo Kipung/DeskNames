@@ -53,7 +53,7 @@ final class Store: ObservableObject {
     let defaults: UserDefaults
     let reader = SpaceReader()
     var onChange: (() -> Void)?
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = RuntimeStorage.current.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey:"desktopAppearance"), let saved = try? JSONDecoder().decode([String:Appearance].self,from:data) { appearance = saved }
         enabled = defaults.object(forKey:"labelsEnabled") as? Bool ?? true
@@ -335,7 +335,7 @@ final class LabelPanel: NSPanel {
 }
 
 @MainActor final class AppDelegate:NSObject,NSApplicationDelegate {
-    let onboarding = FirstRunPreferences(defaults: .standard, domainName: Bundle.main.bundleIdentifier!)
+    let onboarding = FirstRunPreferences(defaults: RuntimeStorage.current.defaults, domainName: RuntimeStorage.current.preferencesDomainName)
     let store=Store()
     var window:NSWindow!
     var item:NSStatusItem!
@@ -348,7 +348,7 @@ final class LabelPanel: NSPanel {
     var smartPanes:SmartPaneController!
     var linkedPanes:LinkedPaneController!
     let shortcuts=ShortcutSettings()
-    let updater = AppUpdater()
+    let updater = AppUpdater(enabled: !RuntimeStorage.current.isIsolated)
     let loginItem = LoginItemController()
     var switcher:NSPanel?
     private var switcherPreviousApp: NSRunningApplication?
@@ -552,11 +552,14 @@ final class LabelPanel: NSPanel {
     }
 }
 
+try RuntimeStorage.configure(arguments: CommandLine.arguments)
+
 try MainActor.assumeIsolated {
 if CommandLine.arguments.contains("--self-test") {
     NSApplication.shared.setActivationPolicy(.prohibited)
     Task { @MainActor in
         do {
+            try runStorageTests()
             try runFirstRunTests()
             try runWorkspaceTests()
             runDesktopNavigationTests()

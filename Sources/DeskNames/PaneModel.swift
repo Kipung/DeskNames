@@ -61,7 +61,7 @@ final class PanePreferences: ObservableObject {
     @Published private(set) var linkedResizing: Bool
     var onChange: (() -> Void)?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = RuntimeStorage.current.defaults) {
         self.defaults = defaults
         linkedResizing = defaults.bool(forKey: "linkedPaneResizingEnabled")
         edgeSnapping = defaults.bool(forKey: "edgeSnappingEnabled")

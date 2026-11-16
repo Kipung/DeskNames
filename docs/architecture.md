@@ -76,3 +76,27 @@ These dependencies make native testing on each intended macOS version necessary.
 `AppUpdater.swift` wraps Sparkle 2.10.1 and exposes manual checks and persisted opt-in settings. AppDelegate starts it only in normal application mode; native tests and marketing rendering do not start update checks. Feed and archive verification are required. `build.sh` embeds the pinned framework and signs helpers inside-out. `scripts/package-release.py` packages the built artifact, verifies the Keychain/public-key match, signs/verifies the archive and feed, and generates the cask checksum. CI compiles/tests without private signing material.
 
 `MarketingPreview.swift` renders the real control-panel view with isolated fictional data, plus an explicitly illustrated pane animation. It neither captures the screen nor renders actual saved preferences/layouts. `scripts/render-demo.sh` encodes these fixture frames as GIF/MP4.
+
+## Isolated normal application storage
+
+`open -n build/DeskNames.app --args --storage /absolute/disposable/directory`
+starts the normal UI and Carbon shortcuts with isolated preferences. Configuration
+runs before any test-mode dispatch or `NSApplication` creation. It does not change
+the installed application or its saved settings.
+
+`RuntimeStorage(directory:)` exposes the same `defaults` and `supportDirectory`
+for helpers to seed before launching the separate app. Preferences use an absolute
+UserDefaults suite at `<directory>/preferences.plist`. Call
+`storage.defaults.synchronize()` after seeding and before launch. Layouts and all
+DeskNames diagnostics use `<directory>/Application Support/DeskNames/`. The
+normal first-run check uses this isolated suite's domain. Missing, relative,
+duplicate or unreadable storage arguments fail instead of selecting live storage.
+
+In isolated mode, the public Objective-C `standardUserDefaults` getter returns
+the isolated suite too, so AppKit window preferences cannot use the owner's app
+domain. This replacement occurs only in the isolated process. Sparkle is not
+constructed in this mode. An absolute suite was verified to exclude the process's
+normal application domain and persist beneath the supplied directory;
+`CFFIXED_USER_HOME` alone did not redirect preference-daemon writes on this Mac.
+The supported mode changes DeskNames storage, not macOS Accessibility permission
+or system services such as launch-at-login registration.

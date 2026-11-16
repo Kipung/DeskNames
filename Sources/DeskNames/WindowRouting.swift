@@ -27,7 +27,7 @@ struct WindowRule: Codable, Identifiable, Equatable {
     @Published var rules: [WindowRule] = [] { didSet { if rules != oldValue { persist() } } }
     @Published private(set) var revision = 0
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = RuntimeStorage.current.defaults) {
         self.defaults = defaults
         if let data = defaults.data(forKey: key),
            let saved = try? JSONDecoder().decode(Stored.self, from: data) {
